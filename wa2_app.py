@@ -529,16 +529,29 @@ with tabs[0]:
                         after_bot2.extend(window)
                         skip_until = i + 4
 
-                # Best win streak (first)
+                # Hot streak + Roach streak
                 longest_streak, streak = 0, 0
                 for g in games:
                     streak = streak + 1 if round(g["placement"]) == 1 else 0
                     longest_streak = max(longest_streak, streak)
 
+                longest_roach, roach = 0, 0
+                for g in games:
+                    roach = roach + 1 if round(g["placement"]) <= 4 else 0
+                    longest_roach = max(longest_roach, roach)
+
+                roach_html = (
+                    f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Roach streak"
+                    f"<span style='color:#4a8c5c;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_roach}</span>"
+                    f"<span title='Longest streak of top 4 placements' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"</span>"
+                )
+
                 st.markdown(
                     f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Hot streak"
                     f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
-                    f"<span title='Longest recorded streak of 1st places' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"<span title='Longest streak of 1st places' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"{roach_html}"
                     f"</div>",
                     unsafe_allow_html=True
                 )
@@ -547,10 +560,10 @@ with tabs[0]:
                 if len(after_bot2) >= 3:
                     after_avg  = sum(after_bot2) / len(after_bot2)
                     factor     = after_avg / avg if avg > 0 else 1.0
-                    factor     = 1 + (factor - 1) * 3
+                    factor     = 1 + (factor - 1) * 2
                     tilt_color = (
                         "#8c3a2a" if factor >= 1.15
-                        else "#c47c2a" if factor >= 1.06
+                        else "#c47a75" if factor >= 1.06
                         else "#aaa"   if factor >= 1.00
                         else "#7ab87a" if factor >= 0.90
                         else "#4a8c5c"
@@ -565,7 +578,13 @@ with tabs[0]:
                         recent_games = games[-50:]
                         recent_avg   = sum(g["placement"] for g in recent_games) / len(recent_games)
                         form_diff    = recent_avg - avg
-                        form_color   = "#4a8c5c" if form_diff < -0.1 else "#8c3a2a" if form_diff > 0.1 else "#aaa"
+                        form_color   = (
+                            "#4a8c5c" if form_diff <= -0.16
+                            else "#7ab87a" if form_diff <= -0.05
+                            else "#d4a843" if form_diff < 0.05
+                            else "#c47a75" if form_diff <= 0.15
+                            else "#8c3a2a"
+                        )
                         form_sign    = "+" if form_diff >= 0 else ""
                         form_tip     = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
                         form_html    = (

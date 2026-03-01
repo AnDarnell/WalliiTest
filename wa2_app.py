@@ -500,7 +500,7 @@ with tabs[0]:
                 c2.markdown(stat("Avg Place", f"{avg:.2f}"),                                  unsafe_allow_html=True)
                 c3.markdown(stat("1st",       f"{wins} ({wins/total*100:.0f}%)"),             unsafe_allow_html=True)
                 c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),             unsafe_allow_html=True)
-                c5.markdown(stat("CR",        f"{current_mmr:,}"),                            unsafe_allow_html=True)
+                c5.markdown(stat("MMR",        f"{current_mmr:,}"),                            unsafe_allow_html=True)
                 peak_time_raw = max(games, key=lambda g: g["mmr_after"])["time"]
                 try:
                     peak_time_dt  = datetime.fromisoformat(peak_time_raw)

@@ -249,7 +249,7 @@ if submitted and player:
             c2.markdown(stat("Avg Place", f"{avg:.2f}"),                           unsafe_allow_html=True)
             c3.markdown(stat("1st",       f"{wins} ({wins/total*100:.0f}%)"),      unsafe_allow_html=True)
             c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),      unsafe_allow_html=True)
-            c5.markdown(stat("CR",        f"{games[-1]['mmr_after']:,}"),          unsafe_allow_html=True),                
+            c5.markdown(stat("CR",        f"{current_mmr:,}"),                     unsafe_allow_html=True),                
 
             st.pyplot(make_chart(games))
 

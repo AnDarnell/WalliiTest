@@ -401,7 +401,7 @@ with tabs[0]:
     with st.form("search_form"):
         col1, col2 = st.columns([3, 1])
         with col1:
-            player = st.text_input("Player", placeholder="jeef")
+            player = st.text_input("Player", placeholder="Name")
         with col2:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
         submitted = st.form_submit_button("Search", use_container_width=True)
@@ -507,14 +507,47 @@ with tabs[0]:
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
                     asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""
+
+                    # Form indicator
+                    form_html = ""
+                    if total >= 60:
+                        recent_games = games[-50:]
+                        recent_avg   = sum(g["placement"] for g in recent_games) / len(recent_games)
+                        form_diff    = recent_avg - avg
+                        form_color   = "#4a8c5c" if form_diff < -0.1 else "#8c3a2a" if form_diff > 0.1 else "#555"
+                        form_sign    = "+" if form_diff >= 0 else ""
+                        form_tip     = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
+                        form_html    = (
+                            f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form (last 50)"
+                            f"<span style='color:{form_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{recent_avg:.2f}</span>"
+                            f"<span style='color:{form_color};font-size:0.8rem;margin-left:0.4rem;'>({form_sign}{form_diff:.2f})</span>"
+                            f"<span title='{form_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                            f"</span>"
+                        )
+
                     st.markdown(
-                        f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Tilt factor"
+                        f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
+                        f"Tilt factor"
                         f"<span style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{factor:.2f}</span>"
                         f"<span{asterisk_tip} style='color:{tilt_color};font-size:0.8rem;cursor:help;'>{asterisk}</span>"
                         f"<span title='{tooltip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                        f"{form_html}"
                         f"</div>",
                         unsafe_allow_html=True
                     )
+
+                # Best win streak
+                longest_streak, streak = 0, 0
+                for g in games:
+                    streak = streak + 1 if round(g["placement"]) == 1 else 0
+                    longest_streak = max(longest_streak, streak)
+
+                st.markdown(
+                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Best streak"
+                    f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
 
                 with st.expander("View as table"):
                     rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]

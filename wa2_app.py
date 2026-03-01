@@ -499,7 +499,7 @@ with tabs[0]:
                     longest_streak = max(longest_streak, streak)
 
                 st.markdown(
-                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Best streak"
+                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Longest 1st streak"
                     f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
                     f"</div>",
                     unsafe_allow_html=True

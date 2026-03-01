@@ -262,7 +262,7 @@ html, body, [class*="css"] { font-family: 'Georgia', serif; }
 st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'>Placement Statistics</h2>", unsafe_allow_html=True)
 st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds</p>", unsafe_allow_html=True)
 
-tabs = st.tabs(["Single player", "Regression (CSV)"])
+tabs = st.tabs(["Single player", "RatingAvg"])
 
 
 # ── Single player tab ─────────────────────────────────────────────────────────
@@ -317,30 +317,19 @@ with tabs[0]:
         st.warning("Enter a player name.")
 
 
-# ── Regression tab (CSV) ──────────────────────────────────────────────────────
+# ── RatingAvg tab (CSV) ──────────────────────────────────────────────────────
 
 with tabs[1]:
-    st.markdown(
-        "<p style='color:#bbb; font-size:0.9rem; margin:0 0 0.8rem;'>"
-        f"Reads <b>{DEFAULT_CSV_NAME}</b> from the same folder as this app. "
-        "Builds a <b>binned curve</b> (Option C) for <b>Avg Place vs MMR</b>, weighted by <b>games</b>."
-        "</p>",
-        unsafe_allow_html=True
-    )
-
-    # CSV path (bundled with app / repo)
-    csv_name = st.text_input("CSV filename (same folder)", value=DEFAULT_CSV_NAME)
-    csv_path = Path(__file__).parent / csv_name
+    csv_path = Path(__file__).parent / DEFAULT_CSV_NAME
 
     if not csv_path.exists():
         st.error(
             f"Can't find CSV: {csv_path}\n\n"
-            f"Put your export CSV next to wallii_app.py and name it {DEFAULT_CSV_NAME} (or change the filename above)."
+            f"Put your export CSV next to wallii_app.py and name it {DEFAULT_CSV_NAME}."
         )
         st.stop()
 
     df = pd.read_csv(csv_path)
-    st.caption(f"Loaded: {csv_path.name} ({len(df)} rows)")
 
     required = {"lb_mmr", "current_mmr", "avg_place", "games"}
     missing = [c for c in required if c not in df.columns]
@@ -348,23 +337,23 @@ with tabs[1]:
         st.error(f"CSV is missing columns: {', '.join(missing)}")
         st.stop()
 
-    c1, c2, c3, c4 = st.columns([1.2, 1.0, 1.1, 1.0])
+    # Minimal controls (defaults per your request)
+    c1, c2, c3 = st.columns([1.2, 1.0, 1.2])
     with c1:
-        x_choice = st.selectbox("X (MMR source)", ["lb_mmr", "current_mmr"], index=0)
+        x_choice = st.selectbox("MMR source", ["lb_mmr", "current_mmr"], index=0)
     with c2:
-        bin_size = st.select_slider("Bin size", options=[250, 500, 750, 1000], value=500)
+        bin_size = st.select_slider("Bin size", options=[250, 500, 750, 1000], value=1000)
     with c3:
         max_games = int(pd.to_numeric(df["games"], errors="coerce").max() or 0)
-        min_games = st.slider("Min games per player", min_value=0, max_value=max_games, value=0, step=10)
-    with c4:
-        show_scatter = st.checkbox("Show scatter", value=True)
+        default_min_games = 300 if max_games >= 300 else max_games
+        min_games = st.slider("Min games", min_value=0, max_value=max_games, value=default_min_games, step=50)
 
     mode = st.selectbox(
-        "Curve type (weighted by games)",
+        "Curve",
         [
-            ("Weighted median (typical)", "wquant", 0.5),
-            ("Weighted 25th percentile (better-than-typical)", "wquant", 0.25),
-            ("Weighted 10th percentile (\"requirement\" feel)", "wquant", 0.10),
+            ("Weighted 10th percentile", "wquant", 0.10),
+            ("Weighted 25th percentile", "wquant", 0.25),
+            ("Weighted median", "wquant", 0.50),
             ("Weighted mean", "wmean", None),
         ],
         format_func=lambda t: t[0],
@@ -388,40 +377,41 @@ with tabs[1]:
         st.warning("Too few bins after filtering. Lower min games or change bin size.")
         st.stop()
 
-    # Plot
+    # Estimate (above chart), minimalist
+    st.markdown(
+        "<div style='color:#666;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
+        f"Estimate Avg Place at {x_choice}"
+        "</div>",
+        unsafe_allow_html=True
+    )
+
+    q_mmr = st.number_input(
+        label="",
+        min_value=float(np.min(bx)),
+        max_value=float(np.max(bx)),
+        value=float(np.percentile(bx, 75)),
+        step=100.0,
+        label_visibility="collapsed",
+    )
+    est = float(np.interp(float(q_mmr), bx, by))
+
+    st.markdown(
+        f"<div style='margin-top:0.35rem; margin-bottom:0.8rem;'>"
+        f"<span style='color:#eee; font-size:1.6rem; font-weight:700;'>{est:.2f}</span>"
+        f"<span style='color:#777; font-size:0.9rem; margin-left:0.6rem;'>at {q_mmr:,.0f} {x_choice}</span>"
+        f"</div>",
+        unsafe_allow_html=True
+    )
+
+    # Plot (minimal)
     fig, ax = plt.subplots(figsize=(10, 5))
     fig.patch.set_facecolor("#0e0e0e")
     ax.set_facecolor("#0e0e0e")
 
-    if show_scatter:
-        ax.scatter(d[x_choice].to_numpy(float), d["avg_place"].to_numpy(float), alpha=0.35)
-
     ax.plot(bx, by, linewidth=3)
+
     ax.set_xlabel(x_choice)
     ax.set_ylabel("Avg Place")
     style_dark_axes(ax)
 
     st.pyplot(fig)
-
-    # Query input: estimate avg place at a given MMR
-    st.markdown("---")
-    q_mmr = st.number_input(
-        f"Estimate Avg Place at {x_choice}",
-        min_value=float(np.min(bx)),
-        max_value=float(np.max(bx)),
-        value=float(np.median(bx)),
-        step=100.0,
-    )
-    est = float(np.interp(float(q_mmr), bx, by))
-    st.markdown(
-        f"<div style='background:#161616;border:1px solid #2a2a2a;border-radius:4px;padding:0.8rem 0.9rem;'>"
-        f"<div style='color:#555;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.35rem;'>"
-        f"Estimated Avg Place</div>"
-        f"<div style='color:#eee;font-size:1.3rem;font-weight:700;'>{est:.2f}</div>"
-        f"<div style='color:#777;font-size:0.8rem;margin-top:0.25rem;'>at {q_mmr:,.0f} {x_choice}</div>"
-        f"</div>",
-        unsafe_allow_html=True
-    )
-
-    with st.expander("Data preview"):
-        st.dataframe(d.sort_values(x_choice, ascending=False).head(200), use_container_width=True)

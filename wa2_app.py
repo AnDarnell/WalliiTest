@@ -357,7 +357,7 @@ with tabs[1]:
             ("Weighted mean", "wmean", None),
         ],
         format_func=lambda t: t[0],
-        index=0
+        index=3
     )
     mode_kind = mode[1]
     q = mode[2] if mode_kind == "wquant" else 0.5

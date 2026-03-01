@@ -479,6 +479,37 @@ with tabs[0]:
 
                 st.pyplot(make_chart(games))
 
+                # Tilt factor — avg placement in next 5 games after a 7 or 8, no overlapping windows
+                placements  = [round(g["placement"]) for g in games]
+                after_bot2  = []
+                skip_until  = 0
+                for i, p in enumerate(placements):
+                    if i < skip_until:
+                        continue
+                    if p >= 7:
+                        window = placements[i+1 : i+4]
+                        after_bot2.extend(window)
+                        skip_until = i + 4
+
+                if len(after_bot2) >= 3:
+                    after_avg  = sum(after_bot2) / len(after_bot2)
+                    factor     = after_avg / avg if avg > 0 else 1.0
+                    factor     = 1 + (factor - 1) * 3
+                    tilt_color = (
+                        "#8c3a2a" if factor >= 1.15
+                        else "#c47c2a" if factor >= 1.06
+                        else "#555" if factor >= 1.00
+                        else "#7ab87a" if factor >= 0.90
+                        else "#4a8c5c"
+                    )
+                    tooltip    = f"Avg next 3 after 7-8: {after_avg:.2f} / overall avg: {avg:.2f}"
+                    st.markdown(
+                        f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Tilt factor"
+                        f"<span title='{tooltip}' style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;cursor:help;'>{factor:.2f}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
                 with st.expander("View as table"):
                     rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]
                     st.table(rows)
@@ -564,7 +595,7 @@ with tabs[0]:
                             )
 
                         st.markdown(
-                            f"<div style='display:flex;justify-content:space-between;padding:0.3rem 3%;border-top:1px solid #1e1e1e;margin-top:0.2rem;'>"
+                            f"<div style='display:flex;justify-content:space-between;padding:0.3rem 4.5%;border-top:1px solid #1e1e1e;margin-top:0.2rem;'>"
                             f"{cells}</div>",
                             unsafe_allow_html=True
                         )

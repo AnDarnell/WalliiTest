@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
-"Season start manual input, Blizzard has no set dates. Just testing date-based rating caps."
+
 SEASON_START       = "2025-12-01"
 THRESHOLD_BASE     = 9000
 THRESHOLD_INCREASE = 1000
@@ -22,7 +22,7 @@ VALID_REGIONS      = ["NA", "EU", "AP", "CN"]
 
 
 # ── Formula ───────────────────────────────────────────────────────────────────
-"Estimated formula for rating calcs."
+
 def get_threshold(snapshot_time_str):
     season_start = datetime.fromisoformat(SEASON_START).replace(tzinfo=timezone.utc)
     game_time    = datetime.fromisoformat(snapshot_time_str)
@@ -51,7 +51,7 @@ def est_place(mmr, gain, snapshot_time=None):
 
 
 # ── Fetch & calculate ─────────────────────────────────────────────────────────
-"Data from Wallii.gg, might be an easier way."
+
 @st.cache_data(show_spinner=False)
 def fetch_and_calculate(player_name, region):
     url     = f"https://www.wallii.gg/stats/{player_name}?region={region.lower()}&mode=solo&view=all"
@@ -85,7 +85,7 @@ def fetch_and_calculate(player_name, region):
 
 
 # ── Normalize ─────────────────────────────────────────────────────────────────
-"Spread the 'half placement' up and down. eg. 3.5 -> 0.5 to 3, 0.5 to 4."
+
 def normalized_counts(games):
     counts      = {p: 0 for p in range(1, 9)}
     half_counts = {}
@@ -103,7 +103,7 @@ def normalized_counts(games):
 
 
 # ── Chart ─────────────────────────────────────────────────────────────────────
-"Bling bling"
+
 def make_chart(games):
     norm   = normalized_counts(games)
     labels = [str(p) for p in range(1, 9)]
@@ -146,7 +146,7 @@ def make_chart(games):
 
 
 # ── CSS ───────────────────────────────────────────────────────────────────────
-"More bling bling"
+
 st.set_page_config(page_title="Placement Stats", layout="centered")
 
 st.markdown("""
@@ -212,7 +212,7 @@ hr { border-color: #1e1e1e !important; }
 
 
 # ── UI ────────────────────────────────────────────────────────────────────────
-"Even more bling bling with stats"
+
 st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'>Placement Statistics</h2>", unsafe_allow_html=True)
 st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds</p>", unsafe_allow_html=True)
 

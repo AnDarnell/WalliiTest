@@ -401,7 +401,7 @@ with tabs[0]:
     with st.form("search_form"):
         col1, col2 = st.columns([3, 1])
         with col1:
-            player = st.text_input("Player", placeholder="jeef")
+            player = st.text_input("Player", placeholder="Name")
         with col2:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
         submitted = st.form_submit_button("Search", use_container_width=True)
@@ -527,7 +527,7 @@ with tabs[0]:
                         recent_games = games[-50:]
                         recent_avg   = sum(g["placement"] for g in recent_games) / len(recent_games)
                         form_diff    = recent_avg - avg
-                        form_color   = "#4a8c5c" if form_diff < -0.1 else "#8c3a2a" if form_diff > 0.1 else "#555"
+                        form_color   = "#4a8c5c" if form_diff < -0.1 else "#8c3a2a" if form_diff > 0.1 else "#aaa"
                         form_sign    = "+" if form_diff >= 0 else ""
                         form_tip     = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
                         form_html    = (

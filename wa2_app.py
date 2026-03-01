@@ -384,6 +384,7 @@ html, body, [class*="css"] { font-family: 'Georgia', serif; }
 .stTable td { color: #bbb !important; }
 hr { border-color: #1e1e1e !important; }
 #MainMenu, footer, header { visibility: hidden; }
+h2 a, h1 a, h3 a { display: none !important; }
 
 </style>
 """, unsafe_allow_html=True)

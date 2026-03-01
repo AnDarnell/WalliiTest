@@ -505,7 +505,8 @@ with tabs[0]:
                     tooltip    = f"Avg next 3 after 7-8: {after_avg:.2f} / overall avg: {avg:.2f}"
                     st.markdown(
                         f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Tilt factor"
-                        f"<span title='{tooltip}' style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;cursor:help;'>{factor:.2f}</span>"
+                        f"<span style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{factor:.2f}</span>"
+                        f"<span title='{tooltip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )

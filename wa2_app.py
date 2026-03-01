@@ -401,7 +401,7 @@ with tabs[0]:
     with st.form("search_form"):
         col1, col2 = st.columns([3, 1])
         with col1:
-            player = st.text_input("Player", placeholder="Name")
+            player = st.text_input("Player", placeholder="jeef")
         with col2:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
         submitted = st.form_submit_button("Search", use_container_width=True)
@@ -492,6 +492,20 @@ with tabs[0]:
                         after_bot2.extend(window)
                         skip_until = i + 4
 
+                # Best win streak (first)
+                longest_streak, streak = 0, 0
+                for g in games:
+                    streak = streak + 1 if round(g["placement"]) == 1 else 0
+                    longest_streak = max(longest_streak, streak)
+
+                st.markdown(
+                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Best streak"
+                    f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
+                # Tilt factor + form (same row, below streak)
                 if len(after_bot2) >= 3:
                     after_avg  = sum(after_bot2) / len(after_bot2)
                     factor     = after_avg / avg if avg > 0 else 1.0
@@ -499,16 +513,15 @@ with tabs[0]:
                     tilt_color = (
                         "#8c3a2a" if factor >= 1.15
                         else "#c47c2a" if factor >= 1.06
-                        else "#555" if factor >= 1.00
+                        else "#555"   if factor >= 1.00
                         else "#7ab87a" if factor >= 0.90
                         else "#4a8c5c"
                     )
-                    tooltip    = f"Avg next 3 after 7-8: {after_avg:.2f} / overall avg: {avg:.2f}"
+                    tooltip       = f"Avg next 3 after 7-8: {after_avg:.2f} / overall avg: {avg:.2f}"
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
                     asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""
 
-                    # Form indicator
                     form_html = ""
                     if total >= 60:
                         recent_games = games[-50:]
@@ -526,7 +539,7 @@ with tabs[0]:
                         )
 
                     st.markdown(
-                        f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
+                        f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
                         f"Tilt factor"
                         f"<span style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{factor:.2f}</span>"
                         f"<span{asterisk_tip} style='color:{tilt_color};font-size:0.8rem;cursor:help;'>{asterisk}</span>"
@@ -535,19 +548,6 @@ with tabs[0]:
                         f"</div>",
                         unsafe_allow_html=True
                     )
-
-                # Best win streak
-                longest_streak, streak = 0, 0
-                for g in games:
-                    streak = streak + 1 if round(g["placement"]) == 1 else 0
-                    longest_streak = max(longest_streak, streak)
-
-                st.markdown(
-                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Best streak"
-                    f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
-                    f"</div>",
-                    unsafe_allow_html=True
-                )
 
                 with st.expander("View as table"):
                     rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]

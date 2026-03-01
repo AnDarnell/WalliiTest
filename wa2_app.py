@@ -400,7 +400,7 @@ with tabs[0]:
     with st.form("search_form"):
         col1, col2 = st.columns([3, 1])
         with col1:
-            player = st.text_input("Player", placeholder="Name")
+            player = st.text_input("Player", placeholder="jeef")
         with col2:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
         submitted = st.form_submit_button("Search", use_container_width=True)
@@ -509,7 +509,7 @@ with tabs[0]:
                     st.markdown(
                         f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Tilt factor"
                         f"<span style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{factor:.2f}</span>"
-                        f"<span{asterisk_tip} style='color:#555;font-size:0.8rem;cursor:help;'>{asterisk}</span>"
+                        f"<span{asterisk_tip} style='color:{tilt_color};font-size:0.8rem;cursor:help;'>{asterisk}</span>"
                         f"<span title='{tooltip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                         f"</div>",
                         unsafe_allow_html=True

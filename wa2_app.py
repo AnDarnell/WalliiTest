@@ -513,7 +513,7 @@ with tabs[0]:
                     tilt_color = (
                         "#8c3a2a" if factor >= 1.15
                         else "#c47c2a" if factor >= 1.06
-                        else "#555"   if factor >= 1.00
+                        else "#aaa"   if factor >= 1.00
                         else "#7ab87a" if factor >= 0.90
                         else "#4a8c5c"
                     )

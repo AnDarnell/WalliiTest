@@ -384,6 +384,7 @@ html, body, [class*="css"] { font-family: 'Georgia', serif; }
 .stTable td { color: #bbb !important; }
 hr { border-color: #1e1e1e !important; }
 #MainMenu, footer, header { visibility: hidden; }
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -558,7 +559,7 @@ with tabs[0]:
                             cells += (
                                 f"<div style='text-align:center;flex:1;'>"
                                 f"<div style='color:#444;font-size:0.65rem;margin-bottom:0.2rem;'>{p}</div>"
-                                f"<div style='color:{color};font-size:0.9rem;font-weight:600;'>{diff:+.1f}%</div>"
+                                f"<div style='color:{color};font-size:1.1rem;font-weight:600;'>{diff:+.1f}%</div>"
                                 f"</div>"
                             )
 
@@ -651,7 +652,7 @@ with tabs[1]:
     st.markdown(
         f"<div style='margin-top:0.35rem;margin-bottom:0.8rem;'>"
         f"<span style='color:#eee;font-size:1.6rem;font-weight:700;'>{est:.2f}</span>"
-        f"<span style='color:#777;font-size:1.1rem;margin-left:0.6rem;'>at {q_mmr:,.0f} {x_choice}</span>"
+        f"<span style='color:#777;font-size:0.9rem;margin-left:0.6rem;'>at {q_mmr:,.0f} {x_choice}</span>"
         f"</div>",
         unsafe_allow_html=True
     )

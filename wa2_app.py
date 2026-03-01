@@ -159,7 +159,7 @@ def norm_to_pct(games):
 
 # ── Leaderboard neighbor lookup ───────────────────────────────────────────────
 
-@st.cache_data(show_spinner=False, ttl=3600)
+@st.cache_data(show_spinner=False, ttl=360)
 def fetch_player_rank(player_name, region):
     """Returns (rank, games_played) for a player on today's leaderboard."""
     today = date.today().isoformat()

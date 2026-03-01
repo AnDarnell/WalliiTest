@@ -287,6 +287,25 @@ with tabs[0]:
                 wins  = norm[1]
                 top4  = sum(norm[p] for p in [1, 2, 3, 4])
                 current_mmr = games[-1]["mmr_after"]
+                # Peak rating + when it happened (use the "time" you already store per game)
+                peak_mmr = -10**18
+                peak_time = None
+
+                for g in games:
+                    # mmr_before belongs to previous snapshot; best timestamp we have for that point is the game's time (curr snapshot)
+                    if g["mmr_before"] > peak_mmr:
+                        peak_mmr = g["mmr_before"]
+                        peak_time = g["time"]
+
+                    if g["mmr_after"] > peak_mmr:
+                        peak_mmr = g["mmr_after"]
+                        peak_time = g["time"]
+
+                diff_to_cr = current_mmr - peak_mmr
+                peak_mmr = max(
+                    max(g["mmr_before"] for g in games),
+                    max(g["mmr_after"]  for g in games),
+                )
 
                 def stat(label, value):
                     return f"""<div style="background:#161616;border:1px solid #2a2a2a;border-radius:4px;padding:0.6rem 0.8rem;text-align:left;">
@@ -308,6 +327,17 @@ with tabs[0]:
                 c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),      unsafe_allow_html=True)
                 c5.markdown(stat("CR",        f"{current_mmr:,}"),                     unsafe_allow_html=True)
 
+                diff_to_cr = current_mmr - peak_mmr
+
+                c5.markdown(
+                    f"<div title='Peak date: {peak_time}' "
+                    f"style='margin-top:0.45rem; text-align:center; color:#777; font-size:0.85rem;'>"
+                    f"Peak: <span style='color:#aaa; font-weight:600;'>{peak_mmr:,}</span> "
+                    f"(<span style='color:#777'>{diff_to_cr:+,}</span>)"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+                
                 st.pyplot(make_chart(games))
 
             except Exception as e:

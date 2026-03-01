@@ -505,9 +505,11 @@ with tabs[0]:
                     tooltip    = f"Avg next 3 after 7-8: {after_avg:.2f} / overall avg: {avg:.2f}"
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
+                    asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""
                     st.markdown(
                         f"<div style='margin:0.6rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Tilt factor"
-                        f"<span style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{factor:.2f}{asterisk}</span>"
+                        f"<span style='color:{tilt_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{factor:.2f}</span>"
+                        f"<span{asterisk_tip} style='color:#555;font-size:0.8rem;cursor:help;'>{asterisk}</span>"
                         f"<span title='{tooltip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                         f"</div>",
                         unsafe_allow_html=True

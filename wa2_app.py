@@ -218,11 +218,11 @@ def make_chart(games):
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + max(values) * 0.02,
                 f"{val}\n{val/total*100:.1f}%",
-                ha="center", va="bottom", color="#aaa", fontsize=20
+                ha="center", va="bottom", color="#aaa", fontsize=13
             )
 
     ax.set_ylim(0, max(values) * 1.45)
-    ax.set_xlabel("Placement", fontsize=9, labelpad=8)
+    ax.set_xlabel("Placement", fontsize=12, labelpad=10)
     ax.tick_params(labelsize=10)
     ax.yaxis.set_visible(False)
     ax.xaxis.set_tick_params(length=0)
@@ -232,8 +232,8 @@ def make_chart(games):
         mpatches.Patch(color="#d4a843", label="1st"),
         mpatches.Patch(color="#4a8c5c", label="Top 4"),
         mpatches.Patch(color="#8c3a2a", label="Bot 4"),
-    ], facecolor="#161616", labelcolor="#aaa", fontsize=8,
-       edgecolor="#333", framealpha=1, loc="upper right")
+    ], facecolor="#161616", labelcolor="#aaa", fontsize=11,
+       edgecolor="#555", framealpha=1, loc="upper right")
 
     plt.tight_layout(pad=1.2)
     return fig
@@ -271,7 +271,7 @@ def make_neighbor_chart(all_pcts, names, ranks, player_name, player_rank):
         f"Neighbor average  ({above} above · {below} below · {n} players · rank {player_rank})",
         color="#666", fontsize=9, pad=10
     )
-    ax.set_xlabel("Placement", fontsize=9, labelpad=8)
+    ax.set_xlabel("Placement", fontsize=12, labelpad=10)
     ax.tick_params(labelsize=10)
     ax.yaxis.set_visible(False)
     ax.xaxis.set_tick_params(length=0)
@@ -282,8 +282,8 @@ def make_neighbor_chart(all_pcts, names, ranks, player_name, player_rank):
         mpatches.Patch(color="#d4a843", label="1st"),
         mpatches.Patch(color="#4a8c5c", label="Top 4"),
         mpatches.Patch(color="#8c3a2a", label="Bot 4"),
-    ], facecolor="#161616", labelcolor="#aaa", fontsize=8,
-       edgecolor="#333", framealpha=1, loc="upper right")
+    ], facecolor="#161616", labelcolor="#aaa", fontsize=11,
+       edgecolor="#555", framealpha=1, loc="upper right")
 
     plt.tight_layout(pad=1.2)
     return fig
@@ -446,10 +446,13 @@ with tabs[0]:
                         '</div>'
                     )
 
+                player_rank_display, _ = fetch_player_rank(sp_player, sp_region)
+                rank_str = f" <span style='color:#999;font-size:0.8rem;margin-left:0.5rem;'>#{player_rank_display}</span>" if player_rank_display else ""
                 st.markdown(
                     "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
                     + sp_player
-                    + " <span style='color:#d4a843;font-size:0.8rem;margin-left:0.5rem;'>" + sp_region + "</span></p>",
+                    + " <span style='color:#d4a843;font-size:0.8rem;margin-left:0.5rem;'>" + sp_region + "</span>"
+                    + rank_str + "</p>",
                     unsafe_allow_html=True
                 )
 
@@ -459,10 +462,17 @@ with tabs[0]:
                 c3.markdown(stat("1st",       f"{wins} ({wins/total*100:.0f}%)"),             unsafe_allow_html=True)
                 c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),             unsafe_allow_html=True)
                 c5.markdown(stat("CR",        f"{current_mmr:,}"),                            unsafe_allow_html=True)
+                peak_time_raw = max(games, key=lambda g: g["mmr_after"])["time"]
+                try:
+                    peak_time_dt  = datetime.fromisoformat(peak_time_raw)
+                    peak_time_str = peak_time_dt.strftime("%b %-d, %Y")
+                except Exception:
+                    peak_time_str = peak_time_raw[:10]
                 c5.markdown(
-                    "<div style='margin-top:0.45rem;color:#777;font-size:0.85rem;'>Peak: "
+                    "<div title='Peak date: " + peak_time_str + "' style='margin-top:0.45rem;color:#777;font-size:0.85rem;'>Peak: "
                     "<span style='color:#aaa;font-weight:600;'>" + f"{peak_mmr:,}" + "</span> "
                     "<span style='color:#666;'>(" + f"{diff_to_cr:+,}" + ")</span></div>",
+
                     unsafe_allow_html=True
                 )
 
@@ -536,6 +546,27 @@ with tabs[0]:
                             unsafe_allow_html=True
                         )
                         st.pyplot(make_neighbor_chart(nb["pcts"], nb["names"], nb["ranks"], sp_player, nb["player_rank"]))
+
+                        # Horizontal diff row
+                        player_pct = norm_to_pct(games)
+                        avg_pct    = {p: sum(d[p] for d in nb["pcts"]) / len(nb["pcts"]) for p in range(1, 9)}
+
+                        cells = ""
+                        for p in range(1, 9):
+                            diff  = player_pct[p] - avg_pct[p]
+                            color = "#4a8c5c" if diff > 0.5 else "#8c3a2a" if diff < -0.5 else "#555"
+                            cells += (
+                                f"<div style='text-align:center;flex:1;'>"
+                                f"<div style='color:#444;font-size:0.65rem;margin-bottom:0.2rem;'>{p}</div>"
+                                f"<div style='color:{color};font-size:0.9rem;font-weight:600;'>{diff:+.1f}%</div>"
+                                f"</div>"
+                            )
+
+                        st.markdown(
+                            f"<div style='display:flex;justify-content:space-between;padding:0.3rem 3%;border-top:1px solid #1e1e1e;margin-top:0.2rem;'>"
+                            f"{cells}</div>",
+                            unsafe_allow_html=True
+                        )
                     else:
                         st.warning("Could not retrieve enough data from neighbors.")
 
@@ -620,7 +651,7 @@ with tabs[1]:
     st.markdown(
         f"<div style='margin-top:0.35rem;margin-bottom:0.8rem;'>"
         f"<span style='color:#eee;font-size:1.6rem;font-weight:700;'>{est:.2f}</span>"
-        f"<span style='color:#777;font-size:0.9rem;margin-left:0.6rem;'>at {q_mmr:,.0f} {x_choice}</span>"
+        f"<span style='color:#777;font-size:1.1rem;margin-left:0.6rem;'>at {q_mmr:,.0f} {x_choice}</span>"
         f"</div>",
         unsafe_allow_html=True
     )

@@ -82,10 +82,18 @@ def est_place(mmr, gain, snapshot_time=None):
 
 @st.cache_data(show_spinner=False)
 def fetch_and_calculate(player_name, region):
-    url     = f"https://www.wallii.gg/stats/{player_name}?region={region.lower()}&mode=solo&view=all"
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
-    r = requests.get(url, headers=headers, timeout=20)
+    def _fetch(rgn):
+        s = requests.Session()
+        s.max_redirects = 5
+        u = f"https://www.wallii.gg/stats/{player_name}?region={rgn.lower()}&mode=solo&view=all"
+        return s.get(u, headers=headers, timeout=20)
+
+    try:
+        r = _fetch(region)
+    except requests.exceptions.TooManyRedirects:
+        raise ValueError("Player not found — check if correct region.")
     r.raise_for_status()
 
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', r.text, re.DOTALL)
@@ -93,8 +101,15 @@ def fetch_and_calculate(player_name, region):
         raise ValueError("Player not found — check spelling and region.")
 
     data_str  = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
-    snapshots = json.loads("[" + data_str + "]")
-    snapshots = [s for s in snapshots if s["region"].upper() == region.upper() and s["game_mode"] == "0"]
+    snapshots_all     = json.loads("[" + data_str + "]")
+    snapshots_all     = [s for s in snapshots_all if s["game_mode"] == "0"]
+    available_regions = list({s["region"].upper() for s in snapshots_all})
+    snapshots         = [s for s in snapshots_all if s["region"].upper() == region.upper()]
+
+    if not snapshots and available_regions:
+        other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
+        raise ValueError(f"No data found for {region}. Player appears to be in: {other}.")
+
     snapshots = sorted(snapshots, key=lambda x: x["snapshot_time"])
 
     if len(snapshots) < 2:
@@ -112,7 +127,7 @@ def fetch_and_calculate(player_name, region):
             "time":       curr["snapshot_time"],
         })
 
-    return games
+    return games, region
 
 
 # ── Normalize ─────────────────────────────────────────────────────────────────
@@ -419,7 +434,29 @@ with tabs[0]:
         if st.session_state.get("sp_games") is None:
             with st.spinner("Fetching data..."):
                 try:
-                    st.session_state["sp_games"] = fetch_and_calculate(sp_player, sp_region)
+                    st.session_state["sp_games"], st.session_state["sp_region"] = fetch_and_calculate(sp_player, sp_region)
+                except ValueError as e:
+                    msg = str(e)
+                    # Auto-retry if we can detect the correct region
+                    import re as _re
+                    m = _re.search(r"appears to be in: ([A-Z,\s]+)", msg)
+                    if m:
+                        detected = m.group(1).strip().split(", ")[0]
+                        if detected in VALID_REGIONS:
+                            st.info(f"Not found in {sp_region} — retrying as {detected}...")
+                            try:
+                                st.session_state["sp_region"] = detected
+                                st.session_state["sp_games"], st.session_state["sp_region"] = fetch_and_calculate(sp_player, detected)
+                                sp_region = detected
+                            except Exception as e2:
+                                st.error(str(e2))
+                                st.session_state["sp_games"] = []
+                        else:
+                            st.error(msg)
+                            st.session_state["sp_games"] = []
+                    else:
+                        st.error(msg)
+                        st.session_state["sp_games"] = []
                 except Exception as e:
                     st.error(str(e))
                     st.session_state["sp_games"] = []
@@ -499,8 +536,9 @@ with tabs[0]:
                     longest_streak = max(longest_streak, streak)
 
                 st.markdown(
-                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Longest 1st streak"
+                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Hot streak"
                     f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
+                    f"<span title='Longest recorded streak of 1st places' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                     f"</div>",
                     unsafe_allow_html=True
                 )
@@ -586,7 +624,7 @@ with tabs[0]:
                                     unsafe_allow_html=True
                                 )
                                 try:
-                                    ng = fetch_and_calculate(name, sp_region)
+                                    ng, _ = fetch_and_calculate(name, sp_region)
                                     if len(ng) >= MIN_GAMES_NEIGHBOR:
                                         all_pcts.append(norm_to_pct(ng))
                                 except Exception:

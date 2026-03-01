@@ -214,7 +214,7 @@ hr { border-color: #1e1e1e !important; }
 # ── UI ────────────────────────────────────────────────────────────────────────
 
 st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'>Placement Statistics</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:0.08em;'>HSBG Stats/Placement distribution</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.5rem; text-transform:uppercase; letter-spacing:0.08em;'>HSBG Stats/Placement distribution. 9000 MMR+</p>", unsafe_allow_html=True)
 
 with st.form("search_form"):
     col1, col2 = st.columns([3, 1])

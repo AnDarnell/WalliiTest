@@ -420,7 +420,7 @@ h2 a, h1 a, h3 a { display: none !important; }
 """, unsafe_allow_html=True)
 
 st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'>Placement Statistics</h2>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Battlegrounds Stats</p>", unsafe_allow_html=True)
+st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</p>", unsafe_allow_html=True)
 
 tabs = st.tabs(["Single player", "RatingAvg"])
 

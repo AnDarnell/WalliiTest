@@ -645,9 +645,9 @@ def delta_color(delta):
 def diff_pct_color(diff):
     if diff <= -10:
         return "#8c3a2a"
-    elif diff <= -5:
+    elif diff <= -2:
         return "#c47a75"
-    elif diff < 5:
+    elif diff < 2:
         return "#555"
     elif diff < 10:
         return "#7ab87a"

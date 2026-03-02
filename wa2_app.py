@@ -357,62 +357,133 @@ def norm_to_pct(games):
 
 # ── Leaderboard neighbor lookup ───────────────────────────────────────────────
 
-@st.cache_data(show_spinner=False, ttl=300)
 def fetch_player_rank(player_name, region):
-    from datetime import timedelta
-    for day_offset in [0, -1]:
-        today = (date.today() + timedelta(days=day_offset)).isoformat()
-        url = (
-            f"{SUPABASE_URL}/rest/v1/daily_leaderboard_stats"
-            f"?select=rank,games_played,players!inner(player_name)"
-            f"&region=eq.{region}&game_mode=eq.0&day_start=eq.{today}"
-            f"&players.player_name=eq.{player_name}"
-            f"&limit=1"
+    # Ranken skrapas redan i fetch_and_calculate från wallii.gg — används därifrån
+    return st.session_state.get("sp_rank"), None, None
+
+# ── Wallii leaderboard (Supabase) ──────────────────────────────────────────────
+# Wallii.gg loads leaderboard data via Supabase REST (seen in DevTools Network).
+# Put your key in .streamlit/secrets.toml:
+#   SUPABASE_ANON_KEY = "..."
+SUPABASE_BASE = "https://xtivasurpzvcbomieuba.supabase.co"
+
+
+def _supabase_headers():
+    key = st.secrets.get("SUPABASE_ANON_KEY")
+    if not key:
+        raise ValueError(
+            "Missing SUPABASE_ANON_KEY in Streamlit secrets. "
+            "Add it to .streamlit/secrets.toml (local) and Streamlit Cloud Secrets (deploy)."
         )
+    return {
+        "apikey": key,
+        "authorization": f"Bearer {key}",
+        "accept": "application/json",
+    }
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _latest_day_start(game_mode=0):
+    """
+    Fetch latest available day_start from Supabase.
+    """
+    url = f"{SUPABASE_BASE}/rest/v1/daily_leaderboard_stats"
+    params = {
+        "select": "day_start",
+        "game_mode": f"eq.{int(game_mode)}",
+        "order": "day_start.desc",
+        "limit": "1",
+    }
+    r = requests.get(url, headers=_supabase_headers(), params=params, timeout=20)
+    r.raise_for_status()
+    data = r.json()
+    if not data:
+        raise ValueError("Could not fetch latest day_start from Wallii Supabase.")
+    return data[0]["day_start"]
+
+
+@st.cache_data(show_spinner=False, ttl=120)
+def fetch_neighbor_names(player_rank, region, day_start=None, n=5):
+    """
+    Returns neighbours around a given 1-indexed rank on Wallii leaderboard:
+      (names_above, names_below, ranks_above, ranks_below)
+
+    This version calls the same Supabase PostgREST endpoint that wallii.gg uses
+    (see DevTools -> Network).
+    """
+    player_rank = int(player_rank)
+    n = int(n)
+
+    if day_start is None:
+        day_start = _latest_day_start(game_mode=0)
+
+    lo_rank = max(1, player_rank - n)
+    hi_rank = player_rank + n
+
+    url = f"{SUPABASE_BASE}/rest/v1/daily_leaderboard_stats"
+
+    # Match wallii.gg query style:
+    #   select=player_id,rating,rank,region,players!inner(player_name)
+    #   region=eq.EU (or NA/AS etc), game_mode=eq.0, day_start=eq.YYYY-MM-DD
+    # Use rank range directly (no need for offset pagination).
+    params = {
+        "select": "player_id,rating,rank,region,updated_at,players!inner(player_name)",
+        "region": f"eq.{region.upper()}",
+        "game_mode": "eq.0",
+        "day_start": f"eq.{day_start}",
+        "rank": f"gte.{lo_rank}",
+        # PostgREST doesn't allow two 'rank' keys in a dict; use 'and' via query string.
+        # We'll add the upper bound manually below.
+        "order": "rank.asc",
+    }
+
+    # Build query string manually so we can include both rank bounds.
+    # (requests will otherwise drop the duplicated key)
+    from urllib.parse import urlencode
+
+    qs_parts = [
+        ("select", params["select"]),
+        ("region", params["region"]),
+        ("game_mode", params["game_mode"]),
+        ("day_start", params["day_start"]),
+        ("rank", params["rank"]),
+        ("rank", f"lte.{hi_rank}"),
+        ("order", params["order"]),
+    ]
+    full_url = f"{url}?{urlencode(qs_parts)}"
+
+    r = requests.get(full_url, headers=_supabase_headers(), timeout=20)
+    r.raise_for_status()
+    rows = r.json()
+
+    names_above, names_below, ranks_above, ranks_below = [], [], [], []
+
+    for row in rows:
         try:
-            r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
-            r.raise_for_status()
-            data = r.json()
-            if data:
-                return data[0]["rank"], data[0].get("games_played", 0)
+            rank = int(row.get("rank"))
         except Exception:
-            pass
-    return None, None
+            continue
 
-@st.cache_data(show_spinner=False, ttl=3600)
-def fetch_neighbor_names(player_rank, region, n=5):
-    from datetime import timedelta
-    search  = 30
-    lo_rank = max(1, player_rank - search)
-    hi_rank = player_rank + search
-    rows = []
-    for day_offset in [0, -1]:
-        today = (date.today() + timedelta(days=day_offset)).isoformat()
-        url = (
-            f"{SUPABASE_URL}/rest/v1/daily_leaderboard_stats"
-            f"?select=rank,players!inner(player_name)"
-            f"&region=eq.{region}&game_mode=eq.0&day_start=eq.{today}"
-            f"&rank=gte.{lo_rank}&rank=lte.{hi_rank}"
-            f"&order=rank.asc&limit=100"
-        )
-        r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
-        r.raise_for_status()
-        rows = r.json()
-        if rows:
-            break
+        # Join result sometimes comes as list or dict depending on how PostgREST is configured.
+        p = row.get("players")
+        if isinstance(p, list) and p:
+            name = p[0].get("player_name")
+        elif isinstance(p, dict):
+            name = p.get("player_name")
+        else:
+            name = None
 
-    above = [row for row in rows if row["rank"] < player_rank][-n:]
-    below = [row for row in rows if row["rank"] > player_rank][:n]
+        if not name:
+            continue
 
-    return (
-        [row["players"]["player_name"] for row in above],
-        [row["players"]["player_name"] for row in below],
-        [row["rank"] for row in above],
-        [row["rank"] for row in below],
-    )
+        if rank < player_rank:
+            names_above.append(name)
+            ranks_above.append(rank)
+        elif rank > player_rank:
+            names_below.append(name)
+            ranks_below.append(rank)
 
-
-# ── Charts ─────────────────────────────────────────────────────────────────────
+    return names_above[-n:], names_below[:n], ranks_above[-n:], ranks_below[:n]
 
 def make_chart(games):
     norm   = normalized_counts(games)
@@ -1040,11 +1111,10 @@ with tabs[0]:
 
                 if st.button("Compare with leaderboard neighbors", use_container_width=True):
                     st.session_state["nb_result"] = None
-                    with st.spinner("Looking up leaderboard rank..."):
-                        player_rank, _ = fetch_player_rank(sp_player, sp_region)
+                    player_rank = st.session_state.get("sp_rank")
 
                     if player_rank is None:
-                        st.session_state["nb_result"] = {"error": "Player not found on today's leaderboard."}
+                        st.session_state["nb_result"] = {"error": "Ingen rank hittades för den här spelaren — de kanske inte är på leaderboard."}
                     else:
                         with st.spinner(f"Finding neighbors around rank {player_rank}..."):
                             names_above, names_below, ranks_above, ranks_below = fetch_neighbor_names(

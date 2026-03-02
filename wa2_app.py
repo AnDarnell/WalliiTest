@@ -677,89 +677,101 @@ with tabs[0]:
         st.session_state["nb_result"] = None
         st.rerun()
 
-    # Toplists ONLY on home (no selected player)
-    if ENABLE_SESSION_TOPLISTS and not st.session_state.get("sp_player"):
-        _lb_init()
-        st.markdown("<hr>", unsafe_allow_html=True)
+    if submitted and not player:
+        st.warning("Enter a player name.")
 
-        backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
-        st.markdown(
-            f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Toplists ({backend_label})</p>",
+    # ── Render-funktion för topplistor ────────────────────────────────────────
+
+    def render_list(container, title, items, fmt):
+        HEADER_COLOR = "#8a8a8a"
+
+        container.markdown(
+            f"<div style='color:{HEADER_COLOR};font-size:0.75rem;text-transform:uppercase;"
+            f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}</div>",
             unsafe_allow_html=True
         )
 
-        if st.button("Refresh toplists", use_container_width=True):
-            _cache_bust_toplists()
-            st.rerun()
+        if not items:
+            container.markdown(
+                "<div style='color:#444;font-size:0.8rem;padding:0.3rem 0;'>—</div>",
+                unsafe_allow_html=True
+            )
+            return
 
-        if DEBUG:
-            with st.expander("Supabase debug", expanded=False):
-                st.caption(f"TOPLIST_BACKEND={TOPLIST_BACKEND} | SUPABASE_ENABLED={SUPABASE_ENABLED}")
-                st.caption(f"SUPABASE_URL={SUPABASE_URL}")
-                st.caption(f"SUPABASE_KEY length={len(SUPABASE_KEY)}")
-                if "sb_topn_status" in st.session_state:
-                    code, txt = st.session_state["sb_topn_status"]
-                    st.caption(f"TopN fetch: {code} | {txt}")
+        def row_html(i, r):
+            row_color = value_color = HEADER_COLOR
+            if i == 1:
+                row_color = value_color = "#d4a843"
+            elif i == 2:
+                row_color = value_color = "#bfc4c8"
+            elif i == 3:
+                row_color = value_color = "#b57a4a"
+            return (
+                "<div style='display:flex;justify-content:space-between;"
+                "border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
+                "padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
+                f"<span style='color:{row_color};font-weight:700'>{i}. {r['player']} "
+                f"<span style='color:#666'>({r['region']})</span></span>"
+                f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
+                "</div>"
+            )
 
-        def render_list(container, title, items, fmt):
-            HEADER_COLOR = "#8a8a8a"  # neutral-light; used for headings + ranks 4-10
+        # Topp 5 visas alltid
+        for i, r in enumerate(items[:5], 1):
+            container.markdown(row_html(i, r), unsafe_allow_html=True)
 
-            with container:
-                st.markdown(
-                    f"<div style='color:{HEADER_COLOR};font-size:0.75rem;text-transform:uppercase;"
-                    f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}</div>",
-                    unsafe_allow_html=True
-                )
-                if not items:
-                    st.markdown(
-                        "<div style='color:#444;font-size:0.8rem;padding:0.3rem 0;'>—</div>",
-                        unsafe_allow_html=True
-                    )
-                    return
+        # 6–10 i expander
+        if len(items) > 5:
+            with container.expander("Show more", expanded=False):
+                for i, r in enumerate(items[5:10], 6):
+                    st.markdown(row_html(i, r), unsafe_allow_html=True)
 
-                for i, r in enumerate(items, 1):
-                    # Default (plats 4-10): same neutral-light as header
-                    row_color = HEADER_COLOR
-                    value_color = HEADER_COLOR
+    # ── Visa antingen topplistor ELLER spelarsida ─────────────────────────────
 
-                    # Medaljer för top 3 (hela raden + värdet)
-                    if i == 1:
-                        row_color = value_color = "#d4a843"  # gold
-                    elif i == 2:
-                        row_color = value_color = "#bfc4c8"  # silver
-                    elif i == 3:
-                        row_color = value_color = "#b57a4a"  # bronze
-
-                    st.markdown(
-                        f"<div style='display:flex;justify-content:space-between;"
-                        f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
-                        f"padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
-                        f"<span style='color:{row_color};font-weight:700'>{i}. {r['player']} "
-                        f"<span style='color:#666'>({r['region']})</span></span>"
-                        f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
-                        f"</div>",
-                        unsafe_allow_html=True
-                    )
-
-    cols = st.columns(2)
-
-    lists = [
-        ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%"),
-        ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}"),
-
-        ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}"),
-        ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—"),
-
-        ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}"),
-        ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%"),
-]
-
-for idx, (title, items, fmt) in enumerate(lists):
-    render_list(cols[idx % 2], title, items, fmt)
     sp_player = st.session_state.get("sp_player")
     sp_region = st.session_state.get("sp_region")
 
-    if sp_player and sp_region:
+    if not sp_player:
+        # ── Topplistor (startsida) ────────────────────────────────────────────
+        if ENABLE_SESSION_TOPLISTS:
+            _lb_init()
+            st.markdown("<hr>", unsafe_allow_html=True)
+
+            backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
+            st.markdown(
+                f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Toplists ({backend_label})</p>",
+                unsafe_allow_html=True
+            )
+
+            if st.button("Refresh toplists", use_container_width=True):
+                _cache_bust_toplists()
+                st.rerun()
+
+            if DEBUG:
+                with st.expander("Supabase debug", expanded=False):
+                    st.caption(f"TOPLIST_BACKEND={TOPLIST_BACKEND} | SUPABASE_ENABLED={SUPABASE_ENABLED}")
+                    st.caption(f"SUPABASE_URL={SUPABASE_URL}")
+                    st.caption(f"SUPABASE_KEY length={len(SUPABASE_KEY)}")
+                    if "sb_topn_status" in st.session_state:
+                        code, txt = st.session_state["sb_topn_status"]
+                        st.caption(f"TopN fetch: {code} | {txt}")
+
+            cols = st.columns(2)
+
+            lists = [
+                ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%"),
+                ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}"),
+                ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}"),
+                ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—"),
+                ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}"),
+                ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%"),
+            ]
+
+            for idx, (title, items, fmt) in enumerate(lists):
+                render_list(cols[idx % 2], title, items, fmt)
+
+    else:
+        # ── Spelarsida ────────────────────────────────────────────────────────
         if st.session_state.get("sp_games") is None:
             with st.spinner("Fetching data..."):
                 try:
@@ -1116,9 +1128,6 @@ for idx, (title, items, fmt) in enumerate(lists):
 
             except Exception as e:
                 st.error(str(e))
-
-    elif submitted:
-        st.warning("Enter a player name.")
 
 
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────

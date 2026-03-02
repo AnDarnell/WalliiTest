@@ -10,8 +10,10 @@ CSV (bundled with app):
   Expected columns: lb_mmr, current_mmr, avg_place, games
 """
 
-import re
+# streamlit run wa2_app.py
+
 import json
+import re
 import requests
 import numpy as np
 import pandas as pd
@@ -106,6 +108,11 @@ def fetch_and_calculate(player_name, region):
     available_regions = list({s["region"].upper() for s in snapshots_all})
     snapshots         = [s for s in snapshots_all if s["region"].upper() == region.upper()]
 
+    # Try to extract current rank from page HTML
+    rank_match   = re.search(r'text-2xl text-white">(\d+)<', r.text)
+    current_rank = int(rank_match.group(1)) if rank_match else None
+    print("DEBUG rank_match:", rank_match, "| snippet:", repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND")
+
     if not snapshots and available_regions:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
         raise ValueError(f"No data found for {region}. Player appears to be in: {other}.")
@@ -127,7 +134,7 @@ def fetch_and_calculate(player_name, region):
             "time":       curr["snapshot_time"],
         })
 
-    return games, region
+    return games, region, current_rank
 
 
 # ── Normalize ─────────────────────────────────────────────────────────────────
@@ -159,23 +166,27 @@ def norm_to_pct(games):
 
 # ── Leaderboard neighbor lookup ───────────────────────────────────────────────
 
-@st.cache_data(show_spinner=False, ttl=360)
+@st.cache_data(show_spinner=False, ttl=300)
 def fetch_player_rank(player_name, region):
     """Returns (rank, games_played) for a player on today's leaderboard."""
-    today = date.today().isoformat()
-    # Fetch a wide range and search by name client-side (Supabase join filter syntax is tricky)
-    url = (
-        f"{SUPABASE_URL}/rest/v1/daily_leaderboard_stats"
-        f"?select=rank,games_played,players!inner(player_name)"
-        f"&region=eq.{region}&game_mode=eq.0&day_start=eq.{today}"
-        f"&order=rank.asc&limit=1000"
-    )
-    r = requests.get(url, headers=SUPABASE_HEADERS, timeout=15)
-    r.raise_for_status()
-    data = r.json()
-    for row in data:
-        if row["players"]["player_name"].lower() == player_name.lower():
-            return row["rank"], row.get("games_played", 0)
+    from datetime import timedelta
+    for day_offset in [0, -1]:
+        today = (date.today() + timedelta(days=day_offset)).isoformat()
+        url = (
+            f"{SUPABASE_URL}/rest/v1/daily_leaderboard_stats"
+            f"?select=rank,games_played,players!inner(player_name)"
+            f"&region=eq.{region}&game_mode=eq.0&day_start=eq.{today}"
+            f"&players.player_name=eq.{player_name}"
+            f"&limit=1"
+        )
+        try:
+            r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            if data:
+                return data[0]["rank"], data[0].get("games_played", 0)
+        except Exception:
+            pass
     return None, None
 
 
@@ -185,21 +196,25 @@ def fetch_neighbor_names(player_rank, region, n=5):
     Returns up to n names above and n names below player_rank.
     Fetches without games_played filter — we check game count after fetching.
     """
-    today   = date.today().isoformat()
+    from datetime import timedelta
     search  = 30
     lo_rank = max(1, player_rank - search)
     hi_rank = player_rank + search
-
-    url = (
-        f"{SUPABASE_URL}/rest/v1/daily_leaderboard_stats"
-        f"?select=rank,players!inner(player_name)"
-        f"&region=eq.{region}&game_mode=eq.0&day_start=eq.{today}"
-        f"&rank=gte.{lo_rank}&rank=lte.{hi_rank}"
-        f"&order=rank.asc&limit=100"
-    )
-    r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
-    r.raise_for_status()
-    rows = r.json()
+    rows = []
+    for day_offset in [0, -1]:
+        today = (date.today() + timedelta(days=day_offset)).isoformat()
+        url = (
+            f"{SUPABASE_URL}/rest/v1/daily_leaderboard_stats"
+            f"?select=rank,players!inner(player_name)"
+            f"&region=eq.{region}&game_mode=eq.0&day_start=eq.{today}"
+            f"&rank=gte.{lo_rank}&rank=lte.{hi_rank}"
+            f"&order=rank.asc&limit=100"
+        )
+        r = requests.get(url, headers=SUPABASE_HEADERS, timeout=10)
+        r.raise_for_status()
+        rows = r.json()
+        if rows:
+            break
 
     above = [row for row in rows if row["rank"] < player_rank][-n:]
     below = [row for row in rows if row["rank"] > player_rank][:n]
@@ -425,6 +440,7 @@ with tabs[0]:
         st.session_state["sp_player"] = player.strip().lower()
         st.session_state["sp_region"] = region
         st.session_state["sp_games"]  = None
+        st.session_state["sp_rank"]   = None
         st.session_state["nb_result"] = None
 
     sp_player = st.session_state.get("sp_player")
@@ -434,7 +450,7 @@ with tabs[0]:
         if st.session_state.get("sp_games") is None:
             with st.spinner("Fetching data..."):
                 try:
-                    st.session_state["sp_games"], st.session_state["sp_region"] = fetch_and_calculate(sp_player, sp_region)
+                    st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region)
                 except ValueError as e:
                     msg = str(e)
                     # Auto-retry if we can detect the correct region
@@ -446,7 +462,7 @@ with tabs[0]:
                             st.info(f"Not found in {sp_region} — retrying as {detected}...")
                             try:
                                 st.session_state["sp_region"] = detected
-                                st.session_state["sp_games"], st.session_state["sp_region"] = fetch_and_calculate(sp_player, detected)
+                                st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, detected)
                                 sp_region = detected
                             except Exception as e2:
                                 st.error(str(e2))
@@ -462,6 +478,7 @@ with tabs[0]:
                     st.session_state["sp_games"] = []
 
         games = st.session_state.get("sp_games", [])
+        sp_region = st.session_state.get("sp_region", sp_region)  # update if auto-corrected
 
         if games:
             try:
@@ -485,7 +502,7 @@ with tabs[0]:
                         '</div>'
                     )
 
-                player_rank_display, _ = fetch_player_rank(sp_player, sp_region)
+                player_rank_display = st.session_state.get("sp_rank")
                 rank_str = f" <span style='color:#999;font-size:0.8rem;margin-left:0.5rem;'>#{player_rank_display}</span>" if player_rank_display else ""
                 st.markdown(
                     "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
@@ -500,7 +517,7 @@ with tabs[0]:
                 c2.markdown(stat("Avg Place", f"{avg:.2f}"),                                  unsafe_allow_html=True)
                 c3.markdown(stat("1st",       f"{wins} ({wins/total*100:.0f}%)"),             unsafe_allow_html=True)
                 c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),             unsafe_allow_html=True)
-                c5.markdown(stat("MMR",        f"{current_mmr:,}"),                            unsafe_allow_html=True)
+                c5.markdown(stat("CR",        f"{current_mmr:,}"),                            unsafe_allow_html=True)
                 peak_time_raw = max(games, key=lambda g: g["mmr_after"])["time"]
                 try:
                     peak_time_dt  = datetime.fromisoformat(peak_time_raw)
@@ -588,7 +605,7 @@ with tabs[0]:
                         form_sign    = "+" if form_diff >= 0 else ""
                         form_tip     = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
                         form_html    = (
-                            f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Recent Form:"
+                            f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form (last 50)"
                             f"<span style='color:{form_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{recent_avg:.2f}</span>"
                             f"<span style='color:{form_color};font-size:0.8rem;margin-left:0.4rem;'>({form_sign}{form_diff:.2f})</span>"
                             f"<span title='{form_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
@@ -643,7 +660,7 @@ with tabs[0]:
                                     unsafe_allow_html=True
                                 )
                                 try:
-                                    ng, _ = fetch_and_calculate(name, sp_region)
+                                    ng, _, _rank = fetch_and_calculate(name, sp_region)
                                     if len(ng) >= MIN_GAMES_NEIGHBOR:
                                         all_pcts.append(norm_to_pct(ng))
                                 except Exception:
@@ -792,3 +809,5 @@ with tabs[1]:
     ax.set_ylabel("Avg Place")
     style_dark_axes(ax)
     st.pyplot(fig)
+
+# streamlit run wa2_app.py

@@ -1,16 +1,20 @@
 """
 Run:
-  streamlit run wallii_app.py
+  streamlit run wa2_app.py
 
 Requires:
   pip install streamlit requests matplotlib numpy pandas
 
 CSV (bundled with app):
-  Put export.csv next to this file (same folder).
+  Put your region CSVs next to this file.
   Expected columns: lb_mmr, current_mmr, avg_place, games
-"""
 
-# streamlit run wa2_app.py
+Recommended filenames (auto-picked by region):
+  export_eu.csv, export_na.csv, export_ap.csv, export_cn.csv
+
+Fallback:
+  export.csv (used if the region-specific file is missing)
+"""
 
 import json
 import re
@@ -22,26 +26,58 @@ import matplotlib.patches as mpatches
 import streamlit as st
 from pathlib import Path
 from datetime import datetime, timezone, date
+import html
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
+
+DEBUG = False  # set True if you want debug panels + logs
 
 SEASON_START       = "2025-12-01"
 THRESHOLD_BASE     = 9000
 THRESHOLD_INCREASE = 1000
 VALID_REGIONS      = ["NA", "EU", "AP", "CN"]
+
 DEFAULT_CSV_NAME   = "export.csv"
 
-SUPABASE_URL = "https://xtivasurpzvcbomieuba.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh0aXZhc3VycHp2Y2JvbWlldWJhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQzMTUzODgsImV4cCI6MjA1OTg5MTM4OH0.Opd3c-esvzBd-CWBDSSV7XFB2JCF2LlyevrE2Yr054U"
-SUPABASE_HEADERS = {
-    "apikey":        SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
+CSV_BY_REGION = {
+    "EU": "export_eu.csv",
+    "NA": "export_na.csv",
+    "AP": "export_ap.csv",
+    "CN": "export_cn.csv",
 }
+
+SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+SUPABASE_KEY = (
+    st.secrets.get("SUPABASE_KEY")
+    or st.secrets.get("KEY")
+    or st.secrets.get("APIKEY")
+    or st.secrets.get("SUPABASE_APIKEY")
+    or ""
+)
+
+SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_KEY)
+
+SUPABASE_HEADERS = {
+    "apikey":          SUPABASE_KEY,
+    "Authorization":   f"Bearer {SUPABASE_KEY}",
+    "Accept-Profile":  "public",
+    "Content-Profile": "public",
+}
+
 MIN_GAMES_NEIGHBOR = 300
+
+ENABLE_SESSION_TOPLISTS = True
+TOPLIST_BACKEND = "supabase"     # "supabase" or "session"
+PLAYER_STATS_TABLE = "player_stats"
+TOP_N = 10
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+def dlog(*args):
+    if DEBUG:
+        print(*args)
 
 def style_dark_axes(ax):
     ax.xaxis.label.set_color("#aaa")
@@ -52,7 +88,6 @@ def style_dark_axes(ax):
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-
 def get_threshold(snapshot_time_str):
     season_start = datetime.fromisoformat(SEASON_START).replace(tzinfo=timezone.utc)
     game_time    = datetime.fromisoformat(snapshot_time_str)
@@ -60,7 +95,6 @@ def get_threshold(snapshot_time_str):
         game_time = game_time.replace(tzinfo=timezone.utc)
     days_in = max(0, (game_time - season_start).days)
     return THRESHOLD_BASE + (days_in // 20) * THRESHOLD_INCREASE
-
 
 def est_place(mmr, gain, snapshot_time=None):
     mmr  = float(mmr)
@@ -79,10 +113,166 @@ def est_place(mmr, gain, snapshot_time=None):
             best_placement = p
     return best_placement
 
+def interp_with_extrap(x, xs, ys):
+    xs = np.asarray(xs, float)
+    ys = np.asarray(ys, float)
+    if len(xs) < 2:
+        return float(ys[0]) if len(ys) else float("nan")
+
+    x = float(x)
+    if x <= xs[0]:
+        m = (ys[1] - ys[0]) / (xs[1] - xs[0])
+        return float(ys[0] + (x - xs[0]) * m)
+    if x >= xs[-1]:
+        m = (ys[-1] - ys[-2]) / (xs[-1] - xs[-2])
+        return float(ys[-1] + (x - xs[-1]) * m)
+
+    return float(np.interp(x, xs, ys))
+
+def get_csv_for_region(region: str) -> Path:
+    base = Path(__file__).parent
+    region = (region or "").upper().strip()
+    candidate = base / CSV_BY_REGION.get(region, "")
+    if candidate.name and candidate.exists():
+        return candidate
+    return base / DEFAULT_CSV_NAME
+
+def go_home():
+    st.session_state.pop("sp_player", None)
+    st.session_state.pop("sp_region", None)
+    st.session_state.pop("sp_games", None)
+    st.session_state.pop("sp_rank", None)
+    st.session_state.pop("nb_result", None)
+
+
+# ── Toplists — session or Supabase ────────────────────────────────────────────
+
+def _lb_init():
+    if "toplists" not in st.session_state:
+        st.session_state["toplists"] = {"players": {}}
+
+def _lb_key(region, player_name):
+    return f"{(region or '').upper()}::{(player_name or '').lower()}"
+
+# ---------- session backend ----------
+
+def _session_upsert(region, player_name, record: dict):
+    _lb_init()
+    key = _lb_key(region, player_name)
+    st.session_state["toplists"]["players"][key] = {
+        **record,
+        "region": (region or "").upper(),
+        "player": (player_name or "").lower(),
+    }
+
+def _session_top_n(metric, n=TOP_N, higher_is_better=True):
+    _lb_init()
+    rows = list(st.session_state["toplists"]["players"].values())
+    rows = [r for r in rows if metric in r and r[metric] is not None and np.isfinite(r[metric])]
+    rows.sort(key=lambda r: r[metric], reverse=higher_is_better)
+    return rows[:n]
+
+# ---------- Supabase backend ----------
+
+def _cache_bust_toplists():
+    try:
+        st.cache_data.clear()
+    except Exception:
+        pass
+
+def _sb_upsert(region, player_name, record: dict):
+    payload = {
+        "player":       (player_name or "").lower(),
+        "region":       (region or "").upper(),
+        "games":        record.get("games"),
+        "hot_streak":   record.get("hot_streak"),
+        "roach_streak": record.get("roach_streak"),
+        "first_pct":    record.get("first_pct"),
+        "top4_pct":     record.get("top4_pct"),
+        "tilt_factor":  record.get("tilt_factor"),
+        "avg_place":    record.get("avg_place"),
+        "cr":           record.get("cr"),
+        "updated_at":   datetime.utcnow().isoformat() + "Z",
+    }
+
+    if not SUPABASE_ENABLED:
+        if DEBUG:
+            st.session_state["sb_upsert_status"] = ("DISABLED", "SUPABASE_URL/KEY missing.")
+        return
+
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region"
+        r = requests.post(
+            url,
+            headers={
+                **SUPABASE_HEADERS,
+                "Content-Type": "application/json",
+                "Prefer":       "resolution=merge-duplicates,return=minimal",
+            },
+            json=payload,
+            timeout=10,
+        )
+        if DEBUG:
+            st.session_state["sb_upsert_status"] = (str(r.status_code), (r.text or "")[:300])
+
+        dlog("UPSERT STATUS:", r.status_code)
+        dlog("UPSERT RESPONSE:", (r.text or "")[:500])
+
+        r.raise_for_status()
+        _cache_bust_toplists()
+
+    except Exception as e:
+        if DEBUG:
+            st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
+        dlog("UPSERT ERROR:", e)
+
+@st.cache_data(show_spinner=False, ttl=60)
+def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
+    if not SUPABASE_ENABLED:
+        return []
+
+    order_dir = "desc" if higher_is_better else "asc"
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}"
+        r = requests.get(
+            url,
+            headers=SUPABASE_HEADERS,
+            params={
+                "select":           f"player,region,{metric}",
+                f"{metric}":        "not.is.null",
+                "order":            f"{metric}.{order_dir}",
+                "limit":            str(n),
+            },
+            timeout=10,
+        )
+        if DEBUG:
+            st.session_state["sb_topn_status"] = (str(r.status_code), (r.text or "")[:200])
+
+        r.raise_for_status()
+        return r.json()
+    except Exception as e:
+        if DEBUG:
+            st.session_state["sb_topn_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:200])
+        return []
+
+# ---------- unified API ----------
+
+def lb_upsert_player(region, player_name, record: dict):
+    if TOPLIST_BACKEND == "supabase":
+        _sb_upsert(region, player_name, record)
+    else:
+        _session_upsert(region, player_name, record)
+
+def lb_top_n(metric, n=TOP_N, higher_is_better=True):
+    if TOPLIST_BACKEND == "supabase":
+        return _sb_top_n(metric, n, higher_is_better)
+    else:
+        return _session_top_n(metric, n, higher_is_better)
+
 
 # ── Single-player fetch & calculate ───────────────────────────────────────────
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, ttl=300)
 def fetch_and_calculate(player_name, region):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
@@ -108,10 +298,13 @@ def fetch_and_calculate(player_name, region):
     available_regions = list({s["region"].upper() for s in snapshots_all})
     snapshots         = [s for s in snapshots_all if s["region"].upper() == region.upper()]
 
-    # Try to extract current rank from page HTML
     rank_match   = re.search(r'text-2xl text-white">(\d+)<', r.text)
     current_rank = int(rank_match.group(1)) if rank_match else None
-    print("DEBUG rank_match:", rank_match, "| snippet:", repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND")
+    dlog(
+        "DEBUG rank_match:", rank_match,
+        "| snippet:",
+        repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND"
+    )
 
     if not snapshots and available_regions:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
@@ -154,9 +347,7 @@ def normalized_counts(games):
         counts[high] += n // 2 + n % 2
     return counts
 
-
 def norm_to_pct(games):
-    """Return normalized distribution as percentages (sums to 100)."""
     counts = normalized_counts(games)
     total  = sum(counts.values())
     if total == 0:
@@ -168,7 +359,6 @@ def norm_to_pct(games):
 
 @st.cache_data(show_spinner=False, ttl=300)
 def fetch_player_rank(player_name, region):
-    """Returns (rank, games_played) for a player on today's leaderboard."""
     from datetime import timedelta
     for day_offset in [0, -1]:
         today = (date.today() + timedelta(days=day_offset)).isoformat()
@@ -189,13 +379,8 @@ def fetch_player_rank(player_name, region):
             pass
     return None, None
 
-
 @st.cache_data(show_spinner=False, ttl=3600)
 def fetch_neighbor_names(player_rank, region, n=5):
-    """
-    Returns up to n names above and n names below player_rank.
-    Fetches without games_played filter — we check game count after fetching.
-    """
     from datetime import timedelta
     search  = 30
     lo_rank = max(1, player_rank - search)
@@ -268,12 +453,7 @@ def make_chart(games):
     plt.tight_layout(pad=1.2)
     return fig
 
-
 def make_neighbor_chart(all_pcts, names, ranks, player_name, player_rank):
-    """
-    all_pcts : list of {1..8: pct} dicts (one per neighbor)
-    Shows averaged distribution as a bar chart.
-    """
     avg_pcts = {p: np.mean([d[p] for d in all_pcts]) for p in range(1, 9)}
     labels   = [str(p) for p in range(1, 9)]
     values   = [avg_pcts[p] for p in range(1, 9)]
@@ -333,7 +513,6 @@ def weighted_quantile(values, weights, q):
     cum = np.cumsum(weights) / np.sum(weights)
     return float(np.interp(q, cum, values))
 
-
 def binned_weighted_curve(df, x_col, y_col="avg_place", w_col="games",
                           bin_size=500, mode="wquant", q=0.5, min_games=0):
     d = df[[x_col, y_col, w_col]].dropna().copy()
@@ -363,6 +542,46 @@ def binned_weighted_curve(df, x_col, y_col="avg_place", w_col="games",
     ys = np.asarray(ys, float)
     order = np.argsort(xs)
     return xs[order], ys[order], d
+
+@st.cache_data(show_spinner=False)
+def load_rating_curve(csv_path_str, file_mtime, x_choice="current_mmr",
+                      bin_size=1000, mode_kind="wmean", q=0.5, min_games=300):
+    df = pd.read_csv(csv_path_str)
+    bx, by, _ = binned_weighted_curve(
+        df,
+        x_col=x_choice,
+        y_col="avg_place",
+        w_col="games",
+        bin_size=int(bin_size),
+        mode=mode_kind,
+        q=float(q) if mode_kind == "wquant" else 0.5,
+        min_games=int(min_games),
+    )
+    return bx, by
+
+def delta_color(delta):
+    if delta <= -0.16:
+        return "#4a8c5c"
+    elif delta <= -0.05:
+        return "#7ab87a"
+    elif delta < 0.05:
+        return "#d4a843"
+    elif delta <= 0.15:
+        return "#c47a75"
+    else:
+        return "#8c3a2a"
+
+def diff_pct_color(diff):
+    if diff <= -10:
+        return "#8c3a2a"
+    elif diff <= -5:
+        return "#c47a75"
+    elif diff < 5:
+        return "#555"
+    elif diff < 10:
+        return "#7ab87a"
+    else:
+        return "#4a8c5c"
 
 
 # ── Page styling ──────────────────────────────────────────────────────────────
@@ -416,6 +635,20 @@ hr { border-color: #1e1e1e !important; }
 #MainMenu, footer, header { visibility: hidden; }
 h2 a, h1 a, h3 a { display: none !important; }
 
+/* Icon button wrapper (Home arrow) */
+.icon-btn button {
+    background: transparent !important;
+    border: 1px solid #2a2a2a !important;
+    color: #999 !important;
+    padding: 0.15rem 0.45rem !important;
+    border-radius: 6px !important;
+    font-size: 1.0rem !important;
+    line-height: 1.1rem !important;
+}
+.icon-btn button:hover {
+    border-color: #d4a843 !important;
+    color: #d4a843 !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -442,7 +675,87 @@ with tabs[0]:
         st.session_state["sp_games"]  = None
         st.session_state["sp_rank"]   = None
         st.session_state["nb_result"] = None
+        st.rerun()
 
+    # Toplists ONLY on home (no selected player)
+    if ENABLE_SESSION_TOPLISTS and not st.session_state.get("sp_player"):
+        _lb_init()
+        st.markdown("<hr>", unsafe_allow_html=True)
+
+        backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
+        st.markdown(
+            f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Toplists ({backend_label})</p>",
+            unsafe_allow_html=True
+        )
+
+        if st.button("Refresh toplists", use_container_width=True):
+            _cache_bust_toplists()
+            st.rerun()
+
+        if DEBUG:
+            with st.expander("Supabase debug", expanded=False):
+                st.caption(f"TOPLIST_BACKEND={TOPLIST_BACKEND} | SUPABASE_ENABLED={SUPABASE_ENABLED}")
+                st.caption(f"SUPABASE_URL={SUPABASE_URL}")
+                st.caption(f"SUPABASE_KEY length={len(SUPABASE_KEY)}")
+                if "sb_topn_status" in st.session_state:
+                    code, txt = st.session_state["sb_topn_status"]
+                    st.caption(f"TopN fetch: {code} | {txt}")
+
+        def render_list(container, title, items, fmt):
+            HEADER_COLOR = "#8a8a8a"  # neutral-light; used for headings + ranks 4-10
+
+            with container:
+                st.markdown(
+                    f"<div style='color:{HEADER_COLOR};font-size:0.75rem;text-transform:uppercase;"
+                    f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}</div>",
+                    unsafe_allow_html=True
+                )
+                if not items:
+                    st.markdown(
+                        "<div style='color:#444;font-size:0.8rem;padding:0.3rem 0;'>—</div>",
+                        unsafe_allow_html=True
+                    )
+                    return
+
+                for i, r in enumerate(items, 1):
+                    # Default (plats 4-10): same neutral-light as header
+                    row_color = HEADER_COLOR
+                    value_color = HEADER_COLOR
+
+                    # Medaljer för top 3 (hela raden + värdet)
+                    if i == 1:
+                        row_color = value_color = "#d4a843"  # gold
+                    elif i == 2:
+                        row_color = value_color = "#bfc4c8"  # silver
+                    elif i == 3:
+                        row_color = value_color = "#b57a4a"  # bronze
+
+                    st.markdown(
+                        f"<div style='display:flex;justify-content:space-between;"
+                        f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
+                        f"padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
+                        f"<span style='color:{row_color};font-weight:700'>{i}. {r['player']} "
+                        f"<span style='color:#666'>({r['region']})</span></span>"
+                        f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
+
+    cols = st.columns(2)
+
+    lists = [
+        ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%"),
+        ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}"),
+
+        ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}"),
+        ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—"),
+
+        ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}"),
+        ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%"),
+]
+
+for idx, (title, items, fmt) in enumerate(lists):
+    render_list(cols[idx % 2], title, items, fmt)
     sp_player = st.session_state.get("sp_player")
     sp_region = st.session_state.get("sp_region")
 
@@ -453,7 +766,6 @@ with tabs[0]:
                     st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region)
                 except ValueError as e:
                     msg = str(e)
-                    # Auto-retry if we can detect the correct region
                     import re as _re
                     m = _re.search(r"appears to be in: ([A-Z,\s]+)", msg)
                     if m:
@@ -478,7 +790,7 @@ with tabs[0]:
                     st.session_state["sp_games"] = []
 
         games = st.session_state.get("sp_games", [])
-        sp_region = st.session_state.get("sp_region", sp_region)  # update if auto-corrected
+        sp_region = st.session_state.get("sp_region", sp_region)
 
         if games:
             try:
@@ -494,30 +806,90 @@ with tabs[0]:
                 )
                 diff_to_cr = current_mmr - peak_mmr
 
-                def stat(label, value):
+                def stat(label, value, value_color="#eee", label_tip=None):
+                    tip_html = ""
+                    if label_tip:
+                        safe_tip = html.escape(str(label_tip))
+                        tip_html = (
+                            "<span title='" + safe_tip + "' "
+                            "style='color:#444;font-size:0.8rem;margin-left:0.35rem;cursor:help;'>?</span>"
+                        )
                     return (
                         '<div style="background:#161616;border:1px solid #2a2a2a;border-radius:4px;padding:0.6rem 0.8rem;">'
-                        '<div style="color:#555;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem;">' + label + '</div>'
-                        '<div style="color:#eee;font-size:1.1rem;font-weight:600;">' + str(value) + '</div>'
+                        '<div style="color:#555;font-size:0.65rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.3rem;">'
+                        + label + tip_html +
+                        '</div>'
+                        '<div style="color:' + value_color + ';font-size:1.1rem;font-weight:600;">'
+                        + str(value) +
+                        '</div>'
                         '</div>'
                     )
 
-                player_rank_display = st.session_state.get("sp_rank")
-                rank_str = f" <span style='color:#999;font-size:0.8rem;margin-left:0.5rem;'>#{player_rank_display}</span>" if player_rank_display else ""
-                st.markdown(
-                    "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
-                    + sp_player
-                    + " <span style='color:#d4a843;font-size:0.8rem;margin-left:0.5rem;'>" + sp_region + "</span>"
-                    + rank_str + "</p>",
-                    unsafe_allow_html=True
-                )
+                expected_avg = None
+                delta = None
+                curve_csv = get_csv_for_region(sp_region)
+
+                if curve_csv.exists():
+                    try:
+                        mtime = curve_csv.stat().st_mtime
+                        bx, by = load_rating_curve(
+                            str(curve_csv),
+                            mtime,
+                            x_choice="current_mmr",
+                            bin_size=1000,
+                            mode_kind="wmean",
+                            min_games=300,
+                        )
+                        if len(bx) >= 2:
+                            expected_avg = interp_with_extrap(current_mmr, bx, by)
+                            expected_avg = float(np.clip(expected_avg, 1.0, 8.0))
+                            delta = float(avg - expected_avg)
+                    except Exception:
+                        pass
+
+                avg_color = "#eee"
+                avg_tip = None
+                if expected_avg is not None and delta is not None:
+                    avg_color = delta_color(delta)
+                    sign = "+" if delta >= 0 else ""
+                    avg_tip = (
+                        f"Curve file: {curve_csv.name} | "
+                        f"Expected at CR {current_mmr:,}: {expected_avg:.2f} | "
+                        f"Δ: {sign}{delta:.2f} (avg - expected)"
+                    )
+
+                # Header row: [←] player [region] [#rank]
+                hL, hR = st.columns([0.7, 9.3], vertical_alignment="center")
+
+                with hL:
+                    st.markdown("<div class='icon-btn'>", unsafe_allow_html=True)
+                    if st.button("←", key="home_btn_icon", use_container_width=True):
+                        go_home()
+                        st.rerun()
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                with hR:
+                    player_rank_display = st.session_state.get("sp_rank")
+                    rank_str = (
+                        f" <span style='color:#999;font-size:0.8rem;margin-left:0.5rem;'>#{player_rank_display}</span>"
+                        if player_rank_display else ""
+                    )
+                    st.markdown(
+                        "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
+                        + sp_player
+                        + " <span style='color:#d4a843;font-size:0.8rem;margin-left:0.5rem;'>" + sp_region + "</span>"
+                        + rank_str
+                        + "</p>",
+                        unsafe_allow_html=True
+                    )
 
                 c1, c2, c3, c4, c5 = st.columns(5)
-                c1.markdown(stat("Games",     str(total)),                                    unsafe_allow_html=True)
-                c2.markdown(stat("Avg Place", f"{avg:.2f}"),                                  unsafe_allow_html=True)
-                c3.markdown(stat("1st",       f"{wins} ({wins/total*100:.0f}%)"),             unsafe_allow_html=True)
-                c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),             unsafe_allow_html=True)
-                c5.markdown(stat("CR",        f"{current_mmr:,}"),                            unsafe_allow_html=True)
+                c1.markdown(stat("Games",     str(total)),                                              unsafe_allow_html=True)
+                c2.markdown(stat("Avg Place", f"{avg:.2f}", value_color=avg_color, label_tip=avg_tip),  unsafe_allow_html=True)
+                c3.markdown(stat("1st",       f"{wins} ({wins/total*100:.0f}%)"),                       unsafe_allow_html=True)
+                c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),                       unsafe_allow_html=True)
+                c5.markdown(stat("CR",        f"{current_mmr:,}"),                                      unsafe_allow_html=True)
+
                 peak_time_raw = max(games, key=lambda g: g["mmr_after"])["time"]
                 try:
                     peak_time_dt  = datetime.fromisoformat(peak_time_raw)
@@ -528,13 +900,11 @@ with tabs[0]:
                     "<div title='Peak date: " + peak_time_str + "' style='margin-top:0.45rem;color:#777;font-size:0.85rem;'>Peak: "
                     "<span style='color:#aaa;font-weight:600;'>" + f"{peak_mmr:,}" + "</span> "
                     "<span style='color:#666;'>(" + f"{diff_to_cr:+,}" + ")</span></div>",
-
                     unsafe_allow_html=True
                 )
 
                 st.pyplot(make_chart(games))
 
-                # Tilt factor — avg placement in next 5 games after a 7 or 8, no overlapping windows
                 placements  = [round(g["placement"]) for g in games]
                 after_bot2  = []
                 skip_until  = 0
@@ -546,7 +916,6 @@ with tabs[0]:
                         after_bot2.extend(window)
                         skip_until = i + 4
 
-                # Hot streak + Roach streak
                 longest_streak, streak = 0, 0
                 for g in games:
                     streak = streak + 1 if round(g["placement"]) == 1 else 0
@@ -573,11 +942,13 @@ with tabs[0]:
                     unsafe_allow_html=True
                 )
 
-                # Tilt factor + form (same row, below streak)
+                tilt_factor_val = None
                 if len(after_bot2) >= 3:
                     after_avg  = sum(after_bot2) / len(after_bot2)
                     factor     = after_avg / avg if avg > 0 else 1.0
                     factor     = 1 + (factor - 1) * 2
+                    tilt_factor_val = float(factor)
+
                     tilt_color = (
                         "#8c3a2a" if factor >= 1.15
                         else "#c47a75" if factor >= 1.06
@@ -623,6 +994,32 @@ with tabs[0]:
                         unsafe_allow_html=True
                     )
 
+                if ENABLE_SESSION_TOPLISTS:
+                    first_pct = wins / total * 100 if total else 0.0
+                    top4_pct  = top4 / total * 100 if total else 0.0
+                    lb_upsert_player(
+                        sp_region,
+                        sp_player,
+                        {
+                            "games":        int(total),
+                            "hot_streak":   int(longest_streak),
+                            "roach_streak": int(longest_roach),
+                            "first_pct":    float(first_pct),
+                            "top4_pct":     float(top4_pct),
+                            "tilt_factor":  float(tilt_factor_val) if tilt_factor_val is not None else None,
+                            "avg_place":    float(avg),
+                            "cr":           int(current_mmr),
+                            "updated_at":   datetime.utcnow().isoformat() + "Z",
+                        }
+                    )
+
+                if DEBUG:
+                    with st.expander("Supabase upsert debug", expanded=False):
+                        st.caption(f"TOPLIST_BACKEND={TOPLIST_BACKEND} | SUPABASE_ENABLED={SUPABASE_ENABLED}")
+                        if "sb_upsert_status" in st.session_state:
+                            code, txt = st.session_state["sb_upsert_status"]
+                            st.caption(f"Upsert: {code} | {txt}")
+
                 with st.expander("View as table"):
                     rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]
                     st.table(rows)
@@ -646,7 +1043,7 @@ with tabs[0]:
                         all_ranks = ranks_above + ranks_below
 
                         if not all_names:
-                            st.session_state["nb_result"] = {"error": f"No neighbors found with {MIN_GAMES_NEIGHBOR}+ games nearby."}
+                            st.session_state["nb_result"] = {"error": "No neighbors found nearby."}
                         else:
                             all_pcts = []
                             failed   = []
@@ -670,13 +1067,16 @@ with tabs[0]:
                             progress.empty()
                             status.empty()
 
-                            st.session_state["nb_result"] = {
-                                "pcts":        all_pcts,
-                                "names":       all_names,
-                                "ranks":       all_ranks,
-                                "failed":      failed,
-                                "player_rank": player_rank,
-                            }
+                            if not all_pcts:
+                                st.session_state["nb_result"] = {"error": f"No neighbors had {MIN_GAMES_NEIGHBOR}+ games to compare."}
+                            else:
+                                st.session_state["nb_result"] = {
+                                    "pcts":        all_pcts,
+                                    "names":       all_names,
+                                    "ranks":       all_ranks,
+                                    "failed":      failed,
+                                    "player_rank": player_rank,
+                                }
 
                 nb = st.session_state.get("nb_result")
                 if nb:
@@ -692,14 +1092,13 @@ with tabs[0]:
                         )
                         st.pyplot(make_neighbor_chart(nb["pcts"], nb["names"], nb["ranks"], sp_player, nb["player_rank"]))
 
-                        # Horizontal diff row
                         player_pct = norm_to_pct(games)
                         avg_pct    = {p: sum(d[p] for d in nb["pcts"]) / len(nb["pcts"]) for p in range(1, 9)}
 
                         cells = ""
                         for p in range(1, 9):
                             diff  = player_pct[p] - avg_pct[p]
-                            color = "#4a8c5c" if diff > 0.5 else "#8c3a2a" if diff < -0.5 else "#555"
+                            color = diff_pct_color(diff)
                             cells += (
                                 f"<div style='text-align:center;flex:1;'>"
                                 f"<div style='color:#444;font-size:0.65rem;margin-bottom:0.2rem;'>{p}</div>"
@@ -721,13 +1120,22 @@ with tabs[0]:
     elif submitted:
         st.warning("Enter a player name.")
 
+
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
 
 with tabs[1]:
-    csv_path = Path(__file__).parent / DEFAULT_CSV_NAME
+    rr = st.selectbox("Curve region (CSV)", ["EU", "NA", "AP", "CN", "Fallback export.csv"], index=0)
+
+    if rr == "Fallback export.csv":
+        csv_path = Path(__file__).parent / DEFAULT_CSV_NAME
+    else:
+        csv_path = get_csv_for_region(rr)
 
     if not csv_path.exists():
-        st.error(f"Can't find CSV: {csv_path}\n\nPut your export CSV next to wallii_app.py and name it {DEFAULT_CSV_NAME}.")
+        st.error(
+            f"Can't find CSV: {csv_path}\n\n"
+            f"Put it next to this file. Expected columns: lb_mmr, current_mmr, avg_place, games."
+        )
         st.stop()
 
     df = pd.read_csv(csv_path)
@@ -744,9 +1152,9 @@ with tabs[1]:
     with c2:
         bin_size = st.select_slider("Bin size", options=[250, 500, 750, 1000], value=1000)
     with c3:
-        max_games       = int(pd.to_numeric(df["games"], errors="coerce").max() or 0)
+        max_games         = int(pd.to_numeric(df["games"], errors="coerce").max() or 0)
         default_min_games = 300 if max_games >= 300 else max_games
-        min_games       = st.slider("Min games", min_value=0, max_value=max_games, value=default_min_games, step=50)
+        min_games         = st.slider("Min games", min_value=0, max_value=max_games, value=default_min_games, step=50)
 
     mode = st.selectbox(
         "Curve",
@@ -779,19 +1187,21 @@ with tabs[1]:
 
     st.markdown(
         "<div style='color:#666;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
-        f"Estimate Avg Place at {x_choice}</div>",
+        f"Estimate Avg Place at {x_choice}  ·  using {csv_path.name}</div>",
         unsafe_allow_html=True
     )
 
     q_mmr = st.number_input(
         label="MMR",
-        min_value=float(np.min(bx)),
-        max_value=float(np.max(bx)),
+        min_value=float(np.min(bx)) - 5000.0,
+        max_value=float(np.max(bx)) + 5000.0,
         value=float(np.percentile(bx, 75)),
         step=100.0,
         label_visibility="collapsed",
     )
-    est = float(np.interp(float(q_mmr), bx, by))
+
+    est = interp_with_extrap(q_mmr, bx, by)
+    est = float(np.clip(est, 1.0, 8.0))
 
     st.markdown(
         f"<div style='margin-top:0.35rem;margin-bottom:0.8rem;'>"
@@ -809,5 +1219,3 @@ with tabs[1]:
     ax.set_ylabel("Avg Place")
     style_dark_axes(ax)
     st.pyplot(fig)
-
-# streamlit run wa2_app.py

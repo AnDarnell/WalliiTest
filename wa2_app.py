@@ -883,11 +883,11 @@ with tabs[0]:
             lists = [
                 ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
                 ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
+                ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
                 ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
                 ("Lowest tilt factor",  lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)"),
                 ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)"),
                 ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season."),
-                ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
             ]
 
             for idx, (title, items, fmt, tip) in enumerate(lists):

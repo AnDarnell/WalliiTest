@@ -144,6 +144,17 @@ def go_home():
     st.session_state.pop("sp_rank", None)
     st.session_state.pop("nb_result", None)
 
+# ── Query-param navigation (from leaderboard name links) ─────────────────────
+_qp = st.query_params
+if "goto_player" in _qp:
+    st.session_state["sp_player"] = _qp["goto_player"].lower()
+    st.session_state["sp_region"] = _qp.get("goto_region", "EU")
+    st.session_state.pop("sp_games", None)
+    st.session_state.pop("sp_rank", None)
+    st.session_state.pop("nb_result", None)
+    st.query_params.clear()
+    st.rerun()
+
 
 # ── Toplists — session or Supabase ────────────────────────────────────────────
 
@@ -704,7 +715,23 @@ html, body, [class*="css"] { font-family: 'Georgia', serif; }
 .stTable td { color: #bbb !important; }
 hr { border-color: #1e1e1e !important; }
 #MainMenu, footer, header { visibility: hidden; }
-h2 a, h1 a, h3 a { display: none !important; }
+h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !important; }
+
+/* Show-more toggle */
+.lb-show-more button {
+    background: transparent !important;
+    border: none !important;
+    color: #444 !important;
+    font-size: 0.72rem !important;
+    padding: 0.05rem 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}
+.lb-show-more button:hover { color: #888 !important; }
 
 /* Icon button wrapper (Home arrow) */
 .icon-btn button {
@@ -723,7 +750,7 @@ h2 a, h1 a, h3 a { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'>Placement Statistics</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'><a href='/' style='color:inherit;text-decoration:none;' onmouseover=\"this.style.opacity='0.7'\" onmouseout=\"this.style.opacity='1'\">Placement Statistics</a></h2>", unsafe_allow_html=True)
 st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</p>", unsafe_allow_html=True)
 
 tabs = st.tabs(["Single player", "RatingAvg"])
@@ -753,12 +780,20 @@ with tabs[0]:
 
     # ── Render-funktion för topplistor ────────────────────────────────────────
 
-    def render_list(container, title, items, fmt):
+    def render_list(container, title, items, fmt, tooltip=None):
         HEADER_COLOR = "#8a8a8a"
 
+        tip_html = ""
+        if tooltip:
+            safe_tip = html.escape(str(tooltip))
+            tip_html = (
+                f"<span title='{safe_tip}' "
+                f"style='color:#444;font-size:0.8rem;margin-left:0.35rem;cursor:help;'>?</span>"
+            )
+
         container.markdown(
-            f"<div style='color:{HEADER_COLOR};font-size:0.75rem;text-transform:uppercase;"
-            f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}</div>",
+            f"<div style='color:{HEADER_COLOR};font-size:0.85rem;text-transform:uppercase;"
+            f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}{tip_html}</div>",
             unsafe_allow_html=True
         )
 
@@ -777,12 +812,18 @@ with tabs[0]:
                 row_color = value_color = "#bfc4c8"
             elif i == 3:
                 row_color = value_color = "#b57a4a"
+            player = r['player']
+            region = r.get('region', '')
+            link   = f"?goto_player={html.escape(player)}&goto_region={html.escape(region)}"
             return (
                 "<div style='display:flex;justify-content:space-between;"
                 "border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
                 "padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
-                f"<span style='color:{row_color};font-weight:700'>{i}. {r['player']} "
-                f"<span style='color:#666'>({r['region']})</span></span>"
+                f"<span style='color:{row_color};font-weight:700'>{i}. "
+                f"<a href='{link}' style='color:inherit;text-decoration:none;' "
+                f"onmouseover=\"this.style.textDecoration='underline'\" "
+                f"onmouseout=\"this.style.textDecoration='none'\">{player}</a> "
+                f"<span style='color:#666'>({region})</span></span>"
                 f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
                 "</div>"
             )
@@ -791,11 +832,23 @@ with tabs[0]:
         for i, r in enumerate(items[:5], 1):
             container.markdown(row_html(i, r), unsafe_allow_html=True)
 
-        # 6–10 i expander
+        # 6–10 som inline-toggle utan expander-box
         if len(items) > 5:
-            with container.expander("Show more", expanded=False):
+            expand_key = f"lb_expanded_{title}"
+            if expand_key not in st.session_state:
+                st.session_state[expand_key] = False
+            expanded = st.session_state[expand_key]
+
+            if expanded:
                 for i, r in enumerate(items[5:10], 6):
-                    st.markdown(row_html(i, r), unsafe_allow_html=True)
+                    container.markdown(row_html(i, r), unsafe_allow_html=True)
+
+            toggle_label = "▲ Show less" if expanded else "▼ Show more"
+            container.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
+            if container.button(toggle_label, key=f"lb_toggle_{title}"):
+                st.session_state[expand_key] = not expanded
+                st.rerun()
+            container.markdown("</div>", unsafe_allow_html=True)
 
     # ── Visa antingen topplistor ELLER spelarsida ─────────────────────────────
 
@@ -814,10 +867,6 @@ with tabs[0]:
                 unsafe_allow_html=True
             )
 
-            if st.button("Refresh toplists", use_container_width=True):
-                _cache_bust_toplists()
-                st.rerun()
-
             if DEBUG:
                 with st.expander("Supabase debug", expanded=False):
                     st.caption(f"TOPLIST_BACKEND={TOPLIST_BACKEND} | SUPABASE_ENABLED={SUPABASE_ENABLED}")
@@ -830,16 +879,20 @@ with tabs[0]:
             cols = st.columns(2)
 
             lists = [
-                ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%"),
-                ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}"),
-                ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}"),
-                ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—"),
-                ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}"),
-                ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%"),
+                ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
+                ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive streak of 1st placement."),
+                ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
+                ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)"),
+                ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season."),
+                ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
             ]
 
-            for idx, (title, items, fmt) in enumerate(lists):
-                render_list(cols[idx % 2], title, items, fmt)
+            for idx, (title, items, fmt, tip) in enumerate(lists):
+                render_list(cols[idx % 2], title, items, fmt, tooltip=tip)
+
+            if st.button("Refresh toplists", use_container_width=True):
+                _cache_bust_toplists()
+                st.rerun()
 
     else:
         # ── Spelarsida ────────────────────────────────────────────────────────

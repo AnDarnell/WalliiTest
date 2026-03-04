@@ -1007,7 +1007,7 @@ with tabs[0]:
                                 pass
                 threading.Thread(target=_prefetch, daemon=True).start()
 
-            with st.expander("Admin stuff UHM"):
+            with st.expander("Secret stuff"):
                 pwd = st.text_input("Password", type="password", key="admin_pwd")
                 if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
                     st.caption("Fetches all players in the leaderboard and recalculates their stats.")

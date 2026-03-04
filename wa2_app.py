@@ -863,7 +863,7 @@ with tabs[0]:
 
             backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
             st.markdown(
-                f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Toplists ({backend_label})</p>",
+                f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Leaderboards ({backend_label})</p>",
                 unsafe_allow_html=True
             )
 
@@ -880,7 +880,7 @@ with tabs[0]:
 
             lists = [
                 ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
-                ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive streak of 1st placement."),
+                ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
                 ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
                 ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)"),
                 ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season."),
@@ -890,7 +890,7 @@ with tabs[0]:
             for idx, (title, items, fmt, tip) in enumerate(lists):
                 render_list(cols[idx % 2], title, items, fmt, tooltip=tip)
 
-            if st.button("Refresh toplists", use_container_width=True):
+            if st.button("Refresh leaderboards", use_container_width=True):
                 _cache_bust_toplists()
                 st.rerun()
 
@@ -989,9 +989,9 @@ with tabs[0]:
                     avg_color = delta_color(delta)
                     sign = "+" if delta >= 0 else ""
                     avg_tip = (
-                        f"Curve file: {curve_csv.name} | "
-                        f"Expected at CR {current_mmr:,}: {expected_avg:.2f} | "
-                        f"Δ: {sign}{delta:.2f} (avg - expected)"
+                        f"Expected at CR: {current_mmr:,}: {expected_avg:.2f} | "
+                        f"Δ: {sign}{delta:.2f} (Avg - Expected) | "
+                        f"Curve file: {curve_csv.name}"
                     )
 
                 # Header row: [←] player [region] [#rank]
@@ -1065,14 +1065,14 @@ with tabs[0]:
                 roach_html = (
                     f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Roach streak"
                     f"<span style='color:#4a8c5c;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_roach}</span>"
-                    f"<span title='Longest streak of top 4 placements' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"<span title='Longest consecutive streak of Top 4 place finishes.' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                     f"</span>"
                 )
 
                 st.markdown(
                     f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Hot streak"
                     f"<span style='color:#d4a843;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_streak}</span>"
-                    f"<span title='Longest streak of 1st places' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"<span title='Longest consecutive streak of 1st placement.' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                     f"{roach_html}"
                     f"</div>",
                     unsafe_allow_html=True
@@ -1092,7 +1092,7 @@ with tabs[0]:
                         else "#7ab87a" if factor >= 0.90
                         else "#4a8c5c"
                     )
-                    tooltip       = f"Avg next 3 after 7-8: {after_avg:.2f} / overall avg: {avg:.2f}"
+                    tooltip       = f"Comparison of performance following a 7th/8th and overall performance. (Lower = better) 1 + (({after_avg:.2f} / {avg:.2f}) - 1) * 2."
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
                     asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""
@@ -1254,9 +1254,11 @@ with tabs[0]:
 
 
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
+with tabs[1]:
+    st.info("Ignore this, just backend stuff in the frontend (debug/test). Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace).")
 
 with tabs[1]:
-    rr = st.selectbox("Curve region (CSV)", ["EU", "NA", "AP", "CN", "Fallback export.csv"], index=0)
+    rr = st.selectbox("Curve region (CSV)", ["EU"], index=0)
 
     if rr == "Fallback export.csv":
         csv_path = Path(__file__).parent / DEFAULT_CSV_NAME

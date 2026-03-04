@@ -268,6 +268,7 @@ def _sb_fetch_all():
             st.session_state["sb_topn_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:200])
         return []
 
+@st.cache_data(show_spinner=False, ttl=60)
 def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
     rows = [r for r in _sb_fetch_all() if r.get(metric) is not None]
     rows.sort(key=lambda r: r[metric], reverse=higher_is_better)
@@ -1380,7 +1381,7 @@ with tabs[0]:
                         .encode(
                             x="Game:Q",
                             y="MMR:Q",
-                            opacity=alt.condition(nearest, alt.value(1), alt.value(0)),
+                            opacity=alt.condition(nearest, alt.value(1), alt.value(0.15)),
                             tooltip=[alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("MMR:Q", title="MMR"), alt.Tooltip("Date:N", title="Date")],
                         )
                         .add_params(nearest)
@@ -1610,3 +1611,6 @@ with tabs[1]:
     ax.set_ylabel("Avg Place")
     style_dark_axes(ax)
     st.pyplot(fig)
+
+    # streamlit run wa2_app.py
+    # streamlit run wa2_app.py --server.runOnSave true (auto-reload on save)

@@ -206,7 +206,11 @@ def _sb_upsert(region, player_name, record: dict):
         "top4_pct":     record.get("top4_pct"),
         "tilt_factor":  record.get("tilt_factor"),
         "avg_place":    record.get("avg_place"),
-        "cr":           record.get("cr"),
+        "form_diff":    record.get("form_diff"),
+        "max_drawdown": record.get("max_drawdown"),
+        "dd_detail":      record.get("dd_detail"),
+        "first_10k_date": record.get("first_10k_date"),
+        "cr":             record.get("cr"),
         "updated_at":   datetime.utcnow().isoformat() + "Z",
     }
 
@@ -241,34 +245,33 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
+_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,max_drawdown,dd_detail,first_10k_date,cr"
+
 @st.cache_data(show_spinner=False, ttl=60)
-def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
+def _sb_fetch_all():
     if not SUPABASE_ENABLED:
         return []
-
-    order_dir = "desc" if higher_is_better else "asc"
     try:
         url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}"
         r = requests.get(
             url,
             headers=SUPABASE_HEADERS,
-            params={
-                "select":           f"player,region,{metric}",
-                f"{metric}":        "not.is.null",
-                "order":            f"{metric}.{order_dir}",
-                "limit":            str(n),
-            },
+            params={"select": _ALL_FIELDS, "limit": "500"},
             timeout=10,
         )
         if DEBUG:
             st.session_state["sb_topn_status"] = (str(r.status_code), (r.text or "")[:200])
-
         r.raise_for_status()
         return r.json()
     except Exception as e:
         if DEBUG:
             st.session_state["sb_topn_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:200])
         return []
+
+def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
+    rows = [r for r in _sb_fetch_all() if r.get(metric) is not None]
+    rows.sort(key=lambda r: r[metric], reverse=higher_is_better)
+    return rows[:n]
 
 # ---------- unified API ----------
 
@@ -277,6 +280,86 @@ def lb_upsert_player(region, player_name, record: dict):
         _sb_upsert(region, player_name, record)
     else:
         _session_upsert(region, player_name, record)
+
+def compute_and_upsert(player_name, region, games):
+    if not games or len(games) < 50:
+        return
+    norm  = normalized_counts(games)
+    total = len(games)
+    avg   = sum(g["placement"] for g in games) / total
+    wins  = norm[1]
+    top4  = sum(norm[p] for p in [1, 2, 3, 4])
+    current_mmr = games[-1]["mmr_after"]
+
+    longest_streak, streak = 0, 0
+    for g in games:
+        streak = streak + 1 if round(g["placement"]) == 1 else 0
+        longest_streak = max(longest_streak, streak)
+
+    longest_roach, roach = 0, 0
+    for g in games:
+        roach = roach + 1 if round(g["placement"]) <= 4 else 0
+        longest_roach = max(longest_roach, roach)
+
+    placements = [round(g["placement"]) for g in games]
+    after_bot2, skip_until = [], 0
+    for i, p in enumerate(placements):
+        if i < skip_until:
+            continue
+        if p >= 7:
+            after_bot2.extend(placements[i+1 : i+4])
+            skip_until = i + 4
+
+    tilt_factor_val = None
+    if len(after_bot2) >= 3:
+        after_avg = sum(after_bot2) / len(after_bot2)
+        tilt_factor_val = float(1 + ((after_avg / avg) - 1) * 2) if avg > 0 else None
+
+    form_diff = None
+    if total >= 60:
+        recent_avg = sum(g["placement"] for g in games[-50:]) / 50
+        form_diff = recent_avg - avg
+
+    max_dd = 0
+    peak_so_far = games[0]["mmr_after"]
+    peak_so_far_game = games[0]
+    dd_peak_game = games[0]
+    dd_trough_game = games[0]
+    for g in games:
+        if g["mmr_after"] > peak_so_far:
+            peak_so_far = g["mmr_after"]
+            peak_so_far_game = g
+        dd = peak_so_far - g["mmr_after"]
+        if dd > max_dd:
+            max_dd = dd
+            dd_peak_game = peak_so_far_game
+            dd_trough_game = g
+    dd_detail = (
+        f"{dd_peak_game['mmr_after']:,} → {dd_trough_game['mmr_after']:,} "
+        f"({dd_peak_game['time'][:10]} – {dd_trough_game['time'][:10]})"
+    )
+
+    first_10k_date = None
+    for g in games:
+        if g["mmr_after"] >= 10000:
+            first_10k_date = g["time"]
+            break
+
+    lb_upsert_player(region, player_name, {
+        "games":          int(total),
+        "hot_streak":     int(longest_streak),
+        "roach_streak":   int(longest_roach),
+        "first_pct":      float(wins / total * 100),
+        "top4_pct":       float(top4 / total * 100),
+        "tilt_factor":    tilt_factor_val,
+        "avg_place":      float(avg),
+        "form_diff":      float(form_diff) if form_diff is not None else None,
+        "max_drawdown":   int(max_dd),
+        "dd_detail":      dd_detail,
+        "first_10k_date": first_10k_date,
+        "cr":             int(current_mmr),
+        "updated_at":     datetime.utcnow().isoformat() + "Z",
+    })
 
 def lb_top_n(metric, n=TOP_N, higher_is_better=True):
     if TOPLIST_BACKEND == "supabase":
@@ -658,9 +741,9 @@ def delta_color(delta):
 def diff_pct_color(diff):
     if diff <= -10:
         return "#8c3a2a"
-    elif diff <= -2:
+    elif diff < 0:
         return "#c47a75"
-    elif diff < 2:
+    elif diff == 0:
         return "#555"
     elif diff < 10:
         return "#7ab87a"
@@ -782,7 +865,7 @@ with tabs[0]:
 
     # ── Render-funktion för topplistor ────────────────────────────────────────
 
-    def render_list(container, title, items, fmt, tooltip=None):
+    def render_list(container, title, items, fmt, tooltip=None, asterisk_tip=None):
         HEADER_COLOR = "#8a8a8a"
 
         tip_html = ""
@@ -793,9 +876,17 @@ with tabs[0]:
                 f"style='color:#444;font-size:0.8rem;margin-left:0.35rem;cursor:help;'>?</span>"
             )
 
+        asterisk_html = ""
+        if asterisk_tip:
+            safe_ast = html.escape(str(asterisk_tip))
+            asterisk_html = (
+                f"<span title='{safe_ast}' "
+                f"style='color:#666;font-size:0.75rem;margin-left:0.2rem;cursor:help;'>*</span>"
+            )
+
         container.markdown(
             f"<div style='color:{HEADER_COLOR};font-size:0.85rem;text-transform:uppercase;"
-            f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}{tip_html}</div>",
+            f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>{title}{asterisk_html}{tip_html}</div>",
             unsafe_allow_html=True
         )
 
@@ -822,7 +913,7 @@ with tabs[0]:
                 "border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
                 "padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
                 f"<span style='color:{row_color};font-weight:700'>{i}. "
-                f"<a href='{link}' style='color:inherit;text-decoration:none;' "
+                f"<a href='{link}' target='_self' style='color:inherit;text-decoration:none;' "
                 f"onmouseover=\"this.style.textDecoration='underline'\" "
                 f"onmouseout=\"this.style.textDecoration='none'\">{player}</a> "
                 f"<span style='color:#666'>({region})</span></span>"
@@ -885,17 +976,65 @@ with tabs[0]:
                 ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
                 ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
                 ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
-                ("Lowest tilt factor",  lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)"),
-                ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)"),
-                ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season."),
+                ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
+                ("Largest MMR drop",   lb_top_n("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
+                ("Lowest tilt factor",  lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Can be affected by low sample size for high MMR players"),
+                ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Can be affected by low sample size for high MMR players"),
+                ("Best form",          lb_top_n("form_diff",    higher_is_better=False),  lambda r: f"{r['form_diff']:+.2f}" if r.get("form_diff") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
+                ("First to 10k",       lb_top_n("first_10k_date", higher_is_better=False), lambda r: datetime.fromisoformat(r["first_10k_date"].replace("Z", "+00:00")).strftime("%b %d").replace(" 0", " ") if r.get("first_10k_date") else "—", "Date when the player first reached 10,000 MMR."),
+
             ]
 
-            for idx, (title, items, fmt, tip) in enumerate(lists):
-                render_list(cols[idx % 2], title, items, fmt, tooltip=tip)
+            for idx, (title, items, fmt, tip, *rest) in enumerate(lists):
+                render_list(cols[idx % 2], title, items, fmt, tooltip=tip, asterisk_tip=rest[0] if rest else None)
 
             if st.button("Refresh leaderboards", use_container_width=True):
                 _cache_bust_toplists()
                 st.rerun()
+
+            if "prefetch_done" not in st.session_state:
+                st.session_state["prefetch_done"] = True
+                import threading
+                def _prefetch():
+                    seen = set()
+                    for row in _sb_fetch_all():
+                        key = (row["player"], row.get("region", "EU"))
+                        if key not in seen:
+                            seen.add(key)
+                            try:
+                                fetch_and_calculate(key[0], key[1])
+                            except Exception:
+                                pass
+                threading.Thread(target=_prefetch, daemon=True).start()
+
+            with st.expander("Admin"):
+                pwd = st.text_input("Password", type="password", key="admin_pwd")
+                if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
+                    st.caption("Fetches all players in the leaderboard and recalculates their stats.")
+                    if st.button("Refresh all players", use_container_width=True):
+                        try:
+                            url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}"
+                            resp = requests.get(url, headers=SUPABASE_HEADERS, params={"select": "player,region", "limit": "500"}, timeout=10)
+                            resp.raise_for_status()
+                            all_players = resp.json()
+                        except Exception as e:
+                            st.error(f"Could not fetch player list: {e}")
+                            all_players = []
+                        if all_players:
+                            bar = st.progress(0, text="Starting...")
+                            for i, row in enumerate(all_players):
+                                name, region = row["player"], row["region"]
+                                bar.progress((i + 1) / len(all_players), text=f"({i+1}/{len(all_players)}) {name} [{region}]")
+                                try:
+                                    fetch_and_calculate.clear()
+                                    games_r, _, _ = fetch_and_calculate(name, region)
+                                    compute_and_upsert(name, region, games_r)
+                                except Exception:
+                                    pass
+                            bar.progress(1.0, text="Done!")
+                            st.success(f"Done! {len(all_players)} players refreshed.")
+                elif pwd:
+                    st.caption("Wrong password.")
 
     else:
         # ── Spelarsida ────────────────────────────────────────────────────────
@@ -1029,6 +1168,21 @@ with tabs[0]:
                 c4.markdown(stat("Top 4",     f"{top4} ({top4/total*100:.0f}%)"),                       unsafe_allow_html=True)
                 c5.markdown(stat("CR",        f"{current_mmr:,}"),                                      unsafe_allow_html=True)
 
+                max_dd = 0
+                peak_so_far = games[0]["mmr_after"]
+                peak_so_far_game = games[0]
+                dd_peak_game = games[0]
+                dd_trough_game = games[0]
+                for g in games:
+                    if g["mmr_after"] > peak_so_far:
+                        peak_so_far = g["mmr_after"]
+                        peak_so_far_game = g
+                    dd = peak_so_far - g["mmr_after"]
+                    if dd > max_dd:
+                        max_dd = dd
+                        dd_peak_game = peak_so_far_game
+                        dd_trough_game = g
+
                 peak_time_raw = max(games, key=lambda g: g["mmr_after"])["time"]
                 try:
                     peak_time_dt  = datetime.fromisoformat(peak_time_raw)
@@ -1039,6 +1193,15 @@ with tabs[0]:
                     "<div title='Peak date: " + peak_time_str + "' style='margin-top:0.45rem;color:#777;font-size:0.85rem;'>Peak: "
                     "<span style='color:#aaa;font-weight:600;'>" + f"{peak_mmr:,}" + "</span> "
                     "<span style='color:#666;'>(" + f"{diff_to_cr:+,}" + ")</span></div>",
+                    unsafe_allow_html=True
+                )
+                dd_tip = (
+                    f"{dd_peak_game['mmr_after']:,} → {dd_trough_game['mmr_after']:,} "
+                    f"({dd_peak_game['time'][:10]} – {dd_trough_game['time'][:10]})"
+                )
+                c5.markdown(
+                    "<div title='" + dd_tip + "' style='margin-top:0.2rem;color:#777;font-size:0.85rem;cursor:help;'>Max MMR drop: "
+                    "<span style='color:#c07070;font-weight:600;'>-" + f"{max_dd:,}" + "</span></div>",
                     unsafe_allow_html=True
                 )
 
@@ -1157,7 +1320,11 @@ with tabs[0]:
                             "top4_pct":     float(top4_pct),
                             "tilt_factor":  float(tilt_factor_val) if tilt_factor_val is not None else None,
                             "avg_place":    float(avg),
-                            "cr":           int(current_mmr),
+                            "form_diff":    float(form_diff) if total >= 60 else None,
+                            "max_drawdown":   int(max_dd),
+                            "dd_detail":      dd_tip,
+                            "first_10k_date": next((g["time"] for g in games if g["mmr_after"] >= 10000), None),
+                            "cr":             int(current_mmr),
                             "updated_at":   datetime.utcnow().isoformat() + "Z",
                         }
                     )
@@ -1168,6 +1335,82 @@ with tabs[0]:
                         if "sb_upsert_status" in st.session_state:
                             code, txt = st.session_state["sb_upsert_status"]
                             st.caption(f"Upsert: {code} | {txt}")
+
+                import altair as alt
+                import pandas as pd
+                from datetime import timezone as _tz
+                period = st.radio("Period", ["Season", "Week", "Day"], horizontal=True, label_visibility="collapsed", key="rg_period")
+                now = datetime.now(_tz.utc)
+                cutoff = {"Season": None, "Week": now - __import__("datetime").timedelta(days=7), "Day": now - __import__("datetime").timedelta(days=1)}[period]
+                filtered = [
+                    g for g in games
+                    if cutoff is None or datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= cutoff
+                ]
+                if not filtered:
+                    st.caption("No games in this period.")
+                else:
+                    df_mmr = pd.DataFrame([
+                        {"Game": i + 1, "MMR": g["mmr_after"], "Date": g["time"][:10]}
+                        for i, g in enumerate(filtered)
+                    ])
+                    peak_idx = df_mmr["MMR"].idxmax()
+                    df_peak = df_mmr.loc[[peak_idx]]
+
+                    milestone_rows = []
+                    crossed = set()
+                    for i, g in enumerate(filtered):
+                        threshold = (g["mmr_after"] // 1000) * 1000
+                        if g["mmr_before"] < threshold <= g["mmr_after"] and threshold not in crossed:
+                            crossed.add(threshold)
+                            milestone_rows.append({"Game": i + 1, "MMR": g["mmr_after"], "Milestone": f"{threshold:,}", "Date": g["time"][:10]})
+                    df_milestones = pd.DataFrame(milestone_rows) if milestone_rows else pd.DataFrame(columns=["Game", "MMR", "Milestone", "Date"])
+
+                    nearest = alt.selection_point(nearest=True, on="mouseover", encodings=["x"], empty=False)
+                    line = (
+                        alt.Chart(df_mmr)
+                        .mark_line(color="#7ab87a")
+                        .encode(
+                            x=alt.X("Game:Q", title="Game"),
+                            y=alt.Y("MMR:Q", title="MMR", scale=alt.Scale(zero=False, padding=20)),
+                        )
+                    )
+                    hover_points = (
+                        alt.Chart(df_mmr)
+                        .mark_point(color="#7ab87a", size=60, filled=True)
+                        .encode(
+                            x="Game:Q",
+                            y="MMR:Q",
+                            opacity=alt.condition(nearest, alt.value(1), alt.value(0)),
+                            tooltip=[alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("MMR:Q", title="MMR"), alt.Tooltip("Date:N", title="Date")],
+                        )
+                        .add_params(nearest)
+                    )
+                    rule = (
+                        alt.Chart(df_mmr)
+                        .mark_rule(color="#444", strokeWidth=1)
+                        .encode(x="Game:Q")
+                        .transform_filter(nearest)
+                    )
+                    peak_dot = (
+                        alt.Chart(df_peak)
+                        .mark_point(color="#d4a843", size=80, filled=True)
+                        .encode(
+                            x="Game:Q",
+                            y="MMR:Q",
+                            tooltip=[alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("MMR:Q", title="Peak MMR"), alt.Tooltip("Date:N", title="Date")],
+                        )
+                    )
+                    milestone_dots = (
+                        alt.Chart(df_milestones)
+                        .mark_point(color="#aaaaaa", size=40, filled=True, opacity=0.6)
+                        .encode(
+                            x="Game:Q",
+                            y="MMR:Q",
+                            tooltip=[alt.Tooltip("Milestone:N", title="First time crossing"), alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("Date:N", title="Date")],
+                        )
+                    )
+                    chart = line + milestone_dots + peak_dot + rule + hover_points
+                    st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), use_container_width=True)
 
                 with st.expander("View as table"):
                     rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]

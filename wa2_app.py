@@ -25,7 +25,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import streamlit as st
 from pathlib import Path
-from datetime import datetime, timezone, date
+from datetime import datetime, timezone, timedelta, date
+from urllib.parse import urlencode
 import html
 
 
@@ -191,7 +192,8 @@ def _session_top_n(metric, n=TOP_N, higher_is_better=True):
 
 def _cache_bust_toplists():
     try:
-        st.cache_data.clear()
+        _sb_fetch_all.clear()
+        _sb_top_n.clear()
     except Exception:
         pass
 
@@ -271,7 +273,7 @@ def _sb_fetch_all():
 @st.cache_data(show_spinner=False, ttl=60)
 def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
     rows = [r for r in _sb_fetch_all() if r.get(metric) is not None]
-    rows.sort(key=lambda r: r[metric], reverse=higher_is_better)
+    rows.sort(key=lambda r: (r[metric], r.get("cr") or 0), reverse=higher_is_better)
     return rows[:n]
 
 # ---------- unified API ----------
@@ -538,8 +540,6 @@ def fetch_neighbor_names(player_rank, region, day_start=None, n=5):
 
     # Build query string manually so we can include both rank bounds.
     # (requests will otherwise drop the duplicated key)
-    from urllib.parse import urlencode
-
     qs_parts = [
         ("select", params["select"]),
         ("region", params["region"]),
@@ -584,6 +584,7 @@ def fetch_neighbor_names(player_rank, region, day_start=None, n=5):
 
     return names_above[-n:], names_below[:n], ranks_above[-n:], ranks_below[:n]
 
+@st.cache_data(show_spinner=False)
 def make_chart(games):
     norm   = normalized_counts(games)
     labels = [str(p) for p in range(1, 9)]
@@ -973,11 +974,11 @@ with tabs[0]:
             cols = st.columns(2)
 
             lists = [
-                ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
+                ("Top 1 %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
                 ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
                 ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
                 ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
-                ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
+                ("# Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
                 ("Largest MMR drop",   lb_top_n("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
                 ("Lowest tilt factor",  lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Can be affected by low sample size for high MMR players"),
                 ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Can be affected by low sample size for high MMR players"),
@@ -1045,8 +1046,7 @@ with tabs[0]:
                     st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region)
                 except ValueError as e:
                     msg = str(e)
-                    import re as _re
-                    m = _re.search(r"appears to be in: ([A-Z,\s]+)", msg)
+                    m = re.search(r"appears to be in: ([A-Z,\s]+)", msg)
                     if m:
                         detected = m.group(1).strip().split(", ")[0]
                         if detected in VALID_REGIONS:
@@ -1338,11 +1338,9 @@ with tabs[0]:
                             st.caption(f"Upsert: {code} | {txt}")
 
                 import altair as alt
-                import pandas as pd
-                from datetime import timezone as _tz
                 period = st.radio("Period", ["Season", "Week", "Day"], horizontal=True, label_visibility="collapsed", key="rg_period")
-                now = datetime.now(_tz.utc)
-                cutoff = {"Season": None, "Week": now - __import__("datetime").timedelta(days=7), "Day": now - __import__("datetime").timedelta(days=1)}[period]
+                now = datetime.now(timezone.utc)
+                cutoff = {"Season": None, "Week": now - timedelta(days=7), "Day": now - timedelta(days=1)}[period]
                 filtered = [
                     g for g in games
                     if cutoff is None or datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= cutoff
@@ -1412,12 +1410,6 @@ with tabs[0]:
                     )
                     chart = line + milestone_dots + peak_dot + rule + hover_points
                     st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), use_container_width=True)
-
-                with st.expander("View as table"):
-                    rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]
-                    st.table(rows)
-
-                st.markdown("<hr>", unsafe_allow_html=True)
 
                 if st.button("Compare with leaderboard neighbors", use_container_width=True):
                     st.session_state["nb_result"] = None
@@ -1505,6 +1497,10 @@ with tabs[0]:
                         )
                     else:
                         st.warning("Could not retrieve enough data from neighbors.")
+
+                with st.expander("View as table"):
+                    rows = [{"Place": p, "Count": norm[p], "%": f"{norm[p]/total*100:.1f}%"} for p in range(1, 9)]
+                    st.table(rows)
 
             except Exception as e:
                 st.error(str(e))

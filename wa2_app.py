@@ -861,12 +861,6 @@ with tabs[0]:
             _lb_init()
             st.markdown("<hr>", unsafe_allow_html=True)
 
-            backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
-            st.markdown(
-                f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Leaderboards ({backend_label})</p>",
-                unsafe_allow_html=True
-            )
-
             if DEBUG:
                 with st.expander("Supabase debug", expanded=False):
                     st.caption(f"TOPLIST_BACKEND={TOPLIST_BACKEND} | SUPABASE_ENABLED={SUPABASE_ENABLED}")
@@ -875,6 +869,12 @@ with tabs[0]:
                     if "sb_topn_status" in st.session_state:
                         code, txt = st.session_state["sb_topn_status"]
                         st.caption(f"TopN fetch: {code} | {txt}")
+
+            backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
+            st.markdown(
+                f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Leaderboards ({backend_label})</p>",
+                unsafe_allow_html=True
+            )
 
             cols = st.columns(2)
 
@@ -989,9 +989,9 @@ with tabs[0]:
                     avg_color = delta_color(delta)
                     sign = "+" if delta >= 0 else ""
                     avg_tip = (
-                        f"Expected at CR: {current_mmr:,}: {expected_avg:.2f} | "
-                        f"Δ: {sign}{delta:.2f} (Avg - Expected) | "
-                        f"Curve file: {curve_csv.name}"
+                        f"Curve file: {curve_csv.name} | "
+                        f"Expected at CR {current_mmr:,}: {expected_avg:.2f} | "
+                        f"Δ: {sign}{delta:.2f} (avg - expected)"
                     )
 
                 # Header row: [←] player [region] [#rank]
@@ -1078,8 +1078,46 @@ with tabs[0]:
                     unsafe_allow_html=True
                 )
 
+                # ── Form (last 50) ────────────────────────────────────────
+                if total < 60:
+                    form_html = (
+                        "<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form (last 50)"
+                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>— requires 60+ games</span>"
+                        "</span>"
+                    )
+                else:
+                    recent_games = games[-50:]
+                    recent_avg   = sum(g["placement"] for g in recent_games) / len(recent_games)
+                    form_diff    = recent_avg - avg
+                    form_color   = (
+                        "#4a8c5c" if form_diff <= -0.16
+                        else "#7ab87a" if form_diff <= -0.05
+                        else "#d4a843" if form_diff < 0.05
+                        else "#c47a75" if form_diff <= 0.15
+                        else "#8c3a2a"
+                    )
+                    form_sign = "+" if form_diff >= 0 else ""
+                    form_tip  = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
+                    form_html = (
+                        f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form (last 50)"
+                        f"<span style='color:{form_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{recent_avg:.2f}</span>"
+                        f"<span style='color:{form_color};font-size:0.8rem;margin-left:0.4rem;'>({form_sign}{form_diff:.2f})</span>"
+                        f"<span title='{form_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                        f"</span>"
+                    )
+
+                # ── Tilt factor ───────────────────────────────────────────────
                 tilt_factor_val = None
-                if len(after_bot2) >= 3:
+                if total < 60:
+                    st.markdown(
+                        "<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
+                        "Tilt factor"
+                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>— requires 60+ games</span>"
+                        f"{form_html}"
+                        "</div>",
+                        unsafe_allow_html=True
+                    )
+                elif len(after_bot2) >= 3:
                     after_avg  = sum(after_bot2) / len(after_bot2)
                     factor     = after_avg / avg if avg > 0 else 1.0
                     factor     = 1 + (factor - 1) * 2
@@ -1097,28 +1135,6 @@ with tabs[0]:
                     asterisk      = "*" if trigger_count < 40 else ""
                     asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""
 
-                    form_html = ""
-                    if total >= 60:
-                        recent_games = games[-50:]
-                        recent_avg   = sum(g["placement"] for g in recent_games) / len(recent_games)
-                        form_diff    = recent_avg - avg
-                        form_color   = (
-                            "#4a8c5c" if form_diff <= -0.16
-                            else "#7ab87a" if form_diff <= -0.05
-                            else "#d4a843" if form_diff < 0.05
-                            else "#c47a75" if form_diff <= 0.15
-                            else "#8c3a2a"
-                        )
-                        form_sign    = "+" if form_diff >= 0 else ""
-                        form_tip     = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
-                        form_html    = (
-                            f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form (last 50)"
-                            f"<span style='color:{form_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{recent_avg:.2f}</span>"
-                            f"<span style='color:{form_color};font-size:0.8rem;margin-left:0.4rem;'>({form_sign}{form_diff:.2f})</span>"
-                            f"<span title='{form_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
-                            f"</span>"
-                        )
-
                     st.markdown(
                         f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
                         f"Tilt factor"
@@ -1130,7 +1146,7 @@ with tabs[0]:
                         unsafe_allow_html=True
                     )
 
-                if ENABLE_SESSION_TOPLISTS:
+                if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0
                     top4_pct  = top4 / total * 100 if total else 0.0
                     lb_upsert_player(
@@ -1254,6 +1270,7 @@ with tabs[0]:
 
 
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
+
 with tabs[1]:
     st.info("Ignore this, just backend stuff in the frontend (debug/test). Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace).")
 

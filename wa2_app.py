@@ -154,6 +154,10 @@ if "goto_player" in _qp:
     st.session_state.pop("nb_result", None)
     st.query_params.clear()
     st.rerun()
+if "goto_home" in _qp:
+    go_home()
+    st.query_params.clear()
+    st.rerun()
 
 
 # ── Toplists — session or Supabase ────────────────────────────────────────────
@@ -644,12 +648,10 @@ def load_rating_curve(csv_path_str, file_mtime, x_choice="current_mmr",
 def delta_color(delta):
     if delta <= -0.16:
         return "#4a8c5c"
-    elif delta <= -0.05:
+    elif delta <= 0.01:
         return "#7ab87a"
-    elif delta < 0.05:
-        return "#d4a843"
     elif delta <= 0.15:
-        return "#c47a75"
+        return "#d4a843"
     else:
         return "#8c3a2a"
 
@@ -750,7 +752,7 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'><a href='/' style='color:inherit;text-decoration:none;' onmouseover=\"this.style.opacity='0.7'\" onmouseout=\"this.style.opacity='1'\">Placement Statistics</a></h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'><a href='?goto_home=1' style='color:inherit;text-decoration:none;' onmouseover=\"this.style.opacity='0.7'\" onmouseout=\"this.style.opacity='1'\">Placement Statistics</a></h2>", unsafe_allow_html=True)
 st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</p>", unsafe_allow_html=True)
 
 tabs = st.tabs(["Single player", "RatingAvg"])
@@ -872,7 +874,7 @@ with tabs[0]:
 
             backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
             st.markdown(
-                f"<p style='color:#666;font-size:0.8rem;margin:0.3rem 0 0.6rem;'>Leaderboards ({backend_label})</p>",
+                f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                 unsafe_allow_html=True
             )
 
@@ -882,7 +884,8 @@ with tabs[0]:
                 ("1st %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
                 ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
                 ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
-                ("Lowest tilt factor", lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)"),
+                ("Lowest tilt factor",  lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)"),
+                ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)"),
                 ("Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season."),
                 ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
             ]
@@ -1089,13 +1092,7 @@ with tabs[0]:
                     recent_games = games[-50:]
                     recent_avg   = sum(g["placement"] for g in recent_games) / len(recent_games)
                     form_diff    = recent_avg - avg
-                    form_color   = (
-                        "#4a8c5c" if form_diff <= -0.16
-                        else "#7ab87a" if form_diff <= -0.05
-                        else "#d4a843" if form_diff < 0.05
-                        else "#c47a75" if form_diff <= 0.15
-                        else "#8c3a2a"
-                    )
+                    form_color   = delta_color(form_diff)
                     form_sign = "+" if form_diff >= 0 else ""
                     form_tip  = f"Avg last 50 games: {recent_avg:.2f} vs overall: {avg:.2f}"
                     form_html = (
@@ -1272,7 +1269,7 @@ with tabs[0]:
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
 
 with tabs[1]:
-    st.info("Ignore this, just backend stuff in the frontend (debug/test). Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace).")
+    st.info("Ignore this, just backend stuff for debug/testign. Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace) for some of the values.")
 
 with tabs[1]:
     rr = st.selectbox("Curve region (CSV)", ["EU"], index=0)

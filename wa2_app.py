@@ -652,6 +652,10 @@ def make_chart(games):
     ax.xaxis.set_tick_params(length=0)
     style_dark_axes(ax)
 
+    avg_place = sum(g["placement"] for g in games) / total
+    ax.text(0.02, 0.97, f"Avg: {avg_place:.2f}", transform=ax.transAxes,
+            ha="left", va="top", color="#aaa", fontsize=12)
+
     ax.legend(handles=[
         mpatches.Patch(color="#d4a843", label="1st"),
         mpatches.Patch(color="#4a8c5c", label="Top 4"),
@@ -1292,7 +1296,16 @@ with tabs[0]:
                     unsafe_allow_html=True
                 )
 
-                st.pyplot(make_chart(games))
+                _dist_mode = st.radio("Distribution period", ["All time", "Last 7 days"], horizontal=True, label_visibility="collapsed", key="dist_mode")
+                if _dist_mode == "Last 7 days":
+                    _7d_ago = datetime.now(timezone.utc) - timedelta(days=7)
+                    _chart_games = [g for g in games if datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= _7d_ago]
+                else:
+                    _chart_games = games
+                if _chart_games:
+                    st.pyplot(make_chart(_chart_games))
+                else:
+                    st.caption("No games in the last 7 days.")
 
                 placements  = [round(g["placement"]) for g in games]
                 after_bot2  = []

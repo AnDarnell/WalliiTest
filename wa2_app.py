@@ -213,6 +213,7 @@ def _sb_upsert(region, player_name, record: dict):
         "dd_detail":      record.get("dd_detail"),
         "first_10k_date": record.get("first_10k_date"),
         "cr":             record.get("cr"),
+        "u_score":        record.get("u_score"),
         "updated_at":   datetime.utcnow().isoformat() + "Z",
     }
 
@@ -247,7 +248,7 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
-_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,max_drawdown,dd_detail,first_10k_date,cr"
+_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,max_drawdown,dd_detail,first_10k_date,cr,u_score"
 
 @st.cache_data(show_spinner=False, ttl=60)
 def _sb_fetch_all():
@@ -292,6 +293,10 @@ def compute_and_upsert(player_name, region, games):
     avg   = sum(g["placement"] for g in games) / total
     wins  = norm[1]
     top4  = sum(norm[p] for p in [1, 2, 3, 4])
+    _eps    = 0.5
+    _part1  = np.log((norm[1] + _eps) / (norm[2] + norm[3] + norm[4] + _eps))
+    _part2  = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
+    u_score = 0.5 * (_part1 + _part2)
     current_mmr = games[-1]["mmr_after"]
 
     longest_streak, streak = 0, 0
@@ -361,6 +366,7 @@ def compute_and_upsert(player_name, region, games):
         "dd_detail":      dd_detail,
         "first_10k_date": first_10k_date,
         "cr":             int(current_mmr),
+        "u_score":        float(u_score),
         "updated_at":     datetime.utcnow().isoformat() + "Z",
     })
 
@@ -984,6 +990,8 @@ with tabs[0]:
                 ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Can be affected by low sample size for high MMR players"),
                 ("Best form",          lb_top_n("form_diff",    higher_is_better=False),  lambda r: f"{r['form_diff']:+.2f}" if r.get("form_diff") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
                 ("First to 10k",       lb_top_n("first_10k_date", higher_is_better=False), lambda r: datetime.fromisoformat(r["first_10k_date"].replace("Z", "+00:00")).strftime("%b %d").replace(" 0", " ") if r.get("first_10k_date") else "—", "Date when the player first reached 10,000 MMR."),
+                ("Most aggressive",    lb_top_n("u_score",        higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
+                ("Most defensive",     lb_top_n("u_score",        higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: low 1st relative to 2–4, and low 7+8 relative to 5–6. Negative = defensive/consistent."),
 
             ]
 
@@ -1078,6 +1086,10 @@ with tabs[0]:
                 avg   = sum(g["placement"] for g in games) / total
                 wins  = norm[1]
                 top4  = sum(norm[p] for p in [1, 2, 3, 4])
+                _eps        = 0.5
+                _part1      = np.log((norm[1] + _eps) / (norm[2] + norm[3] + norm[4] + _eps))
+                _part2      = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
+                u_score_val = 0.5 * (_part1 + _part2)
                 current_mmr = games[-1]["mmr_after"]
                 peak_mmr = max(
                     max(g["mmr_before"] for g in games),
@@ -1307,6 +1319,21 @@ with tabs[0]:
                         unsafe_allow_html=True
                     )
 
+                u_color = (
+                    "#d4a843" if u_score_val >= 0.2
+                    else "#aaa"  if u_score_val >= -0.1
+                    else "#5b8fd4"
+                )
+                u_tip = "Aggression score: ((p7+p8)/(p5+p6) − 1) × log(p1/avg(p2–p4)). Positive = U-shaped distribution (spikes at both ends). Negative = non-aggressive."
+                st.markdown(
+                    f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
+                    f"Aggression"
+                    f"<span style='color:{u_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{u_score_val:+.2f}</span>"
+                    f"<span title='{u_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+
                 if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0
                     top4_pct  = top4 / total * 100 if total else 0.0
@@ -1326,6 +1353,7 @@ with tabs[0]:
                             "dd_detail":      dd_tip,
                             "first_10k_date": next((g["time"] for g in games if g["mmr_after"] >= 10000), None),
                             "cr":             int(current_mmr),
+                            "u_score":        float(u_score_val),
                             "updated_at":   datetime.utcnow().isoformat() + "Z",
                         }
                     )

@@ -1314,9 +1314,9 @@ with tabs[0]:
                 _tilt_diffs = []
                 for i, p in enumerate(placements):
                     if p >= 7:
-                        before = placements[max(0, i-5):i]
-                        after  = placements[i+1:i+4]
-                        if len(before) >= 3 and len(after) >= 1:
+                        before = placements[max(0, i-50):i]
+                        after  = placements[i+1:i+6]
+                        if len(before) >= 10 and len(after) >= 1:
                             _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
 
                 longest_streak, streak = 0, 0

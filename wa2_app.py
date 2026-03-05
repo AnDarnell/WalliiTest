@@ -597,6 +597,31 @@ def fetch_neighbor_names(player_rank, region, day_start=None, n=5):
 
     return names_above[-n:], names_below[:n], ranks_above[-n:], ranks_below[:n]
 
+
+def fetch_top_n_for_scan(region, n=100):
+    """Fetch top N player names for a region from wallii.gg leaderboard."""
+    day_start = _latest_day_start(game_mode=0)
+    url = f"{SUPABASE_BASE}/rest/v1/daily_leaderboard_stats"
+    qs = urlencode([
+        ("select",    "rank,rating,region,players!inner(player_name)"),
+        ("region",    f"eq.{region.upper()}"),
+        ("game_mode", "eq.0"),
+        ("day_start", f"eq.{day_start}"),
+        ("order",     "rank.asc"),
+        ("limit",     str(n)),
+    ])
+    r = requests.get(f"{url}?{qs}", headers=_supabase_headers(), timeout=20)
+    r.raise_for_status()
+    rows = r.json()
+    names = []
+    for row in rows:
+        p = row.get("players")
+        name = (p[0].get("player_name") if isinstance(p, list) and p else p.get("player_name") if isinstance(p, dict) else None)
+        if name:
+            names.append(name)
+    return names
+
+
 @st.cache_data(show_spinner=False)
 def make_chart(games):
     norm   = normalized_counts(games)
@@ -996,10 +1021,10 @@ with tabs[0]:
 
             _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
 
-            def _lb(metric, higher_is_better=True, n=50):
+            def _lb(metric, higher_is_better=True, n=50, limit=TOP_N):
                 rows = lb_top_n(metric, higher_is_better=higher_is_better, n=n)
                 rows = [r for r in rows if r.get("region") in _lb_regions]
-                return rows[:TOP_N]
+                return rows[:limit] if limit is not None else rows
 
             cols = st.columns(2)
 
@@ -1010,8 +1035,8 @@ with tabs[0]:
                 ("Roach streak",       _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
                 ("# Games",              _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
                 ("Largest MMR drop",   _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
-                ("Lowest tilt factor",  [r for r in _lb("tilt_factor",  higher_is_better=False) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
-                ("Highest tilt factor", [r for r in _lb("tilt_factor",  higher_is_better=True)  if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
+                ("Lowest tilt factor",  [r for r in _lb("tilt_factor",  higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
+                ("Highest tilt factor", [r for r in _lb("tilt_factor",  higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
                 ("Best form",          _lb("form_diff",    higher_is_better=False),  lambda r: f"{r['form_diff']:+.2f}" if r.get("form_diff") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
                 ("First to 10k",       _lb("first_10k_date", higher_is_better=False), lambda r: datetime.fromisoformat(r["first_10k_date"].replace("Z", "+00:00")).strftime("%b %d").replace(" 0", " ") if r.get("first_10k_date") else "—", "Date when the player first reached 10,000 MMR."),
                 ("Most aggressive",    _lb("u_score",        higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
@@ -1067,6 +1092,31 @@ with tabs[0]:
                                     pass
                             bar.progress(1.0, text="Done!")
                             st.success(f"Done! {len(all_players)} players refreshed.")
+
+                    st.divider()
+                    st.caption("Fetches top N players per region from wallii.gg leaderboard and upserts their stats.")
+                    _scan_regions = st.multiselect("Regions to scan", ["EU", "NA", "AP", "CN"], default=["EU", "NA", "AP", "CN"], key="scan_regions")
+                    _scan_limit   = st.number_input("Players per region", min_value=10, max_value=500, value=100, step=10, key="scan_limit")
+                    if st.button("Scan leaderboard top N", use_container_width=True):
+                        _scan_ok, _scan_err = 0, 0
+                        for _scan_rgn in _scan_regions:
+                            try:
+                                _scan_names = fetch_top_n_for_scan(_scan_rgn, int(_scan_limit))
+                            except Exception as e:
+                                st.warning(f"{_scan_rgn}: failed to fetch leaderboard — {e}")
+                                continue
+                            _bar = st.progress(0, text=f"{_scan_rgn}: starting...")
+                            for _si, _sname in enumerate(_scan_names):
+                                _bar.progress((_si + 1) / len(_scan_names), text=f"{_scan_rgn} ({_si+1}/{len(_scan_names)}) {_sname}")
+                                try:
+                                    fetch_and_calculate.clear()
+                                    _sgames, _, _ = fetch_and_calculate(_sname, _scan_rgn)
+                                    compute_and_upsert(_sname, _scan_rgn, _sgames)
+                                    _scan_ok += 1
+                                except Exception:
+                                    _scan_err += 1
+                            _bar.progress(1.0, text=f"{_scan_rgn}: done!")
+                        st.success(f"Scan complete — {_scan_ok} ok, {_scan_err} errors.")
                 elif pwd:
                     st.caption("Wrong password.")
 

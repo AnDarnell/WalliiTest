@@ -16,6 +16,8 @@ Fallback:
   export.csv (used if the region-specific file is missing)
 """
 
+APP_VERSION = "1.0.0"
+
 import json
 import re
 import requests
@@ -24,6 +26,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import streamlit as st
+import importlib
+_st_components = importlib.import_module("streamlit.components.v1")
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
 from urllib.parse import urlencode
@@ -214,6 +218,7 @@ def _sb_upsert(region, player_name, record: dict):
         "first_10k_date": record.get("first_10k_date"),
         "cr":             record.get("cr"),
         "u_score":        record.get("u_score"),
+        "bot2_count":     record.get("bot2_count"),
         "updated_at":   datetime.utcnow().isoformat() + "Z",
     }
 
@@ -248,7 +253,7 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
-_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,max_drawdown,dd_detail,first_10k_date,cr,u_score"
+_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,updated_at"
 
 @st.cache_data(show_spinner=False, ttl=60)
 def _sb_fetch_all():
@@ -296,7 +301,8 @@ def compute_and_upsert(player_name, region, games):
     _eps    = 0.5
     _part1  = np.log((norm[1] + _eps) / (norm[2] + norm[3] + norm[4] + _eps))
     _part2  = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
-    u_score = 0.5 * (_part1 + _part2)
+    u_score  = 0.5 * (_part1 + _part2)
+    bot2_count = norm[7] + norm[8]
     current_mmr = games[-1]["mmr_after"]
 
     longest_streak, streak = 0, 0
@@ -367,6 +373,7 @@ def compute_and_upsert(player_name, region, games):
         "first_10k_date": first_10k_date,
         "cr":             int(current_mmr),
         "u_score":        float(u_score),
+        "bot2_count":     int(bot2_count),
         "updated_at":     datetime.utcnow().isoformat() + "Z",
     })
 
@@ -986,8 +993,8 @@ with tabs[0]:
                 ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
                 ("# Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
                 ("Largest MMR drop",   lb_top_n("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
-                ("Lowest tilt factor",  lb_top_n("tilt_factor",  higher_is_better=False),  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Can be affected by low sample size for high MMR players"),
-                ("Highest tilt factor", lb_top_n("tilt_factor",  higher_is_better=True),   lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Can be affected by low sample size for high MMR players"),
+                ("Lowest tilt factor",  [r for r in lb_top_n("tilt_factor",  higher_is_better=False, n=50) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
+                ("Highest tilt factor", [r for r in lb_top_n("tilt_factor",  higher_is_better=True,  n=50) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
                 ("Best form",          lb_top_n("form_diff",    higher_is_better=False),  lambda r: f"{r['form_diff']:+.2f}" if r.get("form_diff") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
                 ("First to 10k",       lb_top_n("first_10k_date", higher_is_better=False), lambda r: datetime.fromisoformat(r["first_10k_date"].replace("Z", "+00:00")).strftime("%b %d").replace(" 0", " ") if r.get("first_10k_date") else "—", "Date when the player first reached 10,000 MMR."),
                 ("Most aggressive",    lb_top_n("u_score",        higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
@@ -1638,3 +1645,17 @@ with tabs[1]:
 
     # streamlit run wa2_app.py
     # streamlit run wa2_app.py --server.runOnSave true (auto-reload on save)
+
+# ── Footer ────────────────────────────────────────────────────────────────────
+_all_rows = _sb_fetch_all()
+_ts_values = [r["updated_at"] for r in _all_rows if r.get("updated_at")]
+if _ts_values:
+    _latest_ts = max(_ts_values)
+    _st_components.html(
+        f"""<div style='text-align:center;color:#333;font-size:0.75rem;font-family:sans-serif;' id="fts">Data last updated ...</div>
+<script>
+var d = new Date("{_latest_ts}");
+document.getElementById("fts").textContent = "Data last updated " + d.toLocaleString(undefined, {{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}}) + "  \u00b7  v{APP_VERSION}";
+</script>""",
+        height=30,
+    )

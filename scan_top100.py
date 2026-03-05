@@ -178,19 +178,18 @@ def compute_stats(games):
         roach = roach + 1 if round(g["placement"]) <= 4 else 0
         longest_roach = max(longest_roach, roach)
 
-    placements = [round(g["placement"]) for g in games]
-    after_bot2, skip_until = [], 0
+    placements  = [round(g["placement"]) for g in games]
+    _tilt_diffs = []
     for i, p in enumerate(placements):
-        if i < skip_until:
-            continue
         if p >= 7:
-            after_bot2.extend(placements[i + 1: i + 4])
-            skip_until = i + 4
+            before = placements[max(0, i-50):i]
+            after  = placements[i+1:i+6]
+            if len(before) >= 10 and len(after) >= 1:
+                _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
 
     tilt_factor = None
-    if len(after_bot2) >= 3:
-        after_avg   = sum(after_bot2) / len(after_bot2)
-        tilt_factor = float(1 + ((after_avg / avg) - 1) * 2) if avg > 0 else None
+    if len(_tilt_diffs) >= 3 and avg > 0:
+        tilt_factor = float(1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2)
 
     form_diff = None
     if total >= 60:

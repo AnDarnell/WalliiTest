@@ -316,18 +316,17 @@ def compute_and_upsert(player_name, region, games):
         longest_roach = max(longest_roach, roach)
 
     placements = [round(g["placement"]) for g in games]
-    after_bot2, skip_until = [], 0
+    _tilt_diffs = []
     for i, p in enumerate(placements):
-        if i < skip_until:
-            continue
         if p >= 7:
-            after_bot2.extend(placements[i+1 : i+4])
-            skip_until = i + 4
+            before = placements[max(0, i-50):i]
+            after  = placements[i+1:i+6]
+            if len(before) >= 10 and len(after) >= 1:
+                _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
 
     tilt_factor_val = None
-    if len(after_bot2) >= 3:
-        after_avg = sum(after_bot2) / len(after_bot2)
-        tilt_factor_val = float(1 + ((after_avg / avg) - 1) * 2) if avg > 0 else None
+    if len(_tilt_diffs) >= 3 and avg > 0:
+        tilt_factor_val = float(1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2)
 
     form_diff = None
     if total >= 60:
@@ -1095,7 +1094,9 @@ with tabs[0]:
                                 except Exception:
                                     pass
                             bar.progress(1.0, text="Done!")
+                            _cache_bust_toplists()
                             st.success(f"Done! {len(all_players)} players refreshed.")
+                            st.rerun()
 
                     st.divider()
                     st.caption("Fetches top N players per region from wallii.gg leaderboard and upserts their stats.")
@@ -1120,7 +1121,9 @@ with tabs[0]:
                                 except Exception:
                                     _scan_err += 1
                             _bar.progress(1.0, text=f"{_scan_rgn}: done!")
+                        _cache_bust_toplists()
                         st.success(f"Scan complete — {_scan_ok} ok, {_scan_err} errors.")
+                        st.rerun()
                 elif pwd:
                     st.caption("Wrong password.")
 
@@ -1308,15 +1311,13 @@ with tabs[0]:
                     st.caption("No games in the last 7 days.")
 
                 placements  = [round(g["placement"]) for g in games]
-                after_bot2  = []
-                skip_until  = 0
+                _tilt_diffs = []
                 for i, p in enumerate(placements):
-                    if i < skip_until:
-                        continue
                     if p >= 7:
-                        window = placements[i+1 : i+4]
-                        after_bot2.extend(window)
-                        skip_until = i + 4
+                        before = placements[max(0, i-5):i]
+                        after  = placements[i+1:i+4]
+                        if len(before) >= 3 and len(after) >= 1:
+                            _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
 
                 longest_streak, streak = 0, 0
                 for g in games:
@@ -1377,10 +1378,8 @@ with tabs[0]:
                         "</div>",
                         unsafe_allow_html=True
                     )
-                elif len(after_bot2) >= 3:
-                    after_avg  = sum(after_bot2) / len(after_bot2)
-                    factor     = after_avg / avg if avg > 0 else 1.0
-                    factor     = 1 + (factor - 1) * 2
+                elif len(_tilt_diffs) >= 3 and avg > 0:
+                    factor          = 1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2
                     tilt_factor_val = float(factor)
 
                     tilt_color = (
@@ -1390,7 +1389,8 @@ with tabs[0]:
                         else "#7ab87a" if factor >= 0.90
                         else "#4a8c5c"
                     )
-                    tooltip       = f"Comparison of performance following a 7th/8th and overall performance. (Lower = better) 1 + (({after_avg:.2f} / {avg:.2f}) - 1) * 2."
+                    _mean_diff    = sum(_tilt_diffs) / len(_tilt_diffs)
+                    tooltip       = f"Avg placement change in the 5 games after a 7th/8th, compared to the 50-game baseline before it. Mean diff: {_mean_diff:+.2f}. (Lower = better)"
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
                     asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""

@@ -979,26 +979,43 @@ with tabs[0]:
                         st.caption(f"TopN fetch: {code} | {txt}")
 
             backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
-            st.markdown(
-                f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
-                unsafe_allow_html=True
-            )
+            _lbh_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([5, 1, 1, 1, 1])
+            with _lbh_col:
+                st.markdown(
+                    f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
+                    unsafe_allow_html=True
+                )
+            with _eu_col:
+                _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
+            with _na_col:
+                _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
+            with _ap_col:
+                _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
+            with _cn_col:
+                _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn")
+
+            _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
+
+            def _lb(metric, higher_is_better=True, n=50):
+                rows = lb_top_n(metric, higher_is_better=higher_is_better, n=n)
+                rows = [r for r in rows if r.get("region") in _lb_regions]
+                return rows[:TOP_N]
 
             cols = st.columns(2)
 
             lists = [
-                ("Top 1 %",              lb_top_n("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
-                ("Hot streak",         lb_top_n("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
-                ("Top 4 %",            lb_top_n("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
-                ("Roach streak",       lb_top_n("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
-                ("# Games",              lb_top_n("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
-                ("Largest MMR drop",   lb_top_n("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
-                ("Lowest tilt factor",  [r for r in lb_top_n("tilt_factor",  higher_is_better=False, n=50) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
-                ("Highest tilt factor", [r for r in lb_top_n("tilt_factor",  higher_is_better=True,  n=50) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
-                ("Best form",          lb_top_n("form_diff",    higher_is_better=False),  lambda r: f"{r['form_diff']:+.2f}" if r.get("form_diff") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
-                ("First to 10k",       lb_top_n("first_10k_date", higher_is_better=False), lambda r: datetime.fromisoformat(r["first_10k_date"].replace("Z", "+00:00")).strftime("%b %d").replace(" 0", " ") if r.get("first_10k_date") else "—", "Date when the player first reached 10,000 MMR."),
-                ("Most aggressive",    lb_top_n("u_score",        higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
-                ("Most defensive",     lb_top_n("u_score",        higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: low 1st relative to 2–4, and low 7+8 relative to 5–6. Negative = defensive/consistent."),
+                ("Top 1 %",              _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",  "Percentage of games finished in 1st place."),
+                ("Hot streak",         _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",  "Longest consecutive 1st streak of placement."),
+                ("Top 4 %",            _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",   "Percentage of games finished in top 4."),
+                ("Roach streak",       _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
+                ("# Games",              _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",       "Total number of games played this season while on the leaderboard."),
+                ("Largest MMR drop",   _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
+                ("Lowest tilt factor",  [r for r in _lb("tilt_factor",  higher_is_better=False) if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
+                ("Highest tilt factor", [r for r in _lb("tilt_factor",  higher_is_better=True)  if (r.get("bot2_count") or 0) >= 30][:TOP_N],  lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
+                ("Best form",          _lb("form_diff",    higher_is_better=False),  lambda r: f"{r['form_diff']:+.2f}" if r.get("form_diff") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
+                ("First to 10k",       _lb("first_10k_date", higher_is_better=False), lambda r: datetime.fromisoformat(r["first_10k_date"].replace("Z", "+00:00")).strftime("%b %d").replace(" 0", " ") if r.get("first_10k_date") else "—", "Date when the player first reached 10,000 MMR."),
+                ("Most aggressive",    _lb("u_score",        higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
+                ("Most defensive",     _lb("u_score",        higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: low 1st relative to 2–4, and low 7+8 relative to 5–6. Negative = defensive/consistent."),
 
             ]
 

@@ -881,7 +881,7 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
 st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'><a href='?goto_home=1' style='color:inherit;text-decoration:none;' onmouseover=\"this.style.opacity='0.7'\" onmouseout=\"this.style.opacity='1'\">Placement Statistics</a></h2>", unsafe_allow_html=True)
 st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</p>", unsafe_allow_html=True)
 
-tabs = st.tabs(["Single player", "RatingAvg"])
+tabs = st.tabs(["Single player", "RatingAvg", "Info"])
 
 
 # ── Single player tab ─────────────────────────────────────────────────────────
@@ -1723,8 +1723,47 @@ with tabs[1]:
     style_dark_axes(ax)
     st.pyplot(fig)
 
-    # streamlit run wa2_app.py
-    # streamlit run wa2_app.py --server.runOnSave true (auto-reload on save)
+with tabs[2]:
+    _info_metrics = {
+        "Top 1 %": "Percentage of games finished in <strong>1st place</strong>.",
+        "Top 4 %": 'Percentage of games finished in <strong>top 4</strong> (1st, 2nd, 3rd, 4th).',
+        "Hot Streak": "The longest consecutive streak of <strong>1st-places</strong>.",
+        "Roach Streak": "The longest consecutive run of <strong>top-4</strong> finishes (i.e. avoiding 5th–8th). This includes 1st places as well.",
+        "Tilt Factor": (
+            "Measures how a player performs <em>after</em> a bad game (7th or 8th place) compared to their baseline.<br><br>"
+            "For each 7th/8th placement, the 50 games before it form a local baseline average, "
+            "and the 5 games immediately after are the \"reaction window\". "
+            "Tilt Factor = <code>1 + (mean_diff / baseline_avg) × 2</code>.<br><br>"
+            "<strong>&lt; 1.0</strong> → plays <em>better</em> after a bad game on average (bounces back)<br>"
+            "<strong>= 1.0</strong> → no change<br>"
+            "<strong>&gt; 1.0</strong> → plays <em>worse</em> after a bad game (tilts)<br><br>"
+            "Requires at least <strong>30 games with a 7th or 8th placement</strong> to appear in leaderboards to avoid outliers. Therefore a lot of good players might not make it on the lists (cause of low bottom 2 placements)."
+        ),
+        "Form": (
+            "Difference between a player's <strong>last 50 games</strong> average placement and their overall average. "
+            "A negative number means they are playing <em>better</em> recently than their historical baseline.<br><br>"
+            "The value is therefore a difference in average placement (for example 3.50 - 3.20 = +0.30).<br><br> Negative: better form. Positive: worse form." 
+        ),
+        "Largest MMR Drop": "The largest MMR drop from a <strong>peak</strong> to a subsequent <strong>low</strong> in the player's history. This includes any upswing during this time. For every recorded peak it will look for the lowest MMR reached before a new peak is achieved, and the largest of these drops is shown.",
+        "Aggression Score": (
+            "Measures play style on a spectrum from <strong>aggressive/swingy</strong> to <strong>defensive/consistent</strong> "
+            "— basically it describes how U-shaped the placement distribution is. Also known as \"1st-or-8th\".<br><br>"
+            "<strong>Part 1:</strong> How often the player finishes 1st vs 2nd–4th<br>"
+            "<strong>Part 2:</strong> How often the player finishes 7th–8th vs 5th–6th<br><br>"
+            "<code>part1 = ln( place_1 / (place_2 + place_3 + place_4) )</code><br>"
+            "<code>part2 = ln( (place_7 + place_8) / (place_5 + place_6) )</code><br>"
+            "<code>score&nbsp;= 0.5 × (part1 + part2)</code><br><br>"
+            "<strong>Positive = aggressive</strong>, <strong>Negative = consistent/defensive</strong>."
+        ),
+    }
+    st.markdown("<p style='margin-bottom:0.3rem;font-size:0.8rem;color:#888;'>Explanations</p>", unsafe_allow_html=True)
+    _selected_metric = st.selectbox("Select a metric", list(_info_metrics.keys()), label_visibility="collapsed")
+    st.markdown(
+        f"<div style='border:1px solid #333;border-top:none;border-radius:0 0 6px 6px;"
+        f"padding:0.8rem 1rem;font-size:0.82rem;line-height:1.7;margin-top:-8px;'>"
+        f"{_info_metrics[_selected_metric]}</div>",
+        unsafe_allow_html=True,
+    )
 
 # ── Footer ────────────────────────────────────────────────────────────────────
 _all_rows = _sb_fetch_all()
@@ -1739,3 +1778,6 @@ document.getElementById("fts").textContent = "Data last updated " + d.toLocaleSt
 </script>""",
         height=30,
     )
+
+# streamlit run wa2_app.py
+# streamlit run wa2_app.py --server.runOnSave true (auto-reload on save)

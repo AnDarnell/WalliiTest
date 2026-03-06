@@ -1007,12 +1007,13 @@ with tabs[0]:
                         st.caption(f"TopN fetch: {code} | {txt}")
 
             backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
-            _lbh_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([5, 1, 1, 1, 1])
-            with _lbh_col:
-                st.markdown(
-                    f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
-                    unsafe_allow_html=True
-                )
+            st.markdown(
+                f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
+                unsafe_allow_html=True
+            )
+            _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
+            with _mmr_col:
+                _mmr_filter = st.radio("", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
             with _eu_col:
                 _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
             with _na_col:
@@ -1023,10 +1024,21 @@ with tabs[0]:
                 _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn")
 
             _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
+            if _mmr_filter != "All":
+                _mmr_n = int(_mmr_filter.split()[1])
+                _all_by_mmr = sorted(_sb_fetch_all(), key=lambda r: r.get("cr") or 0, reverse=True)
+                _top_mmr_players = set()
+                for _rgn in _lb_regions:
+                    _rgn_rows = [r for r in _all_by_mmr if r.get("region") == _rgn]
+                    _top_mmr_players.update(r["player"] for r in _rgn_rows[:_mmr_n])
+            else:
+                _top_mmr_players = None
 
-            def _lb(metric, higher_is_better=True, n=50, limit=TOP_N):
+            def _lb(metric, higher_is_better=True, n=9999, limit=TOP_N):
                 rows = lb_top_n(metric, higher_is_better=higher_is_better, n=n)
                 rows = [r for r in rows if r.get("region") in _lb_regions]
+                if _top_mmr_players is not None:
+                    rows = [r for r in rows if r.get("player") in _top_mmr_players]
                 return rows[:limit] if limit is not None else rows
 
             cols = st.columns(2)
@@ -1441,6 +1453,7 @@ with tabs[0]:
                             "first_10k_date": next((g["time"] for g in games if g["mmr_after"] >= 10000), None),
                             "cr":             int(current_mmr),
                             "u_score":        float(u_score_val),
+                            "bot2_count":     int(norm[7] + norm[8]),
                             "updated_at":   datetime.utcnow().isoformat() + "Z",
                         }
                     )

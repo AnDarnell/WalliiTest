@@ -1795,7 +1795,7 @@ with tabs[2]:
         "This app fetches data from [wallii.gg](https://wallii.gg) (timestamped MMR changes). "
         "Placements and all other metrics are derived from these values alone. Most metrics (that might be unclear) are explained below. <br><br>"
         "The placements are not publicly available through an API, so they are estimated using a formula. <br>"
-        "Players are added to the leaderboards automatically once searched/fetched and are eligible.<br>"
+        "Players are added to the leaderboards automatically once searched/fetched (and are eligible).<br>"
         "If you notice any issues or wrong calculations, please report them in the form at the bottom. <br><br>"
         "Created by Darnell/Brugdar.",
         unsafe_allow_html=True,

@@ -1595,7 +1595,7 @@ with tabs[0]:
                     # ── Compare ───────────────────────────────────────────────
                     st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
                     _cmp_cols = st.columns([3, 1, 1])
-                    _cmp_name = _cmp_cols[0].text_input("Compare with player", placeholder="Compare with player…", label_visibility="collapsed", key="cmp_name_input")
+                    _cmp_name = _cmp_cols[0].text_input("Compare with player", placeholder="Compare graph with player…", label_visibility="collapsed", key="cmp_name_input")
                     _cmp_region = _cmp_cols[1].selectbox("Compare region", ["EU", "NA", "AP"], key="cmp_region_input", label_visibility="collapsed")
                     if _cmp_cols[2].button("Compare", width='stretch', key="cmp_btn") and _cmp_name.strip():
                         with st.spinner(f"Fetching {_cmp_name.strip()}…"):

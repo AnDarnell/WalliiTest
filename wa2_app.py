@@ -1592,6 +1592,59 @@ with tabs[0]:
                     chart = line + milestone_dots + peak_dot + rule + hover_points
                     st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), width='stretch')
 
+                    # ── Compare ───────────────────────────────────────────────
+                    st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
+                    _cmp_cols = st.columns([3, 1, 1])
+                    _cmp_name = _cmp_cols[0].text_input("Compare with player", placeholder="Compare with player…", label_visibility="collapsed", key="cmp_name_input")
+                    _cmp_region = _cmp_cols[1].selectbox("Compare region", ["EU", "NA", "AP"], key="cmp_region_input", label_visibility="collapsed")
+                    if _cmp_cols[2].button("Compare", width='stretch', key="cmp_btn") and _cmp_name.strip():
+                        with st.spinner(f"Fetching {_cmp_name.strip()}…"):
+                            try:
+                                _cmp_result = fetch_and_calculate(_cmp_name.strip().lower(), _cmp_region)
+                                st.session_state["cmp_games"] = _cmp_result[0]
+                                st.session_state["cmp_label"] = _cmp_name.strip()
+                                st.session_state.pop("cmp_error", None)
+                            except Exception as _e:
+                                st.session_state["cmp_games"] = None
+                                st.session_state["cmp_error"] = str(_e)
+
+                    if st.session_state.get("cmp_error"):
+                        st.error(st.session_state["cmp_error"])
+                    elif st.session_state.get("cmp_games"):
+                        _cmp_filtered = [
+                            g for g in st.session_state["cmp_games"]
+                            if cutoff is None or datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= cutoff
+                        ]
+                        _cmp_label = st.session_state.get("cmp_label", "Player 2")
+                        if not _cmp_filtered:
+                            st.caption(f"No games for {_cmp_label} in this period.")
+                        else:
+                            _main_label = st.session_state.get("sp_player", "Player 1").title()
+                            _df_main = pd.DataFrame([
+                                {"Time": g["time"], "MMR": g["mmr_after"], "Date": g["time"][:10], "Player": _main_label}
+                                for g in filtered
+                            ])
+                            _df_cmp = pd.DataFrame([
+                                {"Time": g["time"], "MMR": g["mmr_after"], "Date": g["time"][:10], "Player": _cmp_label.title()}
+                                for g in _cmp_filtered
+                            ])
+                            _df_combined = pd.concat([_df_main, _df_cmp], ignore_index=True)
+                            _df_combined["Time"] = pd.to_datetime(_df_combined["Time"])
+                            _cmp_chart = (
+                                alt.Chart(_df_combined)
+                                .mark_line()
+                                .encode(
+                                    x=alt.X("Time:T", title="Date"),
+                                    y=alt.Y("MMR:Q", title="MMR", scale=alt.Scale(zero=False, padding=20)),
+                                    color=alt.Color("Player:N", scale=alt.Scale(
+                                        domain=[_main_label, _cmp_label.title()],
+                                        range=["#7ab87a", "#d4a843"],
+                                    )),
+                                    tooltip=[alt.Tooltip("Player:N", title="Player"), alt.Tooltip("MMR:Q", title="MMR"), alt.Tooltip("Date:N", title="Date")],
+                                )
+                            )
+                            st.altair_chart(_cmp_chart.properties(height=250).configure_view(strokeWidth=0), width='stretch')
+
                 if st.button("Compare with leaderboard neighbors", width='stretch'):
                     st.session_state["nb_result"] = None
                     player_rank = st.session_state.get("sp_rank")

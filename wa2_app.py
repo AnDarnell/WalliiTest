@@ -887,7 +887,7 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
 st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'><a href='?goto_home=1' style='color:inherit;text-decoration:none;' onmouseover=\"this.style.opacity='0.7'\" onmouseout=\"this.style.opacity='1'\">Placement Statistics</a></h2>", unsafe_allow_html=True)
 st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</p>", unsafe_allow_html=True)
 
-tabs = st.tabs(["Single player", "RatingAvg", "Info"])
+tabs = st.tabs(["Single player", "RatingAvg", "Info/Explanations"])
 
 
 # ── Single player tab ─────────────────────────────────────────────────────────

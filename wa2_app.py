@@ -899,7 +899,7 @@ with tabs[0]:
             player = st.text_input("Player", placeholder="Name")
         with col2:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
-        submitted = st.form_submit_button("Search", use_container_width=True)
+        submitted = st.form_submit_button("Search", width='stretch')
 
     if submitted and player:
         st.session_state["sp_player"] = player.strip().lower()
@@ -1019,7 +1019,7 @@ with tabs[0]:
             )
             _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
             with _mmr_col:
-                _mmr_filter = st.radio("", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
+                _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
             with _eu_col:
                 _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
             with _na_col:
@@ -1110,7 +1110,7 @@ with tabs[0]:
                 tooltip=f"First players to reach {_milestone_k} MMR this season.",
             )
 
-            if st.button("Refresh leaderboards", use_container_width=True):
+            if st.button("Refresh leaderboards", width='stretch'):
                 _cache_bust_toplists()
                 st.rerun()
 
@@ -1133,7 +1133,7 @@ with tabs[0]:
                 pwd = st.text_input("Password", type="password", key="admin_pwd")
                 if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
                     st.caption("Fetches all players in the leaderboard and recalculates their stats.")
-                    if st.button("Refresh all players", use_container_width=True):
+                    if st.button("Refresh all players", width='stretch'):
                         try:
                             url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}"
                             resp = requests.get(url, headers=SUPABASE_HEADERS, params={"select": "player,region", "limit": "500"}, timeout=10)
@@ -1162,7 +1162,7 @@ with tabs[0]:
                     st.caption("Fetches top N players per region from wallii.gg leaderboard and upserts their stats.")
                     _scan_regions = st.multiselect("Regions to scan", ["EU", "NA", "AP", "CN"], default=["EU", "NA", "AP", "CN"], key="scan_regions")
                     _scan_limit   = st.number_input("Players per region", min_value=10, max_value=500, value=100, step=10, key="scan_limit")
-                    if st.button("Scan leaderboard top N", use_container_width=True):
+                    if st.button("Scan leaderboard top N", width='stretch'):
                         _scan_ok, _scan_err = 0, 0
                         for _scan_rgn in _scan_regions:
                             try:
@@ -1295,7 +1295,7 @@ with tabs[0]:
 
                 with hL:
                     st.markdown("<div class='icon-btn'>", unsafe_allow_html=True)
-                    if st.button("←", key="home_btn_icon", use_container_width=True):
+                    if st.button("←", key="home_btn_icon", width='stretch'):
                         go_home()
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
@@ -1530,7 +1530,7 @@ with tabs[0]:
                     st.caption("No games in this period.")
                 else:
                     df_mmr = pd.DataFrame([
-                        {"Game": i + 1, "MMR": g["mmr_after"], "Date": g["time"][:10]}
+                        {"Game": i + 1, "MMR": g["mmr_after"], "Date": g["time"][:10], "Placement": f"{g['placement']:.1f}".rstrip('0').rstrip('.') + f" ({g['mmr_after'] - g['mmr_before']:+d})"}
                         for i, g in enumerate(filtered)
                     ])
                     peak_idx = df_mmr["MMR"].idxmax()
@@ -1561,7 +1561,7 @@ with tabs[0]:
                             x="Game:Q",
                             y="MMR:Q",
                             opacity=alt.condition(nearest, alt.value(1), alt.value(0.15)),
-                            tooltip=[alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("MMR:Q", title="MMR"), alt.Tooltip("Date:N", title="Date")],
+                            tooltip=[alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("MMR:Q", title="MMR"), alt.Tooltip("Placement:N", title="Placement"), alt.Tooltip("Date:N", title="Date")],
                         )
                         .add_params(nearest)
                     )
@@ -1590,9 +1590,9 @@ with tabs[0]:
                         )
                     )
                     chart = line + milestone_dots + peak_dot + rule + hover_points
-                    st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), use_container_width=True)
+                    st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), width='stretch')
 
-                if st.button("Compare with leaderboard neighbors", use_container_width=True):
+                if st.button("Compare with leaderboard neighbors", width='stretch'):
                     st.session_state["nb_result"] = None
                     player_rank = st.session_state.get("sp_rank")
 

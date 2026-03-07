@@ -1,2 +1,3 @@
 /wa.py
 .streamlit/secrets.toml
+.claude/

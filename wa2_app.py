@@ -321,7 +321,7 @@ def compute_and_upsert(player_name, region, games):
     for i, p in enumerate(placements):
         if p >= 7:
             before = placements[max(0, i-50):i]
-            after  = placements[i+1:i+6]
+            after  = placements[i+1:i+4]
             if len(before) >= 10 and len(after) >= 1:
                 _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
 
@@ -1375,7 +1375,7 @@ with tabs[0]:
                 for i, p in enumerate(placements):
                     if p >= 7:
                         before = placements[max(0, i-50):i]
-                        after  = placements[i+1:i+6]
+                        after  = placements[i+1:i+4]
                         if len(before) >= 10 and len(after) >= 1:
                             _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
 

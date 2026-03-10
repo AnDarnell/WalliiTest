@@ -391,8 +391,77 @@ def lb_top_n(metric, n=TOP_N, higher_is_better=True):
 
 # ── Single-player fetch & calculate ───────────────────────────────────────────
 
-@st.cache_data(show_spinner=False, ttl=600)
+def _snapshots_to_games(snapshots):
+    games = []
+    for i in range(1, len(snapshots)):
+        prev, curr = snapshots[i - 1], snapshots[i]
+        gain = curr["rating"] - prev["rating"]
+        games.append({
+            "mmr_before": prev["rating"],
+            "mmr_after":  curr["rating"],
+            "gain":       gain,
+            "placement":  est_place(prev["rating"], gain, snapshot_time=curr["snapshot_time"]),
+            "time":       curr["snapshot_time"],
+        })
+    return games
+
+def _sb_get_cached_snapshots(player_name, region):
+    """Returns (snapshots, last_fetched) from Supabase, or (None, None)."""
+    try:
+        cr = requests.get(
+            f"{SUPABASE_URL}/rest/v1/player_cache",
+            headers=SUPABASE_HEADERS,
+            params={"player_name": f"eq.{player_name}", "region": f"eq.{region.upper()}", "select": "last_fetched,current_rank"},
+            timeout=10,
+        )
+        cr.raise_for_status()
+        cache_rows = cr.json()
+        if not cache_rows:
+            return None, None, None
+        last_fetched = cache_rows[0]["last_fetched"]
+        cached_rank  = cache_rows[0].get("current_rank")
+        age_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last_fetched.replace("Z", "+00:00"))).total_seconds() / 3600
+        if age_hours >= 12:
+            return None, None, None
+        sr = requests.get(
+            f"{SUPABASE_URL}/rest/v1/snapshots",
+            headers=SUPABASE_HEADERS,
+            params={"player_name": f"eq.{player_name}", "region": f"eq.{region.upper()}", "game_mode": "eq.0", "order": "snapshot_time.asc", "limit": "10000", "select": "snapshot_time,rating"},
+            timeout=10,
+        )
+        sr.raise_for_status()
+        rows = sr.json()
+        return (rows if rows else None), last_fetched, cached_rank
+    except Exception:
+        return None, None, None
+
+def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
+    """Save snapshots to Supabase and update player_cache."""
+    try:
+        rows = [{"player_name": player_name, "region": region.upper(), "snapshot_time": s["snapshot_time"], "rating": s["rating"], "game_mode": "0"} for s in snapshots]
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/snapshots?on_conflict=player_name,region,snapshot_time",
+            headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json=rows, timeout=20,
+        )
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/player_cache?on_conflict=player_name,region",
+            headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json={"player_name": player_name, "region": region.upper(), "last_fetched": datetime.utcnow().isoformat() + "Z", "current_rank": current_rank},
+            timeout=10,
+        )
+    except Exception:
+        pass
+
+@st.cache_data(show_spinner=False, ttl=3600)
 def fetch_and_calculate(player_name, region):
+    # ── 1. Try Supabase cache first ───────────────────────────────────────────
+    if SUPABASE_ENABLED:
+        cached, _, cached_rank = _sb_get_cached_snapshots(player_name, region)
+        if cached and len(cached) >= 2:
+            return _snapshots_to_games(cached), region, cached_rank
+
+    # ── 2. Fetch from wallii.gg ───────────────────────────────────────────────
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
     def _fetch(rgn):
@@ -411,19 +480,15 @@ def fetch_and_calculate(player_name, region):
     if not match:
         raise ValueError("Player not found — check spelling and region.")
 
-    data_str  = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
-    snapshots_all     = json.loads("[" + data_str + "]")
-    snapshots_all     = [s for s in snapshots_all if s["game_mode"] == "0"]
+    data_str      = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
+    snapshots_all = json.loads("[" + data_str + "]")
+    snapshots_all = [s for s in snapshots_all if s["game_mode"] == "0"]
     available_regions = list({s["region"].upper() for s in snapshots_all})
-    snapshots         = [s for s in snapshots_all if s["region"].upper() == region.upper()]
+    snapshots     = [s for s in snapshots_all if s["region"].upper() == region.upper()]
 
     rank_match   = re.search(r'text-2xl text-white">(\d+)<', r.text)
     current_rank = int(rank_match.group(1)) if rank_match else None
-    dlog(
-        "DEBUG rank_match:", rank_match,
-        "| snippet:",
-        repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND"
-    )
+    dlog("DEBUG rank_match:", rank_match, "| snippet:", repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND")
 
     if not snapshots and available_regions:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
@@ -434,19 +499,11 @@ def fetch_and_calculate(player_name, region):
     if len(snapshots) < 2:
         raise ValueError("Not enough snapshots to compute games.")
 
-    games = []
-    for i in range(1, len(snapshots)):
-        prev, curr = snapshots[i - 1], snapshots[i]
-        gain = curr["rating"] - prev["rating"]
-        games.append({
-            "mmr_before": prev["rating"],
-            "mmr_after":  curr["rating"],
-            "gain":       gain,
-            "placement":  est_place(prev["rating"], gain, snapshot_time=curr["snapshot_time"]),
-            "time":       curr["snapshot_time"],
-        })
+    # ── 3. Save to Supabase ───────────────────────────────────────────────────
+    if SUPABASE_ENABLED:
+        _sb_save_snapshots(player_name, region, snapshots, current_rank)
 
-    return games, region, current_rank
+    return _snapshots_to_games(snapshots), region, current_rank
 
 
 # ── Normalize ─────────────────────────────────────────────────────────────────
@@ -919,6 +976,8 @@ with tabs[0]:
 
     if submitted and not player:
         st.warning("Enter a player name.")
+
+    st.info("Note: To avoid overloading wallii.gg, player profiles are refreshed at most once every 12 hours. Think of this as seasonal/historical stats rather than live data. For the latest updates, visit wallii.gg directly! ")
 
     # ── Render-funktion för topplistor ────────────────────────────────────────
 

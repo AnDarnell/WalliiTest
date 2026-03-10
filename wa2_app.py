@@ -977,8 +977,7 @@ with tabs[0]:
     if submitted and not player:
         st.warning("Enter a player name.")
 
-    st.info("Note: To avoid overloading wallii.gg, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data. <br><br>"
-            "For the latest updates, please visit wallii.gg directly! :)")
+    st.info("Note: To avoid overloading wallii.gg, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit wallii.gg directly!")
 
     # ── Render-funktion för topplistor ────────────────────────────────────────
 

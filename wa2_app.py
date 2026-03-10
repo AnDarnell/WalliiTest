@@ -403,14 +403,8 @@ def fetch_and_calculate(player_name, region):
 
     try:
         r = _fetch(region)
-        if r.status_code == 429:
-            import time as _time
-            _time.sleep(3)
-            r = _fetch(region)
     except requests.exceptions.TooManyRedirects:
         raise ValueError("Player not found — check if correct region.")
-    if r.status_code == 429:
-        raise ValueError("wallii.gg is rate limiting — please wait a moment and try again.")
     r.raise_for_status()
 
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', r.text, re.DOTALL)
@@ -908,12 +902,20 @@ with tabs[0]:
         submitted = st.form_submit_button("Search", width='stretch')
 
     if submitted and player:
-        st.session_state["sp_player"] = player.strip().lower()
-        st.session_state["sp_region"] = region
-        st.session_state["sp_games"]  = None
-        st.session_state["sp_rank"]   = None
-        st.session_state["nb_result"] = None
-        st.rerun()
+        import time as _time
+        _last  = st.session_state.get("last_search_time", 0)
+        _count = st.session_state.get("search_count", 0)
+        if _count >= 2 and _time.time() - _last < 15:
+            st.warning("Please wait a moment before searching again.")
+        else:
+            st.session_state["last_search_time"] = _time.time()
+            st.session_state["search_count"]     = _count + 1
+            st.session_state["sp_player"] = player.strip().lower()
+            st.session_state["sp_region"] = region
+            st.session_state["sp_games"]  = None
+            st.session_state["sp_rank"]   = None
+            st.session_state["nb_result"] = None
+            st.rerun()
 
     if submitted and not player:
         st.warning("Enter a player name.")

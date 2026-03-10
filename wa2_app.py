@@ -391,7 +391,7 @@ def lb_top_n(metric, n=TOP_N, higher_is_better=True):
 
 # ── Single-player fetch & calculate ───────────────────────────────────────────
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=600)
 def fetch_and_calculate(player_name, region):
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
@@ -403,8 +403,14 @@ def fetch_and_calculate(player_name, region):
 
     try:
         r = _fetch(region)
+        if r.status_code == 429:
+            import time as _time
+            _time.sleep(3)
+            r = _fetch(region)
     except requests.exceptions.TooManyRedirects:
         raise ValueError("Player not found — check if correct region.")
+    if r.status_code == 429:
+        raise ValueError("wallii.gg is rate limiting — please wait a moment and try again.")
     r.raise_for_status()
 
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', r.text, re.DOTALL)

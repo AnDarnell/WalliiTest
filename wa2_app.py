@@ -1122,20 +1122,6 @@ with tabs[0]:
                 _cache_bust_toplists()
                 st.rerun()
 
-            if "prefetch_done" not in st.session_state:
-                st.session_state["prefetch_done"] = True
-                import threading
-                def _prefetch():
-                    seen = set()
-                    for row in _sb_fetch_all():
-                        key = (row["player"], row.get("region", "EU"))
-                        if key not in seen:
-                            seen.add(key)
-                            try:
-                                fetch_and_calculate(key[0], key[1])
-                            except Exception:
-                                pass
-                threading.Thread(target=_prefetch, daemon=True).start()
 
             with st.expander("Secret stuff"):
                 pwd = st.text_input("Password", type="password", key="admin_pwd")

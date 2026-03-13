@@ -1765,7 +1765,7 @@ with tabs[0]:
                     )
 
                 u_color = (
-                    "#d4a843" if u_score_val >= 0.2
+                    "#b388e8" if u_score_val >= 0.2
                     else "#aaa"  if u_score_val >= -0.1
                     else "#5b8fd4"
                 )

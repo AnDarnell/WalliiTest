@@ -147,6 +147,9 @@ def go_home():
     st.session_state.pop("sp_region", None)
     st.session_state.pop("sp_games", None)
     st.session_state.pop("sp_rank", None)
+    st.session_state.pop("h2h_games", None)
+    st.session_state.pop("h2h_label", None)
+    st.session_state.pop("h2h_error", None)
     st.session_state.pop("nb_result", None)
 
 # ── Query-param navigation (from leaderboard name links) ─────────────────────
@@ -156,6 +159,9 @@ if "goto_player" in _qp:
     st.session_state["sp_region"] = _qp.get("goto_region", "EU")
     st.session_state.pop("sp_games", None)
     st.session_state.pop("sp_rank", None)
+    st.session_state.pop("h2h_games", None)
+    st.session_state.pop("h2h_label", None)
+    st.session_state.pop("h2h_error", None)
     st.session_state.pop("nb_result", None)
     st.query_params.clear()
     st.rerun()
@@ -452,6 +458,72 @@ def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
         )
     except Exception:
         pass
+
+def _compute_player_stats(games):
+    """Compute all displayable stats from a games list."""
+    if not games:
+        return None
+    norm        = normalized_counts(games)
+    total       = len(games)
+    avg         = sum(g["placement"] for g in games) / total
+    wins        = norm[1]
+    top4        = sum(norm[p] for p in [1, 2, 3, 4])
+    current_mmr = games[-1]["mmr_after"]
+    peak_mmr    = max(max(g["mmr_before"] for g in games), max(g["mmr_after"] for g in games))
+
+    max_dd, peak_so_far = 0, games[0]["mmr_after"]
+    for g in games:
+        if g["mmr_after"] > peak_so_far:
+            peak_so_far = g["mmr_after"]
+        dd = peak_so_far - g["mmr_after"]
+        if dd > max_dd:
+            max_dd = dd
+
+    longest_streak, streak = 0, 0
+    for g in games:
+        streak = streak + 1 if round(g["placement"]) == 1 else 0
+        longest_streak = max(longest_streak, streak)
+
+    longest_roach, roach = 0, 0
+    for g in games:
+        roach = roach + 1 if round(g["placement"]) <= 4 else 0
+        longest_roach = max(longest_roach, roach)
+
+    form_diff = None
+    if total >= 60:
+        recent_avg = sum(g["placement"] for g in games[-50:]) / 50
+        form_diff  = recent_avg - avg
+
+    placements, _tilt_diffs = [round(g["placement"]) for g in games], []
+    for i, p in enumerate(placements):
+        if p >= 7:
+            before = placements[max(0, i-50):i]
+            after  = placements[i+1:i+4]
+            if len(before) >= 10 and len(after) >= 1:
+                _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
+    tilt_factor = None
+    if len(_tilt_diffs) >= 3 and avg > 0:
+        tilt_factor = float(1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2)
+
+    _eps   = 0.5
+    _part1 = np.log((norm[1] + _eps) / (norm[2] + norm[3] + norm[4] + _eps))
+    _part2 = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
+    u_score = 0.5 * (_part1 + _part2)
+
+    return {
+        "total":        total,
+        "avg":          avg,
+        "first_pct":    wins / total * 100,
+        "top4_pct":     top4 / total * 100,
+        "current_mmr":  current_mmr,
+        "peak_mmr":     peak_mmr,
+        "max_drawdown": max_dd,
+        "hot_streak":   longest_streak,
+        "roach_streak": longest_roach,
+        "form_diff":    form_diff,
+        "tilt_factor":  tilt_factor,
+        "u_score":      u_score,
+    }
 
 @st.cache_data(show_spinner=False, ttl=3600)
 def fetch_and_calculate(player_name, region):
@@ -971,6 +1043,9 @@ with tabs[0]:
             st.session_state["sp_region"] = region
             st.session_state["sp_games"]  = None
             st.session_state["sp_rank"]   = None
+            st.session_state.pop("h2h_games", None)
+            st.session_state.pop("h2h_label", None)
+            st.session_state.pop("h2h_error", None)
             st.session_state["nb_result"] = None
             st.rerun()
 
@@ -1064,7 +1139,7 @@ with tabs[0]:
     sp_region = st.session_state.get("sp_region")
 
     if not sp_player:
-        st.info("Note: To avoid overloading wallii.gg, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit wallii.gg directly!")
+        st.info("Note: To avoid overloading wallii.gg with requests, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit wallii.gg directly!")
         # ── Topplistor (startsida) ────────────────────────────────────────────
         if ENABLE_SESSION_TOPLISTS:
             _lb_init()
@@ -1344,7 +1419,7 @@ with tabs[0]:
                     )
 
                 # Header row: [←] player [region] [#rank]
-                hL, hR = st.columns([0.7, 9.3], vertical_alignment="center")
+                hL, hR, hInfo = st.columns([0.7, 5.3, 4.0], vertical_alignment="center")
 
                 with hL:
                     st.markdown("<div class='icon-btn'>", unsafe_allow_html=True)
@@ -1352,6 +1427,14 @@ with tabs[0]:
                         go_home()
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
+
+                with hInfo:
+                    st.markdown(
+                        "<p style='color:#555;font-size:0.72rem;text-align:right;margin:0;'>"
+                        "Unsure about a metric? See <em>Info &amp; Explanations</em> at the top."
+                        "</p>",
+                        unsafe_allow_html=True
+                    )
 
                 with hR:
                     player_rank_display = st.session_state.get("sp_rank")
@@ -1571,6 +1654,101 @@ with tabs[0]:
                             code, txt = st.session_state["sb_upsert_status"]
                             st.caption(f"Upsert: {code} | {txt}")
 
+                # ── Head-to-Head ──────────────────────────────────────────────
+                st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;'>Head-to-Head comparison</p>", unsafe_allow_html=True)
+                _h2h_cols = st.columns([3, 1, 1])
+                _h2h_name = _h2h_cols[0].text_input("H2H player", placeholder="Compare stats with player…", label_visibility="collapsed", key="h2h_name_input")
+                _h2h_region = _h2h_cols[1].selectbox("H2H region", VALID_REGIONS, key="h2h_region_input", label_visibility="collapsed")
+                if _h2h_cols[2].button("Compare", width='stretch', key="h2h_btn") and _h2h_name.strip():
+                    import time as _time
+                    _h2h_last  = st.session_state.get("h2h_last_time", 0)
+                    _h2h_count = st.session_state.get("h2h_count", 0)
+                    if _h2h_count >= 2 and _time.time() - _h2h_last < 15:
+                        st.warning("Please wait a moment before comparing again.")
+                    else:
+                        st.session_state["h2h_last_time"] = _time.time()
+                        st.session_state["h2h_count"]     = _h2h_count + 1
+                        with st.spinner(f"Fetching {_h2h_name.strip()}…"):
+                            try:
+                                _h2h_result = fetch_and_calculate(_h2h_name.strip().lower(), _h2h_region)
+                                st.session_state["h2h_games"] = _h2h_result[0]
+                                st.session_state["h2h_label"] = _h2h_name.strip()
+                                st.session_state.pop("h2h_error", None)
+                            except Exception as _e:
+                                st.session_state["h2h_games"] = None
+                                st.session_state["h2h_error"] = str(_e)
+
+                if st.session_state.get("h2h_error"):
+                    st.error(st.session_state["h2h_error"])
+                elif st.session_state.get("h2h_games"):
+                    _h2h_games = st.session_state["h2h_games"]
+                    _h2h_label = st.session_state.get("h2h_label", "Opponent")
+                    _s1 = _compute_player_stats(games)
+                    _s2 = _compute_player_stats(_h2h_games)
+                    _n1 = sp_player.title()
+                    _n2 = _h2h_label.title()
+
+                    _WIN  = "color: #7ab87a"
+                    _LOSE = "color: #c47a75"
+
+                    def _fmt_diff(s1_val, s2_val, higher_is_better=True, fmt=None, template="{name} has {val} more"):
+                        if s1_val is None or s2_val is None:
+                            return "—"
+                        d = s1_val - s2_val
+                        if abs(d) < 0.01:
+                            return "Similar"
+                        better = _n1 if (d > 0) == higher_is_better else _n2
+                        val    = fmt(abs(d)) if fmt else f"{abs(d):.2f}"
+                        return template.format(name=better, val=val)
+
+                    def _winner(s1_val, s2_val, higher_is_better=True):
+                        if s1_val is None or s2_val is None:
+                            return None
+                        d = s1_val - s2_val
+                        if abs(d) < 0.01:
+                            return None
+                        return _n1 if (d > 0) == higher_is_better else _n2
+
+                    _stat_defs = [
+                        ("Games",          str(_s1["total"]),                                                        str(_s2["total"]),                                                        _fmt_diff(_s1["total"],        _s2["total"],        higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has played {val} more games"),                  _winner(_s1["total"],        _s2["total"],        higher_is_better=True)),
+                        ("Avg Placement",  f"{_s1['avg']:.2f}",                                                     f"{_s2['avg']:.2f}",                                                     _fmt_diff(_s1["avg"],          _s2["avg"],          higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has {val} lower average placement"),            _winner(_s1["avg"],          _s2["avg"],          higher_is_better=False)),
+                        ("1st %",          f"{_s1['first_pct']:.1f}%",                                              f"{_s2['first_pct']:.1f}%",                                              _fmt_diff(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} more 1st places"),                    _winner(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True)),
+                        ("Top 4 %",        f"{_s1['top4_pct']:.1f}%",                                               f"{_s2['top4_pct']:.1f}%",                                               _fmt_diff(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} more top 4 finishes"),                _winner(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True)),
+                        ("Current MMR",    f"{_s1['current_mmr']:,}",                                                f"{_s2['current_mmr']:,}",                                                _fmt_diff(_s1["current_mmr"],  _s2["current_mmr"],  higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} higher Current MMR"),                 _winner(_s1["current_mmr"],  _s2["current_mmr"],  higher_is_better=True)),
+                        ("Peak MMR",       f"{_s1['peak_mmr']:,}",                                                   f"{_s2['peak_mmr']:,}",                                                   _fmt_diff(_s1["peak_mmr"],     _s2["peak_mmr"],     higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} higher Peak MMR"),                    _winner(_s1["peak_mmr"],     _s2["peak_mmr"],     higher_is_better=True)),
+                        ("Max MMR Drop",   f"-{_s1['max_drawdown']:,}",                                              f"-{_s2['max_drawdown']:,}",                                              _fmt_diff(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} larger Max MMR Drop"),                _winner(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True)),
+                        ("Hot Streak",     str(_s1["hot_streak"]),                                                   str(_s2["hot_streak"]),                                                   _fmt_diff(_s1["hot_streak"],   _s2["hot_streak"],   higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has a {val} game longer streak of 1st places"),  _winner(_s1["hot_streak"],   _s2["hot_streak"],   higher_is_better=True)),
+                        ("Roach Streak",   str(_s1["roach_streak"]),                                                 str(_s2["roach_streak"]),                                                 _fmt_diff(_s1["roach_streak"], _s2["roach_streak"], higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has a {val} game longer top 4 streak"),              _winner(_s1["roach_streak"], _s2["roach_streak"], higher_is_better=True)),
+                        ("Form (last 50)", f"{_s1['form_diff']:+.2f}" if _s1["form_diff"] is not None else "—",     f"{_s2['form_diff']:+.2f}" if _s2["form_diff"] is not None else "—",     _fmt_diff(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has {val} better current form"),                _winner(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False)),
+                        ("Tilt Factor",    f"{_s1['tilt_factor']:.2f}" if _s1["tilt_factor"] is not None else "—", f"{_s2['tilt_factor']:.2f}" if _s2["tilt_factor"] is not None else "—", _fmt_diff(_s1["tilt_factor"],  _s2["tilt_factor"],  higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has a {val} lower tilt factor"),                _winner(_s1["tilt_factor"],  _s2["tilt_factor"],  higher_is_better=False)),
+                        ("Aggression",     f"{_s1['u_score']:+.2f}",                                                f"{_s2['u_score']:+.2f}",                                                f"{_n1} has a more aggressive style" if _s1["u_score"] > _s2["u_score"] else (f"{_n2} has a more aggressive style" if _s2["u_score"] > _s1["u_score"] else "Similar style"), _winner(_s1["u_score"], _s2["u_score"], higher_is_better=True)),
+                    ]
+                    _rows    = [{"Stat": s, _n1: v1, _n2: v2, "Comparison": cmp} for s, v1, v2, cmp, _ in _stat_defs]
+                    _winners = [w for *_, w in _stat_defs]
+
+                    _df_h2h = pd.DataFrame(_rows).set_index("Stat")
+
+                    def _color_h2h(df):
+                        styles = pd.DataFrame("", index=df.index, columns=df.columns)
+                        for i, w in enumerate(_winners):
+                            if w == _n1:
+                                styles.iloc[i, df.columns.get_loc(_n1)] = _WIN
+                                styles.iloc[i, df.columns.get_loc(_n2)] = _LOSE
+                            elif w == _n2:
+                                styles.iloc[i, df.columns.get_loc(_n1)] = _LOSE
+                                styles.iloc[i, df.columns.get_loc(_n2)] = _WIN
+                        return styles
+
+                    st.dataframe(
+                        _df_h2h.style.apply(_color_h2h, axis=None),
+                        use_container_width=True,
+                        column_config={
+                            _n1:    st.column_config.TextColumn(width="small"),
+                            _n2:    st.column_config.TextColumn(width="small"),
+                        }
+                    )
+
                 import altair as alt
                 period = st.radio("Period", ["Season", "Week", "Day"], horizontal=True, label_visibility="collapsed", key="rg_period")
                 now = datetime.now(timezone.utc)
@@ -1644,59 +1822,6 @@ with tabs[0]:
                     )
                     chart = line + milestone_dots + peak_dot + rule + hover_points
                     st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), width='stretch')
-
-                    # ── Compare ───────────────────────────────────────────────
-                    st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
-                    _cmp_cols = st.columns([3, 1, 1])
-                    _cmp_name = _cmp_cols[0].text_input("Compare with player", placeholder="Compare graph with player…", label_visibility="collapsed", key="cmp_name_input")
-                    _cmp_region = _cmp_cols[1].selectbox("Compare region", ["EU", "NA", "AP"], key="cmp_region_input", label_visibility="collapsed")
-                    if _cmp_cols[2].button("Compare", width='stretch', key="cmp_btn") and _cmp_name.strip():
-                        with st.spinner(f"Fetching {_cmp_name.strip()}…"):
-                            try:
-                                _cmp_result = fetch_and_calculate(_cmp_name.strip().lower(), _cmp_region)
-                                st.session_state["cmp_games"] = _cmp_result[0]
-                                st.session_state["cmp_label"] = _cmp_name.strip()
-                                st.session_state.pop("cmp_error", None)
-                            except Exception as _e:
-                                st.session_state["cmp_games"] = None
-                                st.session_state["cmp_error"] = str(_e)
-
-                    if st.session_state.get("cmp_error"):
-                        st.error(st.session_state["cmp_error"])
-                    elif st.session_state.get("cmp_games"):
-                        _cmp_filtered = [
-                            g for g in st.session_state["cmp_games"]
-                            if cutoff is None or datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= cutoff
-                        ]
-                        _cmp_label = st.session_state.get("cmp_label", "Player 2")
-                        if not _cmp_filtered:
-                            st.caption(f"No games for {_cmp_label} in this period.")
-                        else:
-                            _main_label = st.session_state.get("sp_player", "Player 1").title()
-                            _df_main = pd.DataFrame([
-                                {"Time": g["time"], "MMR": g["mmr_after"], "Date": g["time"][:10], "Player": _main_label}
-                                for g in filtered
-                            ])
-                            _df_cmp = pd.DataFrame([
-                                {"Time": g["time"], "MMR": g["mmr_after"], "Date": g["time"][:10], "Player": _cmp_label.title()}
-                                for g in _cmp_filtered
-                            ])
-                            _df_combined = pd.concat([_df_main, _df_cmp], ignore_index=True)
-                            _df_combined["Time"] = pd.to_datetime(_df_combined["Time"])
-                            _cmp_chart = (
-                                alt.Chart(_df_combined)
-                                .mark_line()
-                                .encode(
-                                    x=alt.X("Time:T", title="Date"),
-                                    y=alt.Y("MMR:Q", title="MMR", scale=alt.Scale(zero=False, padding=20)),
-                                    color=alt.Color("Player:N", scale=alt.Scale(
-                                        domain=[_main_label, _cmp_label.title()],
-                                        range=["#7ab87a", "#d4a843"],
-                                    )),
-                                    tooltip=[alt.Tooltip("Player:N", title="Player"), alt.Tooltip("MMR:Q", title="MMR"), alt.Tooltip("Date:N", title="Date")],
-                                )
-                            )
-                            st.altair_chart(_cmp_chart.properties(height=250).configure_view(strokeWidth=0), width='stretch')
 
                 if st.button("Compare with leaderboard neighbors", width='stretch'):
                     st.session_state["nb_result"] = None

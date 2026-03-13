@@ -1139,7 +1139,7 @@ with tabs[0]:
     sp_region = st.session_state.get("sp_region")
 
     if not sp_player:
-        st.info("Note: To avoid overloading wallii.gg with requests, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit wallii.gg directly!")
+        st.info("Note: To avoid overloading wallii.gg with requests, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit [wallii.gg](https://www.wallii.gg) directly!")
         # ── Topplistor (startsida) ────────────────────────────────────────────
         if ENABLE_SESSION_TOPLISTS:
             _lb_init()

@@ -149,6 +149,7 @@ def go_home():
     st.session_state.pop("sp_rank", None)
     st.session_state.pop("h2h_games", None)
     st.session_state.pop("h2h_label", None)
+    st.session_state.pop("h2h_region", None)
     st.session_state.pop("h2h_error", None)
     st.session_state.pop("nb_result", None)
 
@@ -161,6 +162,7 @@ if "goto_player" in _qp:
     st.session_state.pop("sp_rank", None)
     st.session_state.pop("h2h_games", None)
     st.session_state.pop("h2h_label", None)
+    st.session_state.pop("h2h_region", None)
     st.session_state.pop("h2h_error", None)
     st.session_state.pop("nb_result", None)
     st.query_params.clear()
@@ -413,6 +415,7 @@ def _snapshots_to_games(snapshots):
 
 def _sb_get_cached_snapshots(player_name, region):
     """Returns (snapshots, last_fetched) from Supabase, or (None, None)."""
+    player_name = player_name.lower()
     try:
         cr = requests.get(
             f"{SUPABASE_URL}/rest/v1/player_cache",
@@ -429,31 +432,77 @@ def _sb_get_cached_snapshots(player_name, region):
         age_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last_fetched.replace("Z", "+00:00"))).total_seconds() / 3600
         if age_hours >= 12:
             return None, None, None
-        sr = requests.get(
-            f"{SUPABASE_URL}/rest/v1/snapshots",
-            headers=SUPABASE_HEADERS,
-            params={"player_name": f"eq.{player_name}", "region": f"eq.{region.upper()}", "game_mode": "eq.0", "order": "snapshot_time.asc", "limit": "10000", "select": "snapshot_time,rating"},
-            timeout=10,
-        )
-        sr.raise_for_status()
-        rows = sr.json()
+        rows = []
+        offset = 0
+        while True:
+            sr = requests.get(
+                f"{SUPABASE_URL}/rest/v1/snapshots",
+                headers=SUPABASE_HEADERS,
+                params={"player_name": f"eq.{player_name}", "region": f"eq.{region.upper()}", "game_mode": "eq.0", "snapshot_time": f"gte.{SEASON_START}", "order": "snapshot_time.asc", "limit": "1000", "offset": str(offset), "select": "snapshot_time,rating"},
+                timeout=10,
+            )
+            sr.raise_for_status()
+            batch = sr.json()
+            rows.extend(batch)
+            if len(batch) < 1000:
+                break
+            offset += 1000
         return (rows if rows else None), last_fetched, cached_rank
     except Exception:
         return None, None, None
 
 def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
-    """Save snapshots to Supabase and update player_cache."""
-    try:
-        rows = [{"player_name": player_name, "region": region.upper(), "snapshot_time": s["snapshot_time"], "rating": s["rating"], "game_mode": "0"} for s in snapshots]
+    """Save snapshots to Supabase in batches, then update player_cache."""
+    player_name = player_name.lower()
+    rows = [
+        {"player_name": player_name, "region": region.upper(), "snapshot_time": s["snapshot_time"], "rating": s["rating"], "game_mode": "0"}
+        for s in snapshots
+    ]
+    for i in range(0, len(rows), 100):
         requests.post(
             f"{SUPABASE_URL}/rest/v1/snapshots?on_conflict=player_name,region,snapshot_time",
             headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
-            json=rows, timeout=20,
+            json=rows[i:i + 100], timeout=30,
+        ).raise_for_status()
+    requests.post(
+        f"{SUPABASE_URL}/rest/v1/player_cache?on_conflict=player_name,region",
+        headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+        json={"player_name": player_name, "region": region.upper(), "last_fetched": datetime.now(timezone.utc).isoformat(), "current_rank": current_rank},
+        timeout=10,
+    ).raise_for_status()
+
+def _sb_load_regression(region):
+    """Load regression curve from Supabase. Returns (bx, by) or (None, None)."""
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/regression_cache",
+            headers=SUPABASE_HEADERS,
+            params={"region": f"eq.{region.upper()}", "select": "bx_json,by_json"},
+            timeout=10,
         )
+        r.raise_for_status()
+        rows = r.json()
+        if not rows:
+            return None, None
+        bx = np.array(json.loads(rows[0]["bx_json"]))
+        by = np.array(json.loads(rows[0]["by_json"]))
+        return bx, by
+    except Exception:
+        return None, None
+
+def _sb_save_regression(region, bx, by, n_players):
+    """Save regression curve to Supabase."""
+    try:
         requests.post(
-            f"{SUPABASE_URL}/rest/v1/player_cache?on_conflict=player_name,region",
+            f"{SUPABASE_URL}/rest/v1/regression_cache?on_conflict=region",
             headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
-            json={"player_name": player_name, "region": region.upper(), "last_fetched": datetime.utcnow().isoformat() + "Z", "current_rank": current_rank},
+            json={
+                "region":     region.upper(),
+                "bx_json":    json.dumps(bx.tolist()),
+                "by_json":    json.dumps(by.tolist()),
+                "n_players":  n_players,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
             timeout=10,
         )
     except Exception:
@@ -525,7 +574,6 @@ def _compute_player_stats(games):
         "u_score":      u_score,
     }
 
-@st.cache_data(show_spinner=False, ttl=3600)
 def fetch_and_calculate(player_name, region):
     # ── 1. Try Supabase cache first ───────────────────────────────────────────
     if SUPABASE_ENABLED:
@@ -907,12 +955,16 @@ def load_rating_curve(csv_path_str, file_mtime, x_choice="current_mmr",
     return bx, by
 
 def delta_color(delta):
-    if delta <= -0.16:
+    if delta <= -0.40:
         return "#4a8c5c"
-    elif delta <= 0.01:
+    elif delta <= -0.20:
+        return "#6aab6a"
+    elif delta <= 0.02:
         return "#7ab87a"
-    elif delta <= 0.15:
+    elif delta <= 0.20:
         return "#d4a843"
+    elif delta <= 0.40:
+        return "#c47a75"
     else:
         return "#8c3a2a"
 
@@ -1276,7 +1328,6 @@ with tabs[0]:
                                 name, region = row["player"], row["region"]
                                 bar.progress((i + 1) / len(all_players), text=f"({i+1}/{len(all_players)}) {name} [{region}]")
                                 try:
-                                    fetch_and_calculate.clear()
                                     games_r, _, _ = fetch_and_calculate(name, region)
                                     compute_and_upsert(name, region, games_r)
                                 except Exception:
@@ -1312,6 +1363,52 @@ with tabs[0]:
                         _cache_bust_toplists()
                         st.success(f"Scan complete — {_scan_ok} ok, {_scan_err} errors.")
                         st.rerun()
+
+                    st.divider()
+                    st.caption("Rebuild avg-placement regression curves from player_stats data (last 7 days, min 100 games).")
+                    _cutoff_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                    _fresh_counts = {}
+                    for _reg in ["EU", "NA", "AP", "CN"]:
+                        try:
+                            _rc = requests.get(
+                                f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
+                                headers=SUPABASE_HEADERS,
+                                params={"region": f"eq.{_reg}", "updated_at": f"gte.{_cutoff_7d}", "games": "gte.100", "select": "player", "limit": "10000"},
+                                timeout=10,
+                            )
+                            _fresh_counts[_reg] = len(_rc.json())
+                        except Exception:
+                            _fresh_counts[_reg] = "?"
+                    _total_fresh = sum(v for v in _fresh_counts.values() if isinstance(v, int))
+                    st.caption("Fresh players (7d): " + "  |  ".join(f"{r}: {n}" for r, n in _fresh_counts.items()) + f"  |  **Total: {_total_fresh}**")
+                    if st.button("Rebuild regression curve", width='stretch'):
+                        try:
+                            _all_rows = []
+                            for _reg in ["EU", "NA", "AP", "CN"]:
+                                _rd = requests.get(
+                                    f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
+                                    headers=SUPABASE_HEADERS,
+                                    params={"region": f"eq.{_reg}", "updated_at": f"gte.{_cutoff_7d}", "games": "gte.100", "select": "cr,avg_place,games", "limit": "10000"},
+                                    timeout=15,
+                                )
+                                _rd.raise_for_status()
+                                _all_rows.extend(_rd.json())
+                            if len(_all_rows) < 5:
+                                st.warning(f"Not enough data ({len(_all_rows)} players total)")
+                            else:
+                                _df_all = pd.DataFrame(_all_rows).rename(columns={"cr": "current_mmr"})
+                                _rbx, _rby, _ = binned_weighted_curve(_df_all, x_col="current_mmr", y_col="avg_place", w_col="games", bin_size=500, mode="wmean", min_games=0)
+                                if len(_rbx) < 2:
+                                    st.warning("Regression failed (not enough bins)")
+                                else:
+                                    _poly = np.polyfit(_rbx, _rby, deg=2)
+                                    _smooth_x = np.linspace(_rbx.min(), _rbx.max(), 100)
+                                    _smooth_y = np.clip(np.polyval(_poly, _smooth_x), 1.0, 8.0)
+                                    _sb_save_regression("ALL", _smooth_x, _smooth_y, len(_all_rows))
+                                    st.success(f"Curve updated ({len(_all_rows)} players, {len(_rbx)} bins)")
+                        except Exception as _re:
+                            st.error(str(_re))
+
                 elif pwd:
                     st.caption("Wrong password.")
 
@@ -1387,23 +1484,33 @@ with tabs[0]:
 
                 expected_avg = None
                 delta = None
-                curve_csv = get_csv_for_region(sp_region)
+                _curve_source = None
+                bx, by = _sb_load_regression("ALL")
+                if bx is not None and len(bx) >= 2:
+                    _curve_source = "supabase"
+                else:
+                    # fallback to CSV
+                    curve_csv = get_csv_for_region(sp_region)
+                    if curve_csv.exists():
+                        try:
+                            mtime = curve_csv.stat().st_mtime
+                            bx, by = load_rating_curve(
+                                str(curve_csv),
+                                mtime,
+                                x_choice="current_mmr",
+                                bin_size=1000,
+                                mode_kind="wmean",
+                                min_games=300,
+                            )
+                            _curve_source = "csv"
+                        except Exception:
+                            bx, by = None, None
 
-                if curve_csv.exists():
+                if bx is not None and len(bx) >= 2:
                     try:
-                        mtime = curve_csv.stat().st_mtime
-                        bx, by = load_rating_curve(
-                            str(curve_csv),
-                            mtime,
-                            x_choice="current_mmr",
-                            bin_size=1000,
-                            mode_kind="wmean",
-                            min_games=300,
-                        )
-                        if len(bx) >= 2:
-                            expected_avg = interp_with_extrap(current_mmr, bx, by)
-                            expected_avg = float(np.clip(expected_avg, 1.0, 8.0))
-                            delta = float(avg - expected_avg)
+                        expected_avg = interp_with_extrap(current_mmr, bx, by)
+                        expected_avg = float(np.clip(expected_avg, 1.0, 8.0))
+                        delta = float(avg - expected_avg)
                     except Exception:
                         pass
 
@@ -1413,9 +1520,9 @@ with tabs[0]:
                     avg_color = delta_color(delta)
                     sign = "+" if delta >= 0 else ""
                     avg_tip = (
-                        f"Curve file: {curve_csv.name} | "
                         f"Expected at CR {current_mmr:,}: {expected_avg:.2f} | "
-                        f"Δ: {sign}{delta:.2f} (avg - expected)"
+                        f"Δ: {sign}{delta:.2f} (avg - expected) | "
+                        f"source: {_curve_source}"
                     )
 
                 # Header row: [←] player [region] [#rank]
@@ -1672,8 +1779,9 @@ with tabs[0]:
                         with st.spinner(f"Fetching {_h2h_name.strip()}…"):
                             try:
                                 _h2h_result = fetch_and_calculate(_h2h_name.strip().lower(), _h2h_region)
-                                st.session_state["h2h_games"] = _h2h_result[0]
-                                st.session_state["h2h_label"] = _h2h_name.strip()
+                                st.session_state["h2h_games"]  = _h2h_result[0]
+                                st.session_state["h2h_label"]  = _h2h_name.strip()
+                                st.session_state["h2h_region"] = _h2h_region
                                 st.session_state.pop("h2h_error", None)
                             except Exception as _e:
                                 st.session_state["h2h_games"] = None
@@ -1688,6 +1796,9 @@ with tabs[0]:
                     _s2 = _compute_player_stats(_h2h_games)
                     _n1 = sp_player.title()
                     _n2 = _h2h_label.title()
+                    if _n1.lower() == _n2.lower():
+                        _n1 = f"{_n1} ({sp_region.upper()})"
+                        _n2 = f"{_n2} ({st.session_state.get('h2h_region', '?').upper()})"
 
                     _WIN  = "color: #7ab87a"
                     _LOSE = "color: #c47a75"
@@ -1712,9 +1823,9 @@ with tabs[0]:
 
                     _stat_defs = [
                         ("Games",          str(_s1["total"]),                                                        str(_s2["total"]),                                                        _fmt_diff(_s1["total"],        _s2["total"],        higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has played {val} more games"),                  _winner(_s1["total"],        _s2["total"],        higher_is_better=True)),
-                        ("Avg Placement",  f"{_s1['avg']:.2f}",                                                     f"{_s2['avg']:.2f}",                                                     _fmt_diff(_s1["avg"],          _s2["avg"],          higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has {val} lower average placement"),            _winner(_s1["avg"],          _s2["avg"],          higher_is_better=False)),
-                        ("1st %",          f"{_s1['first_pct']:.1f}%",                                              f"{_s2['first_pct']:.1f}%",                                              _fmt_diff(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} more 1st places"),                    _winner(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True)),
-                        ("Top 4 %",        f"{_s1['top4_pct']:.1f}%",                                               f"{_s2['top4_pct']:.1f}%",                                               _fmt_diff(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} more top 4 finishes"),                _winner(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True)),
+                        ("Avg Placement",  f"{_s1['avg']:.2f}",                                                     f"{_s2['avg']:.2f}",                                                     _fmt_diff(round(_s1["avg"],2),round(_s2["avg"],2),higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has {val} lower average placement"),            _winner(_s1["avg"],          _s2["avg"],          higher_is_better=False)),
+                        ("1st %",          f"{_s1['first_pct']:.1f}%",                                              f"{_s2['first_pct']:.1f}%",                                              _fmt_diff(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} higher 1st place rate"),                    _winner(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True)),
+                        ("Top 4 %",        f"{_s1['top4_pct']:.1f}%",                                               f"{_s2['top4_pct']:.1f}%",                                               _fmt_diff(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} higher top 4 rate"),                _winner(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True)),
                         ("Current MMR",    f"{_s1['current_mmr']:,}",                                                f"{_s2['current_mmr']:,}",                                                _fmt_diff(_s1["current_mmr"],  _s2["current_mmr"],  higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} higher Current MMR"),                 _winner(_s1["current_mmr"],  _s2["current_mmr"],  higher_is_better=True)),
                         ("Peak MMR",       f"{_s1['peak_mmr']:,}",                                                   f"{_s2['peak_mmr']:,}",                                                   _fmt_diff(_s1["peak_mmr"],     _s2["peak_mmr"],     higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} higher Peak MMR"),                    _winner(_s1["peak_mmr"],     _s2["peak_mmr"],     higher_is_better=True)),
                         ("Max MMR Drop",   f"-{_s1['max_drawdown']:,}",                                              f"-{_s2['max_drawdown']:,}",                                              _fmt_diff(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} larger Max MMR Drop"),                _winner(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True)),
@@ -1922,6 +2033,39 @@ with tabs[0]:
 
 with tabs[1]:
     st.info("Ignore this, just backend stuff for debug/testign. Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace) for some of the values.")
+
+    st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Supabase regression curve (all regions combined)</p>", unsafe_allow_html=True)
+    _sb_bx, _sb_by = _sb_load_regression("ALL")
+    if _sb_bx is None or len(_sb_bx) < 2:
+        st.caption("No Supabase regression found. Run 'Rebuild regression curve' in admin.")
+    else:
+        _sb_q_mmr = st.number_input(
+            "MMR",
+            min_value=float(np.min(_sb_bx)) - 5000.0,
+            max_value=float(np.max(_sb_bx)) + 5000.0,
+            value=float(np.percentile(_sb_bx, 75)),
+            step=100.0,
+            label_visibility="collapsed",
+            key="sb_reg_mmr",
+        )
+        _sb_est = float(np.clip(interp_with_extrap(_sb_q_mmr, _sb_bx, _sb_by), 1.0, 8.0))
+        st.markdown(
+            f"<div style='margin-top:0.35rem;margin-bottom:0.8rem;'>"
+            f"<span style='color:#eee;font-size:1.6rem;font-weight:700;'>{_sb_est:.2f}</span>"
+            f"<span style='color:#777;font-size:0.9rem;margin-left:0.6rem;'>at {_sb_q_mmr:,.0f} MMR (all regions)</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        _sb_fig, _sb_ax = plt.subplots(figsize=(10, 5))
+        _sb_fig.patch.set_facecolor("#0e0e0e")
+        _sb_ax.set_facecolor("#0e0e0e")
+        _sb_ax.plot(_sb_bx, _sb_by, color="#d4a843", linewidth=3)
+        _sb_ax.set_xlabel("Current MMR")
+        _sb_ax.set_ylabel("Avg Place")
+        style_dark_axes(_sb_ax)
+        st.pyplot(_sb_fig)
+
+    st.divider()
 
 with tabs[1]:
     rr = st.selectbox("Curve region (CSV)", ["EU"], index=0)

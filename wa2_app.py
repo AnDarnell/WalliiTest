@@ -262,7 +262,7 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
-_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,updated_at"
+_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,updated_at"
 
 @st.cache_data(show_spinner=False, ttl=60)
 def _sb_fetch_all():
@@ -337,10 +337,17 @@ def compute_and_upsert(player_name, region, games):
     if len(_tilt_diffs) >= 3 and avg > 0:
         tilt_factor_val = float(1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2)
 
-    form_diff = None
+    form_diff   = None
+    form_rating = None
     if total >= 60:
         recent_avg = sum(g["placement"] for g in games[-50:]) / 50
-        form_diff = recent_avg - avg
+        form_diff  = recent_avg - avg
+        try:
+            _bx, _by = _sb_load_regression("ALL")
+            if _bx is not None and len(_bx) >= 2:
+                form_rating = int(round(float(np.interp(recent_avg, _by[::-1], _bx[::-1]))))
+        except Exception:
+            pass
 
     max_dd = 0
     peak_so_far = games[0]["mmr_after"]
@@ -380,6 +387,7 @@ def compute_and_upsert(player_name, region, games):
         "tilt_factor":     tilt_factor_val,
         "avg_place":       float(avg),
         "form_diff":       float(form_diff) if form_diff is not None else None,
+        "form_rating":     form_rating,
         "max_drawdown":    int(max_dd),
         "dd_detail":       dd_detail,
         "first_10k_date":  first_10k_date,
@@ -1255,7 +1263,7 @@ with tabs[0]:
 
             lists = [
                 ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Mean placement across all recorded games. Lower is better."),
-                ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f} ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
+                ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",        "Total number of games played this season while on the leaderboard."),
                 ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
                 ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",   "Longest consecutive 1st streak of placement."),
                 ("Top 4 %",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
@@ -1264,8 +1272,9 @@ with tabs[0]:
                 ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
                 ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
                 ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: low 1st relative to 2–4, and low 7+8 relative to 5–6. Negative = defensive/consistent."),
-                ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",        "Total number of games played this season while on the leaderboard."),
                 ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
+                ("Best form rating",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}", "Estimated MMR based on last 50 games avg placement on the regression curve."),
+                ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f} ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
 
             ]
 
@@ -1412,12 +1421,48 @@ with tabs[0]:
                                     st.warning("Regression failed (not enough bins)")
                                 else:
                                     _poly = np.polyfit(_rbx, _rby, deg=2)
-                                    _smooth_x = np.linspace(_rbx.min(), _rbx.max(), 100)
+                                    _smooth_x = np.linspace(_rbx.min(), _rbx.max() + 5000, 100)
                                     _smooth_y = np.clip(np.polyval(_poly, _smooth_x), 1.0, 8.0)
                                     _sb_save_regression("ALL", _smooth_x, _smooth_y, len(_all_rows))
                                     st.success(f"Curve updated ({len(_all_rows)} players, {len(_rbx)} bins)")
                         except Exception as _re:
                             st.error(str(_re))
+
+                    st.divider()
+                    st.caption("Recalculates Form Rating for all players using existing player_stats data and the current regression curve. No wallii.gg calls.")
+                    if st.button("Rebuild Form Ratings", width='stretch'):
+                        try:
+                            _bx_fr, _by_fr = _sb_load_regression("ALL")
+                            if _bx_fr is None or len(_bx_fr) < 2:
+                                st.error("No regression curve found. Rebuild regression curve first.")
+                            else:
+                                _ps_resp = requests.get(
+                                    f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
+                                    headers=SUPABASE_HEADERS,
+                                    params={"select": "player,region,avg_place,form_diff", "limit": "1000"},
+                                    timeout=15,
+                                )
+                                _ps_resp.raise_for_status()
+                                _ps_rows = [r for r in _ps_resp.json() if r.get("avg_place") is not None and r.get("form_diff") is not None]
+                                _ok, _fail = 0, 0
+                                for _pr in _ps_rows:
+                                    try:
+                                        _ra = _pr["avg_place"] + _pr["form_diff"]
+                                        _fr = int(round(float(np.interp(_ra, _by_fr[::-1], _bx_fr[::-1]))))
+                                        requests.post(
+                                            f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region",
+                                            headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+                                            json={"player": _pr["player"], "region": _pr["region"], "form_rating": _fr},
+                                            timeout=10,
+                                        ).raise_for_status()
+                                        _ok += 1
+                                    except Exception:
+                                        _fail += 1
+                                st.success(f"Updated {_ok} players. Failed: {_fail}.")
+                                _sb_fetch_all.clear()
+                                _sb_top_n.clear()
+                        except Exception as _fre:
+                            st.error(str(_fre))
 
                 elif pwd:
                     st.caption("Wrong password.")
@@ -1644,7 +1689,7 @@ with tabs[0]:
 
                 roach_html = (
                     f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Roach streak"
-                    f"<span style='color:#4a8c5c;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_roach}</span>"
+                    f"<span style='color:#aaa;font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{longest_roach}</span>"
                     f"<span title='Longest consecutive streak of Top 4 place finishes.' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                     f"</span>"
                 )
@@ -1725,11 +1770,42 @@ with tabs[0]:
                     else "#5b8fd4"
                 )
                 u_tip = "Aggression score: ((p7+p8)/(p5+p6) − 1) × log(p1/avg(p2–p4)). Positive = U-shaped distribution (spikes at both ends). Negative = non-aggressive."
+
+                # ── Form Rating (omvänd interpolation: placement → MMR) ───────
+                _form_rating_html = ""
+                if total >= 60 and bx is not None and len(bx) >= 2:
+                    try:
+                        _by_rev = by[::-1]
+                        _bx_rev = bx[::-1]
+                        _form_mmr_int = int(round(float(np.interp(recent_avg, _by_rev, _bx_rev))))
+                        _fmmr_tip = f"The MMR that corresponds to a {recent_avg:.2f} avg placement on the regression curve."
+                        _d = _form_mmr_int - current_mmr
+                        _fmmr_color = (
+                            "#4a8c5c" if _d >=  2000 else
+                            "#6aab6a" if _d >=   750 else
+                            "#7ab87a" if _d >=     0 else
+                            "#d4a843" if _d >=  -750 else
+                            "#c47a75" if _d >= -2000 else
+                            "#8c3a2a"
+                        )
+                        _fmmr_diff  = _d
+                        _fmmr_sign  = "+" if _fmmr_diff >= 0 else ""
+                        _form_rating_html = (
+                            f"<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form Rating"
+                            f"<span style='color:{_fmmr_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{_form_mmr_int:,}</span>"
+                            f"<span style='color:{_fmmr_color};font-size:0.8rem;margin-left:0.4rem;'>({_fmmr_sign}{_fmmr_diff:,})</span>"
+                            f"<span title='{_fmmr_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                            f"</span>"
+                        )
+                    except Exception:
+                        pass
+
                 st.markdown(
                     f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
                     f"Aggression"
                     f"<span style='color:{u_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{u_score_val:+.2f}</span>"
                     f"<span title='{u_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
+                    f"{_form_rating_html}"
                     f"</div>",
                     unsafe_allow_html=True
                 )
@@ -1749,6 +1825,7 @@ with tabs[0]:
                             "tilt_factor":  float(tilt_factor_val) if tilt_factor_val is not None else None,
                             "avg_place":    float(avg),
                             "form_diff":    float(form_diff) if total >= 60 else None,
+                            "form_rating":  _form_mmr_int if total >= 60 and _form_rating_html else None,
                             "max_drawdown":   int(max_dd),
                             "dd_detail":      dd_tip,
                             "first_10k_date": next((g["time"] for g in games if g["mmr_after"] >= 10000), None),
@@ -2206,6 +2283,17 @@ with tabs[2]:
             "Difference between a player's <strong>last 50 games</strong> average placement and their overall average. "
             "A negative number means they are playing <em>better</em> recently than their historical baseline.<br><br>"
             "The value is therefore a difference in average placement (for example 3.50 (last 50 games) - 3.20 (overall) = 0.30).<br><br> Negative: better form. Positive: worse form." 
+        ),
+        "Form Rating": (
+            "An estimated MMR value that corresponds to the player's current <strong>Form (last 50 games)</strong> average placement, "
+            "based on the regression curve between MMR and average placement.<br><br>"
+            "For example, if a player's last 50 games average placement corresponds to what players with 14 000 MMR typically achieve, "
+            "the Form Rating will show 14 000 — regardless of the player's current MMR.<br><br>"
+            "The difference shown in parentheses is Form Rating minus current MMR. "
+            "<strong>Positive = playing above your current rank. Negative = playing below.</strong><br><br>"
+            "Think of it as an <em>event horizon</em>: if a player keeps performing at their current form, "
+            "their MMR will naturally trend towards the Form Rating over time — "
+            "since their results will push the rating up (or down) until it stabilizes at that level."
         ),
         "Largest MMR Drop": "The largest MMR drop from a <strong>peak</strong> to a subsequent <strong>low</strong> in the player's history. This includes any upswing during this time. For every recorded peak it will look for the lowest MMR reached before a new peak is achieved, and the largest of these drops is shown.",
         "Aggression Score": (

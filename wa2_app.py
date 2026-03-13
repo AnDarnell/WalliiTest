@@ -983,7 +983,8 @@ def diff_pct_color(diff):
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 
-st.set_page_config(page_title="Placement Stats", layout="centered")
+st.set_page_config(page_title="Placement Stats", layout="centered", page_icon="nerdbob2.png")
+st.logo("nerdbob.png")
 
 st.markdown("""
 <style>
@@ -1065,8 +1066,17 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h2 style='color:#eee; font-weight:normal; margin-bottom:0.2rem;'><a href='?goto_home=1' style='color:inherit;text-decoration:none;' onmouseover=\"this.style.opacity='0.7'\" onmouseout=\"this.style.opacity='1'\">Placement Statistics</a></h2>", unsafe_allow_html=True)
-st.markdown("<p style='color:#555; font-size:0.8rem; margin-bottom:1.0rem; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</p>", unsafe_allow_html=True)
+import base64 as _b64
+_logo_b64 = _b64.b64encode(open("nerdbob.png", "rb").read()).decode()
+st.markdown(f"""
+<div style='display:flex; align-items:center; gap:1rem; margin-bottom:1.0rem;'>
+  <img src='data:image/png;base64,{_logo_b64}' style='height:72px; width:72px; object-fit:cover; border-radius:8px; flex-shrink:0;'>
+  <div style='line-height:1.2;'>
+    <div style='color:#eee; font-size:1.5rem; font-weight:normal; margin:0 0 0.2rem 0;'><a href='?goto_home=1' style='color:inherit;text-decoration:none;' onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">Placement Statistics</a></div>
+    <div style='color:#555; font-size:0.8rem; margin:0; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
 tabs = st.tabs(["Single player", "RatingAvg", "Info/Explanations"])
 

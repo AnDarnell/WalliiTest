@@ -1081,7 +1081,7 @@ st.markdown(f"""
   <img src='data:image/png;base64,{_logo_b64}' style='height:72px; width:72px; object-fit:cover; border-radius:8px; flex-shrink:0;'>
   <div style='line-height:1.2;'>
     <div style='color:#eee; font-size:1.5rem; font-weight:normal; margin:0 0 0.2rem 0;'><a href='?goto_home=1' style='color:inherit;text-decoration:none;' onmouseover="this.style.opacity='0.7'" onmouseout="this.style.opacity='1'">Placement Statistics</a></div>
-    <div style='color:#555; font-size:0.8rem; margin:0; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Stats</div>
+    <div style='color:#555; font-size:0.8rem; margin:0; text-transform:uppercase; letter-spacing:0.08em;'>Hearthstone Battlegrounds Leaderboard Stats</div>
   </div>
 </div>
 """, unsafe_allow_html=True)
@@ -1851,10 +1851,12 @@ with tabs[0]:
                 # ── Head-to-Head ──────────────────────────────────────────────
                 st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
                 st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;'>Head-to-Head comparison</p>", unsafe_allow_html=True)
-                _h2h_cols = st.columns([3, 1, 1])
-                _h2h_name = _h2h_cols[0].text_input("H2H player", placeholder="Compare stats with player…", label_visibility="collapsed", key="h2h_name_input")
-                _h2h_region = _h2h_cols[1].selectbox("H2H region", VALID_REGIONS, key="h2h_region_input", label_visibility="collapsed")
-                if _h2h_cols[2].button("Compare", width='stretch', key="h2h_btn") and _h2h_name.strip():
+                with st.form("h2h_form"):
+                    _h2h_cols = st.columns([3, 1, 1])
+                    _h2h_name = _h2h_cols[0].text_input("H2H player", placeholder="Compare stats with player…", label_visibility="collapsed", key="h2h_name_input")
+                    _h2h_region = _h2h_cols[1].selectbox("H2H region", VALID_REGIONS, key="h2h_region_input", label_visibility="collapsed")
+                    _h2h_submitted = _h2h_cols[2].form_submit_button("Compare", use_container_width=True)
+                if _h2h_submitted and _h2h_name.strip():
                     import time as _time
                     _h2h_last  = st.session_state.get("h2h_last_time", 0)
                     _h2h_count = st.session_state.get("h2h_count", 0)
@@ -1910,17 +1912,17 @@ with tabs[0]:
 
                     _stat_defs = [
                         ("Games",          str(_s1["total"]),                                                        str(_s2["total"]),                                                        _fmt_diff(_s1["total"],        _s2["total"],        higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has played {val} more games"),                  _winner(_s1["total"],        _s2["total"],        higher_is_better=True)),
-                        ("Avg Placement",  f"{_s1['avg']:.2f}",                                                     f"{_s2['avg']:.2f}",                                                     _fmt_diff(round(_s1["avg"],2),round(_s2["avg"],2),higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has {val} lower average placement"),            _winner(_s1["avg"],          _s2["avg"],          higher_is_better=False)),
-                        ("1st %",          f"{_s1['first_pct']:.1f}%",                                              f"{_s2['first_pct']:.1f}%",                                              _fmt_diff(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} higher 1st place rate"),                    _winner(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True)),
-                        ("Top 4 %",        f"{_s1['top4_pct']:.1f}%",                                               f"{_s2['top4_pct']:.1f}%",                                               _fmt_diff(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has {val} higher top 4 rate"),                _winner(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True)),
+                        ("Avg Placement",  f"{_s1['avg']:.2f}",                                                     f"{_s2['avg']:.2f}",                                                     _fmt_diff(round(_s1["avg"],2),round(_s2["avg"],2),higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has a {val} lower average placement"),            _winner(_s1["avg"],          _s2["avg"],          higher_is_better=False)),
+                        ("1st %",          f"{_s1['first_pct']:.1f}%",                                              f"{_s2['first_pct']:.1f}%",                                              _fmt_diff(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has a {val} higher 1st place rate"),                    _winner(_s1["first_pct"],    _s2["first_pct"],    higher_is_better=True)),
+                        ("Top 4 %",        f"{_s1['top4_pct']:.1f}%",                                               f"{_s2['top4_pct']:.1f}%",                                               _fmt_diff(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True,  fmt=lambda x: f"{x:.1f}%",   template="{name} has a {val} higher top 4 rate"),                _winner(_s1["top4_pct"],     _s2["top4_pct"],     higher_is_better=True)),
                         ("Current MMR",    f"{_s1['current_mmr']:,}",                                                f"{_s2['current_mmr']:,}",                                                _fmt_diff(_s1["current_mmr"],  _s2["current_mmr"],  higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} higher Current MMR"),                 _winner(_s1["current_mmr"],  _s2["current_mmr"],  higher_is_better=True)),
                         ("Peak MMR",       f"{_s1['peak_mmr']:,}",                                                   f"{_s2['peak_mmr']:,}",                                                   _fmt_diff(_s1["peak_mmr"],     _s2["peak_mmr"],     higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} higher Peak MMR"),                    _winner(_s1["peak_mmr"],     _s2["peak_mmr"],     higher_is_better=True)),
-                        ("Max MMR Drop",   f"-{_s1['max_drawdown']:,}",                                              f"-{_s2['max_drawdown']:,}",                                              _fmt_diff(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has {val} larger Max MMR Drop"),                _winner(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True)),
+                        ("Max MMR Drop",   f"-{_s1['max_drawdown']:,}",                                              f"-{_s2['max_drawdown']:,}",                                              _fmt_diff(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True,  fmt=lambda x: f"{int(x):,}", template="{name} has a {val} larger Max MMR Drop"),                _winner(_s1["max_drawdown"], _s2["max_drawdown"], higher_is_better=True)),
                         ("Hot Streak",     str(_s1["hot_streak"]),                                                   str(_s2["hot_streak"]),                                                   _fmt_diff(_s1["hot_streak"],   _s2["hot_streak"],   higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has a {val} game longer streak of 1st places"),  _winner(_s1["hot_streak"],   _s2["hot_streak"],   higher_is_better=True)),
                         ("Roach Streak",   str(_s1["roach_streak"]),                                                 str(_s2["roach_streak"]),                                                 _fmt_diff(_s1["roach_streak"], _s2["roach_streak"], higher_is_better=True,  fmt=lambda x: str(int(x)),   template="{name} has a {val} game longer top 4 streak"),              _winner(_s1["roach_streak"], _s2["roach_streak"], higher_is_better=True)),
-                        ("Form (last 50)", f"{_s1['form_diff']:+.2f}" if _s1["form_diff"] is not None else "—",     f"{_s2['form_diff']:+.2f}" if _s2["form_diff"] is not None else "—",     _fmt_diff(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has {val} better current form"),                _winner(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False)),
+                        ("Form (last 50)", f"{_s1['form_diff']:+.2f}" if _s1["form_diff"] is not None else "—",     f"{_s2['form_diff']:+.2f}" if _s2["form_diff"] is not None else "—",     _fmt_diff(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has a {val} better current form"),                _winner(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False)),
                         ("Tilt Factor",    f"{_s1['tilt_factor']:.2f}" if _s1["tilt_factor"] is not None else "—", f"{_s2['tilt_factor']:.2f}" if _s2["tilt_factor"] is not None else "—", _fmt_diff(_s1["tilt_factor"],  _s2["tilt_factor"],  higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has a {val} lower tilt factor"),                _winner(_s1["tilt_factor"],  _s2["tilt_factor"],  higher_is_better=False)),
-                        ("Aggression",     f"{_s1['u_score']:+.2f}",                                                f"{_s2['u_score']:+.2f}",                                                f"{_n1} has a more aggressive style" if _s1["u_score"] > _s2["u_score"] else (f"{_n2} has a more aggressive style" if _s2["u_score"] > _s1["u_score"] else "Similar style"), _winner(_s1["u_score"], _s2["u_score"], higher_is_better=True)),
+                        ("Aggression",     f"{_s1['u_score']:+.2f}",                                                f"{_s2['u_score']:+.2f}",                                                (f"{_n1} has a {'slightly ' if abs(_s1['u_score'] - _s2['u_score']) < 0.3 else ''}more aggressive style") if _s1["u_score"] > _s2["u_score"] else (f"{_n2} has a {'slightly ' if abs(_s1['u_score'] - _s2['u_score']) < 0.3 else ''}more aggressive style" if _s2["u_score"] > _s1["u_score"] else "Similar style"), _winner(_s1["u_score"], _s2["u_score"], higher_is_better=True)),
                     ]
                     _rows    = [{"Stat": s, _n1: v1, _n2: v2, "Comparison": cmp} for s, v1, v2, cmp, _ in _stat_defs]
                     _winners = [w for *_, w in _stat_defs]
@@ -1941,6 +1943,7 @@ with tabs[0]:
                     st.dataframe(
                         _df_h2h.style.apply(_color_h2h, axis=None),
                         use_container_width=True,
+                        height=460,
                         column_config={
                             _n1:    st.column_config.TextColumn(width="small"),
                             _n2:    st.column_config.TextColumn(width="small"),

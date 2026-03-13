@@ -1850,7 +1850,7 @@ with tabs[0]:
 
                 # ── Head-to-Head ──────────────────────────────────────────────
                 st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
-                st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;'>Head-to-Head comparison</p>", unsafe_allow_html=True)
+                st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;'>Head-to-Head comparison ⚔️</p>", unsafe_allow_html=True)
                 with st.form("h2h_form"):
                     _h2h_cols = st.columns([3, 1, 1])
                     _h2h_name = _h2h_cols[0].text_input("H2H player", placeholder="Compare stats with player…", label_visibility="collapsed", key="h2h_name_input")

@@ -221,6 +221,7 @@ def _sb_upsert(region, player_name, record: dict):
         "tilt_factor":  record.get("tilt_factor"),
         "avg_place":    record.get("avg_place"),
         "form_diff":    record.get("form_diff"),
+        "form_rating":  record.get("form_rating"),
         "max_drawdown": record.get("max_drawdown"),
         "dd_detail":      record.get("dd_detail"),
         "first_10k_date": record.get("first_10k_date"),
@@ -1282,20 +1283,20 @@ with tabs[0]:
                 render_list(cols[idx % 2], title, items, fmt, tooltip=tip, asterisk_tip=rest[0] if rest else None)
 
             # ── First to Xk (dynamic milestone card) ──────────────────────────
-            _next_col = cols[len(lists) % 2]
-            with _next_col:
-                st.markdown(
-                    "<style>label[for='lb_milestone']{"
-                    "color:#8a8a8a !important;font-size:0.85rem !important;"
-                    "text-transform:uppercase !important;letter-spacing:0.08em !important;"
-                    "font-weight:600 !important;}</style>",
-                    unsafe_allow_html=True,
-                )
-                _milestone_k = st.selectbox(
-                    "First to",
-                    [f"{i}k" for i in range(10, 22)],
-                    key="lb_milestone",
-                )
+            st.divider()
+            st.markdown(
+                "<style>label[for='lb_milestone']{"
+                "color:#8a8a8a !important;font-size:0.85rem !important;"
+                "text-transform:uppercase !important;letter-spacing:0.08em !important;"
+                "font-weight:600 !important;}</style>",
+                unsafe_allow_html=True,
+            )
+            _ms_sel_col, _ = st.columns([1, 3])
+            _milestone_k = _ms_sel_col.selectbox(
+                "First to",
+                [f"{i}k" for i in range(10, 22)],
+                key="lb_milestone",
+            )
             _milestone_thresh = str(int(_milestone_k[:-1]) * 1000)
             _milestone_rows = []
             for _r in _sb_fetch_all():
@@ -1315,8 +1316,9 @@ with tabs[0]:
                     continue
             _milestone_rows.sort(key=lambda r: r["_mdate"])
             _milestone_rows = _milestone_rows[:TOP_N]
+            _ms_list_col, _ = st.columns([1, 3])
             render_list(
-                _next_col,
+                _ms_list_col,
                 f"First to {_milestone_k}",
                 _milestone_rows,
                 lambda r: datetime.fromisoformat(r["_mdate"].replace("Z", "+00:00")).strftime("%b %d"),

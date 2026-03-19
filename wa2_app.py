@@ -72,6 +72,9 @@ SUPABASE_HEADERS = {
 
 MIN_GAMES_NEIGHBOR = 300
 
+TWITCH_CLIENT_ID     = st.secrets.get("TWITCH_CLIENT_ID", "")
+TWITCH_CLIENT_SECRET = st.secrets.get("TWITCH_CLIENT_SECRET", "")
+
 ENABLE_SESSION_TOPLISTS = True
 TOPLIST_BACKEND = "supabase"     # "supabase" or "session"
 PLAYER_STATS_TABLE = "player_stats"
@@ -286,6 +289,94 @@ def _sb_fetch_all():
             st.session_state["sb_topn_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:200])
         return []
 
+@st.cache_data(show_spinner=False, ttl=300)
+def _country_flag(code):
+    if not code or len(code) != 2:
+        return ""
+    c = code.lower()
+    return f"<img src='https://flagcdn.com/16x12/{c}.png' alt='{code.upper()}' style='vertical-align:middle;margin-left:4px;border-radius:1px;'>"
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _sb_fetch_player_links():
+    """Returns dict {player_name_lower: {twitch_url, youtube_url, nationality}}."""
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/player_links",
+            headers=SUPABASE_HEADERS,
+            params={"select": "player_name,twitch_url,youtube_url,nationality"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return {row["player_name"].lower(): row for row in r.json()}
+    except Exception:
+        return {}
+
+@st.cache_data(show_spinner=False, ttl=120)
+def _twitch_get_token():
+    """Hämtar ett app access token från Twitch."""
+    if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
+        return None
+    try:
+        r = requests.post(
+            "https://id.twitch.tv/oauth2/token",
+            params={"client_id": TWITCH_CLIENT_ID, "client_secret": TWITCH_CLIENT_SECRET, "grant_type": "client_credentials"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json().get("access_token")
+    except Exception:
+        return None
+
+@st.cache_data(show_spinner=False, ttl=120)
+def _twitch_get_live_streams():
+    """Returnerar lista med live-streams för spelare i player_links, sorterade efter viewer-antal."""
+    token = _twitch_get_token()
+    if not token:
+        return []
+    links = _sb_fetch_player_links()
+    usernames = []
+    player_by_login = {}
+    for player, row in links.items():
+        url = row.get("twitch_url", "")
+        if url:
+            login = url.rstrip("/").split("/")[-1].lower()
+            usernames.append(login)
+            player_by_login[login] = player
+    if not usernames:
+        return []
+    stats_by_player = {r["player"].lower(): r for r in _sb_fetch_all() if r.get("player")}
+    try:
+        params = [("user_login", u) for u in usernames]
+        r = requests.get(
+            "https://api.twitch.tv/helix/streams",
+            headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"},
+            params=params,
+            timeout=10,
+        )
+        r.raise_for_status()
+        streams = r.json().get("data", [])
+        result = []
+        for s in streams:
+            if "hearthstone" not in s.get("game_name", "").lower():
+                continue
+            login = s["user_login"].lower()
+            player = player_by_login.get(login, s["user_name"])
+            pstats = stats_by_player.get(player.lower(), {})
+            result.append({
+                "player":       player,
+                "login":        login,
+                "title":        s["title"],
+                "viewers":      s["viewer_count"],
+                "region":       pstats.get("region", ""),
+                "cr":           pstats.get("cr") or 0,
+                "nationality":  links.get(player.lower(), {}).get("nationality", ""),
+                "twitch_url":   links.get(player_by_login.get(login, ""), {}).get("twitch_url", f"https://twitch.tv/{login}"),
+            })
+        result.sort(key=lambda x: x["cr"], reverse=True)
+        return result[:10]
+    except Exception:
+        return []
+
 @st.cache_data(show_spinner=False, ttl=60)
 def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
     rows = [r for r in _sb_fetch_all() if r.get(metric) is not None]
@@ -366,7 +457,7 @@ def compute_and_upsert(player_name, region, games):
             dd_trough_game = g
     dd_detail = (
         f"{dd_peak_game['mmr_after']:,} → {dd_trough_game['mmr_after']:,} "
-        f"({dd_peak_game['time'][:10]} – {dd_trough_game['time'][:10]})"
+        f"({dd_peak_game['time'][:10]} - {dd_trough_game['time'][:10]})"
     )
 
     first_10k_date = None
@@ -602,12 +693,12 @@ def fetch_and_calculate(player_name, region):
     try:
         r = _fetch(region)
     except requests.exceptions.TooManyRedirects:
-        raise ValueError("Player not found — check if correct region.")
+        raise ValueError("Player not found - check if correct region.")
     r.raise_for_status()
 
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', r.text, re.DOTALL)
     if not match:
-        raise ValueError("Player not found — check spelling and region.")
+        raise ValueError("Player not found - check spelling and region.")
 
     data_str      = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
     snapshots_all = json.loads("[" + data_str + "]")
@@ -1158,6 +1249,10 @@ with tabs[0]:
             )
             return
 
+        _plinks = _sb_fetch_player_links()
+        _twitch_svg = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-left:4px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
+        _yt_svg     = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-left:4px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+
         def row_html(i, r):
             row_color = value_color = HEADER_COLOR
             if i == 1:
@@ -1169,6 +1264,13 @@ with tabs[0]:
             player = r['player']
             region = r.get('region', '')
             link   = f"?goto_player={html.escape(player)}&goto_region={html.escape(region)}"
+            _pl    = _plinks.get(player.lower(), {})
+            _icons = ""
+            if _pl.get("twitch_url"):
+                _icons += f"<a href='{html.escape(_pl['twitch_url'])}' target='_blank' title='Twitch'>{_twitch_svg}</a>"
+            if _pl.get("youtube_url"):
+                _icons += f"<a href='{html.escape(_pl['youtube_url'])}' target='_blank' title='YouTube'>{_yt_svg}</a>"
+            _flag = _country_flag(_pl.get("nationality", ""))
             return (
                 "<div style='display:flex;justify-content:space-between;"
                 "border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
@@ -1177,7 +1279,8 @@ with tabs[0]:
                 f"<a href='{link}' target='_self' style='color:inherit;text-decoration:none;' "
                 f"onmouseover=\"this.style.textDecoration='underline'\" "
                 f"onmouseout=\"this.style.textDecoration='none'\">{player}</a> "
-                f"<span style='color:#666'>({region})</span></span>"
+                f"<span style='color:#666'>({region})</span>"
+                f"{'&nbsp;' + _flag if _flag else ''}{_icons}</span>"
                 f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
                 "</div>"
             )
@@ -1264,23 +1367,83 @@ with tabs[0]:
 
             lists = [
                 ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Mean placement across all recorded games. Lower is better."),
-                ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",        "Total number of games played this season while on the leaderboard."),
                 ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
                 ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",   "Longest consecutive 1st streak of placement."),
                 ("Top 4 %",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
                 ("Roach streak",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
                 ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
                 ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
-                ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: high 1st relative to 2–4, and high 7+8 relative to 5–6. Positive = aggressive/swingy."),
-                ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Style score: low 1st relative to 2–4, and low 7+8 relative to 5–6. Negative = defensive/consistent."),
+                ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "U-shaped placement distribution - relatively more 1st and 7th/8th places compared to 2nd-4th and 5th-6th."),
+                ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Flatter placement distribution - fewer extremes, more consistent mid-range finishes compared to 1st and 7th/8th."),
                 ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f} ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
                 ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}", "Estimated MMR based on last 50 games avg placement on the regression curve."),
                 ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
+                ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",        "Total number of games played this season while on the leaderboard."),
 
             ]
 
+            # ── Live streams (överst i högerkolumnen) ─────────────────────────
+            _live_streams_lb = _twitch_get_live_streams()
+            _live_col = cols[1]
+            HEADER_COLOR = "#8a8a8a"
+            _live_col.markdown(
+                f"<div style='color:{HEADER_COLOR};font-size:0.85rem;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>"
+                f"<svg width='10' height='10' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-right:5px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
+                f"Live now</div>",
+                unsafe_allow_html=True,
+            )
+            _empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"
+
+            def _live_row_html(si, s):
+                s_twitch = html.escape(s["twitch_url"])
+                s_title  = html.escape(s["title"][:50] + ("..." if len(s["title"]) > 50 else ""))
+                s_color  = "#d4a843" if si == 1 else "#bfc4c8" if si == 2 else "#b57a4a" if si == 3 else "#8a8a8a"
+                s_profile = f"?goto_player={html.escape(s['player'])}&goto_region={html.escape(s.get('region',''))}"
+                return (
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
+                    f"padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
+                    f"<span style='color:{s_color};font-weight:700'>{si}. "
+                    f"<a href='{s_profile}' target='_self' style='color:inherit;text-decoration:none;' "
+                    f"onmouseover=\"this.style.textDecoration='underline'\" "
+                    f"onmouseout=\"this.style.textDecoration='none'\">{s['player']}</a>"
+                    f"{_country_flag(s.get('nationality',''))}"
+                    f"<span style='color:#666;font-size:0.8rem;font-weight:400;margin-left:0.4rem;'>({s.get('region','').upper()} {s.get('cr',''):,})</span>"
+                    f"<a href='{s_twitch}' target='_blank' title='{s_title}' style='margin-left:5px;'>"
+                    f"<svg width='11' height='11' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
+                    f"</a>"
+                    f"</span>"
+                    f"<span style='color:{s_color};font-weight:700'><span style='color:#eb0400;font-size:0.6rem;vertical-align:middle;margin-right:4px;'>&#9679;</span>{s['viewers']:,}</span>"
+                    f"</div>"
+                )
+
+            for _si, _s in enumerate(_live_streams_lb[:5], 1):
+                _live_col.markdown(_live_row_html(_si, _s), unsafe_allow_html=True)
+            for _ in range(max(0, 5 - len(_live_streams_lb))):
+                _live_col.markdown(_empty_row, unsafe_allow_html=True)
+
+            if len(_live_streams_lb) > 5:
+                _live_exp_key = "lb_expanded_live"
+                if _live_exp_key not in st.session_state:
+                    st.session_state[_live_exp_key] = False
+                if st.session_state[_live_exp_key]:
+                    for _si, _s in enumerate(_live_streams_lb[5:], 6):
+                        _live_col.markdown(_live_row_html(_si, _s), unsafe_allow_html=True)
+                _live_toggle = "▲ Show less" if st.session_state[_live_exp_key] else "▼ Show more"
+                _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
+                if _live_col.button(_live_toggle, key="lb_toggle_live"):
+                    st.session_state[_live_exp_key] = not st.session_state[_live_exp_key]
+                    st.rerun()
+                _live_col.markdown("</div>", unsafe_allow_html=True)
+            else:
+                _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
+                _live_col.button("▼ Show more", key="lb_toggle_live_placeholder", disabled=True)
+                _live_col.markdown("</div>", unsafe_allow_html=True)
+
             for idx, (title, items, fmt, tip, *rest) in enumerate(lists):
-                render_list(cols[idx % 2], title, items, fmt, tooltip=tip, asterisk_tip=rest[0] if rest else None)
+                col = cols[0] if idx == 0 else cols[1 - (idx % 2)]
+                render_list(col, title, items, fmt, tooltip=tip, asterisk_tip=rest[0] if rest else None)
 
             # ── First to Xk (dynamic milestone card) ──────────────────────────
             st.divider()
@@ -1291,8 +1454,8 @@ with tabs[0]:
                 "font-weight:600 !important;}</style>",
                 unsafe_allow_html=True,
             )
-            _ms_sel_col, _ = st.columns([1, 3])
-            _milestone_k = _ms_sel_col.selectbox(
+            _ms_col_left, _ms_col_right = st.columns(2)
+            _milestone_k = _ms_col_left.selectbox(
                 "First to",
                 [f"{i}k" for i in range(10, 22)],
                 key="lb_milestone",
@@ -1316,9 +1479,8 @@ with tabs[0]:
                     continue
             _milestone_rows.sort(key=lambda r: r["_mdate"])
             _milestone_rows = _milestone_rows[:TOP_N]
-            _ms_list_col, _ = st.columns([1, 3])
             render_list(
-                _ms_list_col,
+                _ms_col_left,
                 f"First to {_milestone_k}",
                 _milestone_rows,
                 lambda r: datetime.fromisoformat(r["_mdate"].replace("Z", "+00:00")).strftime("%b %d"),
@@ -1333,6 +1495,29 @@ with tabs[0]:
             with st.expander("Secret stuff"):
                 pwd = st.text_input("Password", type="password", key="admin_pwd")
                 if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
+                    st.caption("Add or update Twitch/YouTube links for players.")
+                    _lnk_player  = st.text_input("Player name", key="lnk_player").strip().lower()
+                    _lnk_twitch  = st.text_input("Twitch URL (leave blank to clear)", key="lnk_twitch").strip()
+                    _lnk_youtube = st.text_input("YouTube URL (leave blank to clear)", key="lnk_youtube").strip()
+                    _lnk_nat     = st.text_input("Nationality (2-letter code, e.g. SE, US, KR)", key="lnk_nat").strip().upper()
+                    if st.button("Save link", key="lnk_save", width='stretch'):
+                        if _lnk_player:
+                            try:
+                                requests.post(
+                                    f"{SUPABASE_URL}/rest/v1/player_links?on_conflict=player_name",
+                                    headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+                                    json={k: v for k, v in {"player_name": _lnk_player, "twitch_url": _lnk_twitch or None, "youtube_url": _lnk_youtube or None, "nationality": _lnk_nat or None}.items() if k == "player_name" or v is not None},
+                                    timeout=10,
+                                ).raise_for_status()
+                                _sb_fetch_player_links.clear()
+                                _twitch_get_live_streams.clear()
+                                st.success(f"Saved links for {_lnk_player}.")
+                            except Exception as _le:
+                                st.error(str(_le))
+                        else:
+                            st.warning("Enter a player name.")
+
+                    st.divider()
                     st.caption("Fetches all players in the leaderboard and recalculates their stats.")
                     if st.button("Refresh all players", width='stretch'):
                         try:
@@ -1368,7 +1553,7 @@ with tabs[0]:
                             try:
                                 _scan_names = fetch_top_n_for_scan(_scan_rgn, int(_scan_limit))
                             except Exception as e:
-                                st.warning(f"{_scan_rgn}: failed to fetch leaderboard — {e}")
+                                st.warning(f"{_scan_rgn}: failed to fetch leaderboard - {e}")
                                 continue
                             _bar = st.progress(0, text=f"{_scan_rgn}: starting...")
                             for _si, _sname in enumerate(_scan_names):
@@ -1382,7 +1567,7 @@ with tabs[0]:
                                     _scan_err += 1
                             _bar.progress(1.0, text=f"{_scan_rgn}: done!")
                         _cache_bust_toplists()
-                        st.success(f"Scan complete — {_scan_ok} ok, {_scan_err} errors.")
+                        st.success(f"Scan complete - {_scan_ok} ok, {_scan_err} errors.")
                         st.rerun()
 
                     st.divider()
@@ -1481,7 +1666,7 @@ with tabs[0]:
                     if m:
                         detected = m.group(1).strip().split(", ")[0]
                         if detected in VALID_REGIONS:
-                            st.info(f"Not found in {sp_region} — retrying as {detected}...")
+                            st.info(f"Not found in {sp_region} - retrying as {detected}...")
                             try:
                                 st.session_state["sp_region"] = detected
                                 st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, detected)
@@ -1606,11 +1791,20 @@ with tabs[0]:
                         f" <span style='color:#999;font-size:0.8rem;margin-left:0.5rem;'>#{player_rank_display}</span>"
                         if player_rank_display else ""
                     )
+                    _pl_links  = _sb_fetch_player_links().get(sp_player.lower(), {})
+                    _pl_flag   = _country_flag(_pl_links.get("nationality", ""))
+                    _hdr_icons = ""
+                    if _pl_links.get("twitch_url"):
+                        _hdr_icons += f"<a href='{html.escape(_pl_links['twitch_url'])}' target='_blank' title='Twitch' style='margin-left:6px;'><svg width='14' height='14' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg></a>"
+                    if _pl_links.get("youtube_url"):
+                        _hdr_icons += f"<a href='{html.escape(_pl_links['youtube_url'])}' target='_blank' title='YouTube' style='margin-left:6px;'><svg width='14' height='14' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg></a>"
                     st.markdown(
                         "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
                         + sp_player
+                        + (" &nbsp;" + _pl_flag if _pl_flag else "")
                         + " <span style='color:#d4a843;font-size:0.8rem;margin-left:0.5rem;'>" + sp_region + "</span>"
                         + rank_str
+                        + _hdr_icons
                         + "</p>",
                         unsafe_allow_html=True
                     )
@@ -1651,7 +1845,7 @@ with tabs[0]:
                 )
                 dd_tip = (
                     f"{dd_peak_game['mmr_after']:,} → {dd_trough_game['mmr_after']:,} "
-                    f"({dd_peak_game['time'][:10]} – {dd_trough_game['time'][:10]})"
+                    f"({dd_peak_game['time'][:10]} - {dd_trough_game['time'][:10]})"
                 )
                 c5.markdown(
                     "<div title='" + dd_tip + "' style='margin-top:0.2rem;color:#777;font-size:0.85rem;cursor:help;'>Max MMR drop: "
@@ -1709,7 +1903,7 @@ with tabs[0]:
                 if total < 60:
                     form_html = (
                         "<span style='float:right;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Form (last 50)"
-                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>— requires 60+ games</span>"
+                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>- requires 60+ games</span>"
                         "</span>"
                     )
                 else:
@@ -1733,7 +1927,7 @@ with tabs[0]:
                     st.markdown(
                         "<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
                         "Tilt factor"
-                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>— requires 60+ games</span>"
+                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>- requires 60+ games</span>"
                         f"{form_html}"
                         "</div>",
                         unsafe_allow_html=True
@@ -1750,10 +1944,10 @@ with tabs[0]:
                         else "#4a8c5c"
                     )
                     _mean_diff    = sum(_tilt_diffs) / len(_tilt_diffs)
-                    tooltip       = f"Avg placement change in the 5 games after a 7th/8th, compared to the 50-game baseline before it. Mean diff: {_mean_diff:+.2f}. (Lower = better)"
+                    tooltip       = f"Avg placement change in the 3 games after a 7th/8th, compared to the 50-game baseline before it. Mean diff: {_mean_diff:+.2f}. (Lower = better)"
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
-                    asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7–8'" if trigger_count < 40 else ""
+                    asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7-8'" if trigger_count < 40 else ""
 
                     st.markdown(
                         f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
@@ -1771,7 +1965,7 @@ with tabs[0]:
                     else "#aaa"  if u_score_val >= -0.1
                     else "#5b8fd4"
                 )
-                u_tip = "Aggression score: ((p7+p8)/(p5+p6) − 1) × log(p1/avg(p2–p4)). Positive = U-shaped distribution (spikes at both ends). Negative = non-aggressive."
+                u_tip = "Measures play style based on placement distribution. Aggressive (positive) = U-shaped - more 1st and 7th/8th relative to 2nd-4th and 5th-6th. Defensive (negative) = flatter - more consistent mid-range finishes. See Info/Explanations for details."
 
                 # ── Form Rating (omvänd interpolation: placement → MMR) ───────
                 _form_rating_html = ""
@@ -2031,7 +2225,7 @@ with tabs[0]:
                     player_rank = st.session_state.get("sp_rank")
 
                     if player_rank is None:
-                        st.session_state["nb_result"] = {"error": "Ingen rank hittades för den här spelaren — de kanske inte är på leaderboard."}
+                        st.session_state["nb_result"] = {"error": "Ingen rank hittades för den här spelaren - de kanske inte är på leaderboard."}
                     else:
                         with st.spinner(f"Finding neighbors around rank {player_rank}..."):
                             names_above, names_below, ranks_above, ranks_below = fetch_neighbor_names(
@@ -2273,11 +2467,11 @@ with tabs[2]:
         "Top 1 %": "Percentage of games finished in <strong>1st place</strong>.",
         "Top 4 %": 'Percentage of games finished in <strong>top 4</strong>.',
         "Hot Streak": "The longest consecutive streak of <strong>1st-places</strong>.",
-        "Roach Streak": "The longest consecutive streak of <strong>top-4</strong> finishes (i.e. avoiding 5th–8th). This includes 1st places as well.",
+        "Roach Streak": "The longest consecutive streak of <strong>top-4</strong> finishes (i.e. avoiding 5th-8th). This includes 1st places as well.",
         "Tilt Factor": (
             "This measures how a player performs <em>after</em> a bad game (7th or 8th place) compared to their baseline.<br><br>"
             "For each 7th/8th placement, the 50 games before it form a local baseline average, "
-            "and the 5 games immediately after are the \"reaction window\". "
+            "and the 3 games immediately after are the \"reaction window\". "
             "Tilt Factor = <code>1 + (mean_diff / baseline_avg) × 2</code>.<br><br>"
             "<strong>&lt; 1.0</strong> → plays <em>better</em> after a bad game on average (bounces back)<br>"
             "<strong>= 1.0</strong> → no change<br>"
@@ -2293,17 +2487,17 @@ with tabs[2]:
             "An estimated MMR value that corresponds to the player's current <strong>Form (last 50 games)</strong> average placement, "
             "based on the regression curve between MMR and average placement.<br><br>"
             "For example, if a player's last 50 games average placement corresponds to what players with 14 000 MMR typically achieve, "
-            "the Form Rating will show 14 000 — regardless of the player's current MMR.<br><br>"
+            "the Form Rating will show 14 000 - regardless of the player's current MMR.<br><br>"
             "The difference shown in parentheses is Form Rating minus current MMR. "
             "<strong>Positive = playing above your current rank. Negative = playing below.</strong><br><br>"
             "Think of it as an <em>event horizon</em>: if a player keeps performing at their current form, "
-            "their MMR will naturally trend towards the Form Rating over time — "
+            "their MMR will naturally trend towards the Form Rating over time - "
             "since their results will push the rating up (or down) until it stabilizes at that level."
         ),
         "Largest MMR Drop": "The largest MMR drop from a <strong>peak</strong> to a subsequent <strong>low</strong> in the player's history. This includes any upswing during this time. For every recorded peak it will look for the lowest MMR reached before a new peak is achieved, and the largest of these drops is shown.",
         "Aggression Score": (
             "This measures play style on a spectrum from <strong>aggressive/swingy</strong> to <strong>defensive/consistent</strong> "
-            "— basically it describes how U-shaped the placement distribution is. Also known as \"1st-or-8th\".<br><br>"
+            "- basically it describes how U-shaped the placement distribution is. Also known as \"1st-or-8th\".<br><br>"
             "<strong>Part 1:</strong> How often the player finishes 1st vs 2/3/4th.<br>"
             "<strong>Part 2:</strong> How often the player finishes 7/8th vs 5/6th.<br><br>"
             "<code>part1 = ln( place_1 / (place_2 + place_3 + place_4) )</code><br>"
@@ -2338,7 +2532,7 @@ with tabs[2]:
             _webhook = st.secrets.get("DISCORD_WEBHOOK", "")
             if _webhook:
                 try:
-                    requests.post(_webhook, json={"content": f"<@230731312124788736> **Report — {_report_player.strip()}**\n{_report_message.strip()}"}, timeout=5)
+                    requests.post(_webhook, json={"content": f"<@230731312124788736> **Report - {_report_player.strip()}**\n{_report_message.strip()}"}, timeout=5)
                     st.session_state["last_report_time"] = _now
                     st.success("Report sent, thanks!")
                 except Exception:

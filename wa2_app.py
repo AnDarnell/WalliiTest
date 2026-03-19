@@ -299,17 +299,19 @@ def _country_flag(code):
 @st.cache_data(show_spinner=False, ttl=300)
 def _sb_fetch_player_links():
     """Returns dict {player_name_lower: {twitch_url, youtube_url, nationality}}."""
-    try:
-        r = requests.get(
-            f"{SUPABASE_URL}/rest/v1/player_links",
-            headers=SUPABASE_HEADERS,
-            params={"select": "player_name,twitch_url,youtube_url,nationality"},
-            timeout=10,
-        )
-        r.raise_for_status()
-        return {row["player_name"].lower(): row for row in r.json()}
-    except Exception:
-        return {}
+    for cols in ("player_name,twitch_url,youtube_url,nationality", "player_name,twitch_url,youtube_url"):
+        try:
+            r = requests.get(
+                f"{SUPABASE_URL}/rest/v1/player_links",
+                headers=SUPABASE_HEADERS,
+                params={"select": cols},
+                timeout=10,
+            )
+            r.raise_for_status()
+            return {row["player_name"].lower(): row for row in r.json()}
+        except Exception:
+            continue
+    return {}
 
 @st.cache_data(show_spinner=False, ttl=120)
 def _twitch_get_token():
@@ -339,7 +341,7 @@ def _twitch_get_live_streams():
     for player, row in links.items():
         url = row.get("twitch_url", "")
         if url:
-            login = url.rstrip("/").split("/")[-1].lower()
+            login = url.rstrip("/").split("/")[-1].lower().strip()
             usernames.append(login)
             player_by_login[login] = player
     if not usernames:
@@ -1393,6 +1395,7 @@ with tabs[0]:
                 f"Live now</div>",
                 unsafe_allow_html=True,
             )
+            _live_streams_lb = sorted(_live_streams_lb, key=lambda x: x["cr"], reverse=True)
             _empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"
 
             def _live_row_html(si, s):
@@ -1496,17 +1499,20 @@ with tabs[0]:
                 pwd = st.text_input("Password", type="password", key="admin_pwd")
                 if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
                     st.caption("Add or update Twitch/YouTube links for players.")
+                    _COUNTRIES = [("","- None -"),("AF","Afghanistan"),("AL","Albania"),("DZ","Algeria"),("AR","Argentina"),("AM","Armenia"),("AU","Australia"),("AT","Austria"),("AZ","Azerbaijan"),("BE","Belgium"),("BR","Brazil"),("BG","Bulgaria"),("BY","Belarus"),("CA","Canada"),("CL","Chile"),("CN","China"),("CO","Colombia"),("HR","Croatia"),("CZ","Czech Republic"),("DK","Denmark"),("EG","Egypt"),("EE","Estonia"),("FI","Finland"),("FR","France"),("GE","Georgia"),("DE","Germany"),("GR","Greece"),("HK","Hong Kong"),("HU","Hungary"),("IN","India"),("ID","Indonesia"),("IE","Ireland"),("IL","Israel"),("IT","Italy"),("JP","Japan"),("KZ","Kazakhstan"),("KR","South Korea"),("LV","Latvia"),("LT","Lithuania"),("MY","Malaysia"),("MX","Mexico"),("NL","Netherlands"),("NZ","New Zealand"),("NO","Norway"),("PH","Philippines"),("PL","Poland"),("PT","Portugal"),("RO","Romania"),("RU","Russia"),("SA","Saudi Arabia"),("RS","Serbia"),("SG","Singapore"),("SK","Slovakia"),("SI","Slovenia"),("ZA","South Africa"),("ES","Spain"),("SE","Sweden"),("CH","Switzerland"),("TW","Taiwan"),("TH","Thailand"),("TR","Turkey"),("UA","Ukraine"),("GB","United Kingdom"),("US","United States"),("UZ","Uzbekistan"),("VN","Vietnam")]
                     _lnk_player  = st.text_input("Player name", key="lnk_player").strip().lower()
-                    _lnk_twitch  = st.text_input("Twitch URL (leave blank to clear)", key="lnk_twitch").strip()
+                    _lnk_twitch  = st.text_input("Twitch URL (leave blank to clear)", value="https://www.twitch.tv/", key="lnk_twitch").strip()
                     _lnk_youtube = st.text_input("YouTube URL (leave blank to clear)", key="lnk_youtube").strip()
-                    _lnk_nat     = st.text_input("Nationality (2-letter code, e.g. SE, US, KR)", key="lnk_nat").strip().upper()
+                    _nat_options = [f"{code} - {name}" if code else f"- {name} -" for code, name in _COUNTRIES]
+                    _nat_sel     = st.selectbox("Nationality", _nat_options, key="lnk_nat_sel")
+                    _lnk_nat     = _nat_sel.split(" - ")[0].strip() if " - " in _nat_sel and not _nat_sel.startswith("- ") else ""
                     if st.button("Save link", key="lnk_save", width='stretch'):
                         if _lnk_player:
                             try:
                                 requests.post(
                                     f"{SUPABASE_URL}/rest/v1/player_links?on_conflict=player_name",
                                     headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
-                                    json={k: v for k, v in {"player_name": _lnk_player, "twitch_url": _lnk_twitch or None, "youtube_url": _lnk_youtube or None, "nationality": _lnk_nat or None}.items() if k == "player_name" or v is not None},
+                                    json={k: v for k, v in {"player_name": _lnk_player, "twitch_url": (_lnk_twitch if _lnk_twitch not in ("https://www.twitch.tv/", "") else None), "youtube_url": _lnk_youtube or None, "nationality": _lnk_nat or None}.items() if k == "player_name" or v is not None},
                                     timeout=10,
                                 ).raise_for_status()
                                 _sb_fetch_player_links.clear()

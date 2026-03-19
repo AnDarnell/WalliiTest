@@ -74,6 +74,7 @@ MIN_GAMES_NEIGHBOR = 300
 
 TWITCH_CLIENT_ID     = st.secrets.get("TWITCH_CLIENT_ID", "")
 TWITCH_CLIENT_SECRET = st.secrets.get("TWITCH_CLIENT_SECRET", "")
+YOUTUBE_API_KEY      = st.secrets.get("YOUTUBE_API_KEY", "")
 
 ENABLE_SESSION_TOPLISTS = True
 TOPLIST_BACKEND = "supabase"     # "supabase" or "session"
@@ -378,6 +379,57 @@ def _twitch_get_live_streams():
         return result[:10]
     except Exception:
         return []
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def _yt_fetch_subscribers():
+    """Returnerar lista med {player, youtube_url, nationality, subscribers} sorterad efter subscribers."""
+    if not YOUTUBE_API_KEY:
+        return []
+    links = _sb_fetch_player_links()
+    entries = [(player, row) for player, row in links.items() if row.get("youtube_url")]
+    if not entries:
+        return []
+
+    def _parse_yt_url(url):
+        url = url.rstrip("/")
+        if "/@" in url:
+            handle = url.split("/@")[-1]
+            return ("forHandle", f"@{handle}")
+        if "/channel/" in url:
+            cid = url.split("/channel/")[-1]
+            return ("id", cid)
+        if "/user/" in url:
+            uname = url.split("/user/")[-1]
+            return ("forUsername", uname)
+        return None
+
+    result = []
+    for player, row in entries:
+        parsed = _parse_yt_url(row["youtube_url"])
+        if not parsed:
+            continue
+        param_key, param_val = parsed
+        try:
+            r = requests.get(
+                "https://www.googleapis.com/youtube/v3/channels",
+                params={"part": "statistics,snippet", param_key: param_val, "key": YOUTUBE_API_KEY},
+                timeout=10,
+            )
+            r.raise_for_status()
+            items = r.json().get("items", [])
+            if not items:
+                continue
+            subs = int(items[0]["statistics"].get("subscriberCount", 0))
+            result.append({
+                "player":      player,
+                "youtube_url": row["youtube_url"],
+                "nationality": row.get("nationality", ""),
+                "subscribers": subs,
+            })
+        except Exception:
+            continue
+    result.sort(key=lambda x: x["subscribers"], reverse=True)
+    return result
 
 @st.cache_data(show_spinner=False, ttl=60)
 def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
@@ -1150,6 +1202,7 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
     box-shadow: none !important;
 }
 .lb-show-more button:hover { color: #888 !important; }
+.lb-show-more button:disabled, .lb-show-more button[disabled] { text-decoration: line-through !important; opacity: 1 !important; }
 
 /* Icon button wrapper (Home arrow) */
 .icon-btn button {
@@ -1315,7 +1368,6 @@ with tabs[0]:
     sp_region = st.session_state.get("sp_region")
 
     if not sp_player:
-        st.info("Note: To avoid overloading wallii.gg with requests, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit [wallii.gg](https://www.wallii.gg) directly!")
         # ── Topplistor (startsida) ────────────────────────────────────────────
         if ENABLE_SESSION_TOPLISTS:
             _lb_init()
@@ -1370,22 +1422,22 @@ with tabs[0]:
             lists = [
                 ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Mean placement across all recorded games. Lower is better."),
                 ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
-                ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])}",   "Longest consecutive 1st streak of placement."),
+                ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])} games",   "Longest consecutive 1st streak of placement."),
                 ("Top 4 %",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
-                ("Roach streak",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])}", "Longest consecutive streak of Top 4 place finishes."),
-                ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
-                ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
-                ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "U-shaped placement distribution - relatively more 1st and 7th/8th places compared to 2nd-4th and 5th-6th."),
-                ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}" if r.get("u_score") is not None else "—", "Flatter placement distribution - fewer extremes, more consistent mid-range finishes compared to 1st and 7th/8th."),
-                ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f} ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
-                ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}", "Estimated MMR based on last 50 games avg placement on the regression curve."),
-                ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,}</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,}" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
-                ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])}",        "Total number of games played this season while on the leaderboard."),
+                ("Roach streak",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])} games", "Longest consecutive streak of Top 4 place finishes."),
+                ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Lower = better)", "Min 30 games with 7th/8th placement"),
+                ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Comparison of performance following a 7th/8th and overall performance. (Higher = worse)", "Min 30 games with 7th/8th placement"),
+                ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "U-shaped placement distribution - relatively more 1st and 7th/8th places compared to 2nd-4th and 5th-6th."),
+                ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Flatter placement distribution - fewer extremes, more consistent mid-range finishes compared to 1st and 7th/8th."),
+                ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f}<span style='color:#555;font-size:0.78em;margin-left:3px;'>avg</span> ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
+                ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve."),
+                ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
+                ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
 
             ]
 
             # ── Live streams (överst i högerkolumnen) ─────────────────────────
-            _live_streams_lb = _twitch_get_live_streams()
+            _live_streams_lb = [s for s in _twitch_get_live_streams() if not _lb_regions or s.get("region", "").upper() in _lb_regions]
             _live_col = cols[1]
             HEADER_COLOR = "#8a8a8a"
             _live_col.markdown(
@@ -1448,8 +1500,64 @@ with tabs[0]:
                 col = cols[0] if idx == 0 else cols[1 - (idx % 2)]
                 render_list(col, title, items, fmt, tooltip=tip, asterisk_tip=rest[0] if rest else None)
 
+            # ── YouTube leaderboard ────────────────────────────────────────────
+            _yt_subs = _yt_fetch_subscribers()
+            _yt_svg = "<svg width='11' height='11' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-right:5px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+            _next_col = cols[0]
+            _next_col.markdown(
+                f"<div style='color:#8a8a8a;font-size:0.85rem;text-transform:uppercase;"
+                f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>"
+                f"{_yt_svg}Most subscribers</div>",
+                unsafe_allow_html=True,
+            )
+
+            def _yt_row_html(yi, y):
+                y_color  = "#d4a843" if yi == 1 else "#bfc4c8" if yi == 2 else "#b57a4a" if yi == 3 else "#8a8a8a"
+                y_url    = html.escape(y["youtube_url"])
+                subs     = y["subscribers"]
+                subs_fmt = f"{subs/1_000_000:.1f}M" if subs >= 1_000_000 else f"{subs/1_000:.1f}k" if subs >= 1_000 else str(subs)
+                return (
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
+                    f"padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
+                    f"<span style='color:{y_color};font-weight:700'>{yi}. "
+                    f"<a href='{y_url}' target='_blank' style='color:inherit;text-decoration:none;' "
+                    f"onmouseover=\"this.style.textDecoration='underline'\" "
+                    f"onmouseout=\"this.style.textDecoration='none'\">{y['player']}</a>"
+                    f"{_country_flag(y.get('nationality',''))}"
+                    f"<a href='{y_url}' target='_blank' style='margin-left:5px;'>"
+                    f"<svg width='11' height='11' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+                    f"</a>"
+                    f"</span>"
+                    f"<span style='color:{y_color};font-weight:700'>{subs_fmt}<span style='color:#555;font-size:0.78em;margin-left:3px;'>subs</span></span>"
+                    f"</div>"
+                )
+
+            _yt_empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"
+            for _yi, _y in enumerate(_yt_subs[:5], 1):
+                _next_col.markdown(_yt_row_html(_yi, _y), unsafe_allow_html=True)
+            for _ in range(max(0, 5 - len(_yt_subs))):
+                _next_col.markdown(_yt_empty_row, unsafe_allow_html=True)
+
+            if len(_yt_subs) > 5:
+                _yt_exp_key = "lb_expanded_yt"
+                if _yt_exp_key not in st.session_state:
+                    st.session_state[_yt_exp_key] = False
+                if st.session_state[_yt_exp_key]:
+                    for _yi, _y in enumerate(_yt_subs[5:], 6):
+                        _next_col.markdown(_yt_row_html(_yi, _y), unsafe_allow_html=True)
+                _yt_toggle = "▲ Show less" if st.session_state[_yt_exp_key] else "▼ Show more"
+                _next_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
+                if _next_col.button(_yt_toggle, key="lb_toggle_yt"):
+                    st.session_state[_yt_exp_key] = not st.session_state[_yt_exp_key]
+                    st.rerun()
+                _next_col.markdown("</div>", unsafe_allow_html=True)
+            else:
+                _next_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
+                _next_col.button("▼ Show more", key="lb_toggle_yt_placeholder", disabled=True)
+                _next_col.markdown("</div>", unsafe_allow_html=True)
+
             # ── First to Xk (dynamic milestone card) ──────────────────────────
-            st.divider()
             st.markdown(
                 "<style>label[for='lb_milestone']{"
                 "color:#8a8a8a !important;font-size:0.85rem !important;"
@@ -1457,8 +1565,7 @@ with tabs[0]:
                 "font-weight:600 !important;}</style>",
                 unsafe_allow_html=True,
             )
-            _ms_col_left, _ms_col_right = st.columns(2)
-            _milestone_k = _ms_col_left.selectbox(
+            _milestone_k = cols[1].selectbox(
                 "First to",
                 [f"{i}k" for i in range(10, 22)],
                 key="lb_milestone",
@@ -1483,7 +1590,7 @@ with tabs[0]:
             _milestone_rows.sort(key=lambda r: r["_mdate"])
             _milestone_rows = _milestone_rows[:TOP_N]
             render_list(
-                _ms_col_left,
+                cols[1],
                 f"First to {_milestone_k}",
                 _milestone_rows,
                 lambda r: datetime.fromisoformat(r["_mdate"].replace("Z", "+00:00")).strftime("%b %d"),
@@ -1499,7 +1606,7 @@ with tabs[0]:
                 pwd = st.text_input("Password", type="password", key="admin_pwd")
                 if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
                     st.caption("Add or update Twitch/YouTube links for players.")
-                    _COUNTRIES = [("","- None -"),("AF","Afghanistan"),("AL","Albania"),("DZ","Algeria"),("AR","Argentina"),("AM","Armenia"),("AU","Australia"),("AT","Austria"),("AZ","Azerbaijan"),("BE","Belgium"),("BR","Brazil"),("BG","Bulgaria"),("BY","Belarus"),("CA","Canada"),("CL","Chile"),("CN","China"),("CO","Colombia"),("HR","Croatia"),("CZ","Czech Republic"),("DK","Denmark"),("EG","Egypt"),("EE","Estonia"),("FI","Finland"),("FR","France"),("GE","Georgia"),("DE","Germany"),("GR","Greece"),("HK","Hong Kong"),("HU","Hungary"),("IN","India"),("ID","Indonesia"),("IE","Ireland"),("IL","Israel"),("IT","Italy"),("JP","Japan"),("KZ","Kazakhstan"),("KR","South Korea"),("LV","Latvia"),("LT","Lithuania"),("MY","Malaysia"),("MX","Mexico"),("NL","Netherlands"),("NZ","New Zealand"),("NO","Norway"),("PH","Philippines"),("PL","Poland"),("PT","Portugal"),("RO","Romania"),("RU","Russia"),("SA","Saudi Arabia"),("RS","Serbia"),("SG","Singapore"),("SK","Slovakia"),("SI","Slovenia"),("ZA","South Africa"),("ES","Spain"),("SE","Sweden"),("CH","Switzerland"),("TW","Taiwan"),("TH","Thailand"),("TR","Turkey"),("UA","Ukraine"),("GB","United Kingdom"),("US","United States"),("UZ","Uzbekistan"),("VN","Vietnam")]
+                    _COUNTRIES = [("","- None -"),("AF","Afghanistan"),("AL","Albania"),("DZ","Algeria"),("AR","Argentina"),("AM","Armenia"),("AU","Australia"),("AT","Austria"),("AZ","Azerbaijan"),("BE","Belgium"),("BR","Brazil"),("BG","Bulgaria"),("BY","Belarus"),("CA","Canada"),("CL","Chile"),("CN","China"),("CO","Colombia"),("HR","Croatia"),("CZ","Czech Republic"),("DK","Denmark"),("EG","Egypt"),("EE","Estonia"),("FI","Finland"),("FR","France"),("GE","Georgia"),("DE","Germany"),("GR","Greece"),("HK","Hong Kong"),("HU","Hungary"),("IN","India"),("ID","Indonesia"),("IE","Ireland"),("IL","Israel"),("IT","Italy"),("JP","Japan"),("KZ","Kazakhstan"),("KR","South Korea"),("LV","Latvia"),("LT","Lithuania"),("LU","Luxembourg"),("MY","Malaysia"),("MX","Mexico"),("NL","Netherlands"),("NZ","New Zealand"),("NO","Norway"),("PH","Philippines"),("PL","Poland"),("PT","Portugal"),("RO","Romania"),("RU","Russia"),("SA","Saudi Arabia"),("RS","Serbia"),("SG","Singapore"),("SK","Slovakia"),("SI","Slovenia"),("ZA","South Africa"),("ES","Spain"),("SE","Sweden"),("CH","Switzerland"),("TW","Taiwan"),("TH","Thailand"),("TR","Turkey"),("UA","Ukraine"),("GB","United Kingdom"),("US","United States"),("UZ","Uzbekistan"),("VN","Vietnam")]
                     _lnk_player  = st.text_input("Player name", key="lnk_player").strip().lower()
                     _lnk_twitch  = st.text_input("Twitch URL (leave blank to clear)", value="https://www.twitch.tv/", key="lnk_twitch").strip()
                     _lnk_youtube = st.text_input("YouTube URL (leave blank to clear)", key="lnk_youtube").strip()
@@ -1659,6 +1766,8 @@ with tabs[0]:
 
                 elif pwd:
                     st.caption("Wrong password.")
+
+            st.info("Note: To avoid overloading wallii.gg with requests, player profiles are refreshed and cached at most once every 12 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit [wallii.gg](https://www.wallii.gg) directly!")
 
     else:
         # ── Spelarsida ────────────────────────────────────────────────────────

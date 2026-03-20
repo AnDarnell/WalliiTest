@@ -1421,8 +1421,6 @@ with tabs[0]:
                         rows = [r for r in rows if r.get("player") in _top_mmr_players]
                     return rows[:limit] if limit is not None else rows
 
-                cols = st.columns(2)
-
                 lists = [
                     ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Mean placement across all recorded games. Lower is better."),
                     ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
@@ -1440,9 +1438,14 @@ with tabs[0]:
 
                 ]
 
-                # ── Live streams (överst i högerkolumnen) ─────────────────────────
+                # ── Rad 0: Avg placement (vänster) + Live Now (höger) ─────────────
+                _row0 = st.columns(2)
+                _t0, _it0, _fm0, _tp0, *_rst0 = lists[0]
+                render_list(_row0[0], _t0, _it0, _fm0, _tp0, asterisk_tip=_rst0[0] if _rst0 else None)
+
+                # ── Live streams (höger, rad 0) ────────────────────────────────────
                 _live_streams_lb = [s for s in _twitch_get_live_streams() if not _lb_regions or s.get("region", "").upper() in _lb_regions]
-                _live_col = cols[1]
+                _live_col = _row0[1]
                 HEADER_COLOR = "#8a8a8a"
                 _live_col.markdown(
                     f"<div style='color:{HEADER_COLOR};font-size:0.85rem;text-transform:uppercase;"
@@ -1500,14 +1503,23 @@ with tabs[0]:
                     _live_col.button("▼ Show more", key="lb_toggle_live_placeholder", disabled=True)
                     _live_col.markdown("</div>", unsafe_allow_html=True)
 
-                for idx, (title, items, fmt, tip, *rest) in enumerate(lists):
-                    col = cols[0] if idx == 0 else cols[1 - (idx % 2)]
-                    render_list(col, title, items, fmt, tooltip=tip, asterisk_tip=rest[0] if rest else None)
+                # ── Återstående listor i par (vänster/höger per rad) ───────────────
+                for _i in range(0, len(lists) - 1, 2):
+                    _pair = st.columns(2)
+                    _li, _ri = _i + 1, _i + 2
+                    _t, _it, _fm, _tp, *_rst = lists[_li]
+                    render_list(_pair[0], _t, _it, _fm, _tp, asterisk_tip=_rst[0] if _rst else None)
+                    if _ri < len(lists):
+                        _t, _it, _fm, _tp, *_rst = lists[_ri]
+                        render_list(_pair[1], _t, _it, _fm, _tp, asterisk_tip=_rst[0] if _rst else None)
+
+                # ── Sista raden: YouTube (vänster) + First to Xk (höger) ──────────
+                _final_row = st.columns(2)
 
                 # ── YouTube leaderboard ────────────────────────────────────────────
                 _yt_subs = _yt_fetch_subscribers()
                 _yt_svg = "<svg width='11' height='11' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-right:5px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
-                _next_col = cols[0]
+                _next_col = _final_row[0]
                 _next_col.markdown(
                     f"<div style='color:#8a8a8a;font-size:0.85rem;text-transform:uppercase;"
                     f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>"
@@ -1569,7 +1581,7 @@ with tabs[0]:
                     "font-weight:600 !important;}</style>",
                     unsafe_allow_html=True,
                 )
-                _milestone_k = cols[1].selectbox(
+                _milestone_k = _final_row[1].selectbox(
                     "First to",
                     [f"{i}k" for i in range(10, 22)],
                     key="lb_milestone",
@@ -1594,7 +1606,7 @@ with tabs[0]:
                 _milestone_rows.sort(key=lambda r: r["_mdate"])
                 _milestone_rows = _milestone_rows[:TOP_N]
                 render_list(
-                    cols[1],
+                    _final_row[1],
                     f"First to {_milestone_k}",
                     _milestone_rows,
                     lambda r: datetime.fromisoformat(r["_mdate"].replace("Z", "+00:00")).strftime("%b %d"),

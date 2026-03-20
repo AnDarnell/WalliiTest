@@ -401,6 +401,10 @@ def _yt_fetch_subscribers():
         if "/user/" in url:
             uname = url.split("/user/")[-1]
             return ("forUsername", uname)
+        # Fallback: sista segmentet som handle (t.ex. youtube.com/Shadybunny)
+        last = url.split("/")[-1]
+        if last and "youtube.com" in url:
+            return ("forHandle", f"@{last}")
         return None
 
     result = []
@@ -1683,86 +1687,86 @@ with tabs[0]:
                             st.success(f"Scan complete - {_scan_ok} ok, {_scan_err} errors.")
                             st.rerun(scope="app")
 
-                    st.divider()
-                    st.caption("Rebuild avg-placement regression curves from player_stats data (last 7 days, min 100 games).")
-                    _cutoff_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-                    _fresh_counts = {}
-                    for _reg in ["EU", "NA", "AP", "CN"]:
-                        try:
-                            _rc = requests.get(
-                                f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
-                                headers=SUPABASE_HEADERS,
-                                params={"region": f"eq.{_reg}", "updated_at": f"gte.{_cutoff_7d}", "games": "gte.100", "select": "player", "limit": "10000"},
-                                timeout=10,
-                            )
-                            _fresh_counts[_reg] = len(_rc.json())
-                        except Exception:
-                            _fresh_counts[_reg] = "?"
-                    _total_fresh = sum(v for v in _fresh_counts.values() if isinstance(v, int))
-                    st.caption("Fresh players (7d): " + "  |  ".join(f"{r}: {n}" for r, n in _fresh_counts.items()) + f"  |  **Total: {_total_fresh}**")
-                    if st.button("Rebuild regression curve", width='stretch'):
-                        try:
-                            _all_rows = []
-                            for _reg in ["EU", "NA", "AP", "CN"]:
-                                _rd = requests.get(
+                        st.divider()
+                        st.caption("Rebuild avg-placement regression curves from player_stats data (last 7 days, min 100 games).")
+                        _cutoff_7d = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                        _fresh_counts = {}
+                        for _reg in ["EU", "NA", "AP", "CN"]:
+                            try:
+                                _rc = requests.get(
                                     f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
                                     headers=SUPABASE_HEADERS,
-                                    params={"region": f"eq.{_reg}", "updated_at": f"gte.{_cutoff_7d}", "games": "gte.100", "select": "cr,avg_place,games", "limit": "10000"},
-                                    timeout=15,
+                                    params={"region": f"eq.{_reg}", "updated_at": f"gte.{_cutoff_7d}", "games": "gte.100", "select": "player", "limit": "10000"},
+                                    timeout=10,
                                 )
-                                _rd.raise_for_status()
-                                _all_rows.extend(_rd.json())
-                            if len(_all_rows) < 5:
-                                st.warning(f"Not enough data ({len(_all_rows)} players total)")
-                            else:
-                                _df_all = pd.DataFrame(_all_rows).rename(columns={"cr": "current_mmr"})
-                                _rbx, _rby, _ = binned_weighted_curve(_df_all, x_col="current_mmr", y_col="avg_place", w_col="games", bin_size=500, mode="wmean", min_games=0)
-                                if len(_rbx) < 2:
-                                    st.warning("Regression failed (not enough bins)")
+                                _fresh_counts[_reg] = len(_rc.json())
+                            except Exception:
+                                _fresh_counts[_reg] = "?"
+                        _total_fresh = sum(v for v in _fresh_counts.values() if isinstance(v, int))
+                        st.caption("Fresh players (7d): " + "  |  ".join(f"{r}: {n}" for r, n in _fresh_counts.items()) + f"  |  **Total: {_total_fresh}**")
+                        if st.button("Rebuild regression curve", width='stretch'):
+                            try:
+                                _all_rows = []
+                                for _reg in ["EU", "NA", "AP", "CN"]:
+                                    _rd = requests.get(
+                                        f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
+                                        headers=SUPABASE_HEADERS,
+                                        params={"region": f"eq.{_reg}", "updated_at": f"gte.{_cutoff_7d}", "games": "gte.100", "select": "cr,avg_place,games", "limit": "10000"},
+                                        timeout=15,
+                                    )
+                                    _rd.raise_for_status()
+                                    _all_rows.extend(_rd.json())
+                                if len(_all_rows) < 5:
+                                    st.warning(f"Not enough data ({len(_all_rows)} players total)")
                                 else:
-                                    _poly = np.polyfit(_rbx, _rby, deg=2)
-                                    _smooth_x = np.linspace(_rbx.min(), _rbx.max() + 5000, 100)
-                                    _smooth_y = np.clip(np.polyval(_poly, _smooth_x), 1.0, 8.0)
-                                    _sb_save_regression("ALL", _smooth_x, _smooth_y, len(_all_rows))
-                                    st.success(f"Curve updated ({len(_all_rows)} players, {len(_rbx)} bins)")
-                        except Exception as _re:
-                            st.error(str(_re))
+                                    _df_all = pd.DataFrame(_all_rows).rename(columns={"cr": "current_mmr"})
+                                    _rbx, _rby, _ = binned_weighted_curve(_df_all, x_col="current_mmr", y_col="avg_place", w_col="games", bin_size=500, mode="wmean", min_games=0)
+                                    if len(_rbx) < 2:
+                                        st.warning("Regression failed (not enough bins)")
+                                    else:
+                                        _poly = np.polyfit(_rbx, _rby, deg=2)
+                                        _smooth_x = np.linspace(_rbx.min(), _rbx.max() + 5000, 100)
+                                        _smooth_y = np.clip(np.polyval(_poly, _smooth_x), 1.0, 8.0)
+                                        _sb_save_regression("ALL", _smooth_x, _smooth_y, len(_all_rows))
+                                        st.success(f"Curve updated ({len(_all_rows)} players, {len(_rbx)} bins)")
+                            except Exception as _re:
+                                st.error(str(_re))
 
-                    st.divider()
-                    st.caption("Recalculates Form Rating for all players using existing player_stats data and the current regression curve. No wallii.gg calls.")
-                    if st.button("Rebuild Form Ratings", width='stretch'):
-                        try:
-                            _bx_fr, _by_fr = _sb_load_regression("ALL")
-                            if _bx_fr is None or len(_bx_fr) < 2:
-                                st.error("No regression curve found. Rebuild regression curve first.")
-                            else:
-                                _ps_resp = requests.get(
-                                    f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
-                                    headers=SUPABASE_HEADERS,
-                                    params={"select": "player,region,avg_place,form_diff", "limit": "1000"},
-                                    timeout=15,
-                                )
-                                _ps_resp.raise_for_status()
-                                _ps_rows = [r for r in _ps_resp.json() if r.get("avg_place") is not None and r.get("form_diff") is not None]
-                                _ok, _fail = 0, 0
-                                for _pr in _ps_rows:
-                                    try:
-                                        _ra = _pr["avg_place"] + _pr["form_diff"]
-                                        _fr = int(round(float(np.interp(_ra, _by_fr[::-1], _bx_fr[::-1]))))
-                                        requests.post(
-                                            f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region",
-                                            headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
-                                            json={"player": _pr["player"], "region": _pr["region"], "form_rating": _fr},
-                                            timeout=10,
-                                        ).raise_for_status()
-                                        _ok += 1
-                                    except Exception:
-                                        _fail += 1
-                                st.success(f"Updated {_ok} players. Failed: {_fail}.")
-                                _sb_fetch_all.clear()
-                                _sb_top_n.clear()
-                        except Exception as _fre:
-                            st.error(str(_fre))
+                        st.divider()
+                        st.caption("Recalculates Form Rating for all players using existing player_stats data and the current regression curve. No wallii.gg calls.")
+                        if st.button("Rebuild Form Ratings", width='stretch'):
+                            try:
+                                _bx_fr, _by_fr = _sb_load_regression("ALL")
+                                if _bx_fr is None or len(_bx_fr) < 2:
+                                    st.error("No regression curve found. Rebuild regression curve first.")
+                                else:
+                                    _ps_resp = requests.get(
+                                        f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
+                                        headers=SUPABASE_HEADERS,
+                                        params={"select": "player,region,avg_place,form_diff", "limit": "1000"},
+                                        timeout=15,
+                                    )
+                                    _ps_resp.raise_for_status()
+                                    _ps_rows = [r for r in _ps_resp.json() if r.get("avg_place") is not None and r.get("form_diff") is not None]
+                                    _ok, _fail = 0, 0
+                                    for _pr in _ps_rows:
+                                        try:
+                                            _ra = _pr["avg_place"] + _pr["form_diff"]
+                                            _fr = int(round(float(np.interp(_ra, _by_fr[::-1], _bx_fr[::-1]))))
+                                            requests.post(
+                                                f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region",
+                                                headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+                                                json={"player": _pr["player"], "region": _pr["region"], "form_rating": _fr},
+                                                timeout=10,
+                                            ).raise_for_status()
+                                            _ok += 1
+                                        except Exception:
+                                            _fail += 1
+                                    st.success(f"Updated {_ok} players. Failed: {_fail}.")
+                                    _sb_fetch_all.clear()
+                                    _sb_top_n.clear()
+                            except Exception as _fre:
+                                st.error(str(_fre))
 
                     elif pwd:
                         st.caption("Wrong password.")

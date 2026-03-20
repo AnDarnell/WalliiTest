@@ -1454,7 +1454,14 @@ with tabs[0]:
                     f"Live now</div>",
                     unsafe_allow_html=True,
                 )
-                _live_streams_lb = sorted(_live_streams_lb, key=lambda x: x["cr"], reverse=True)
+                if "lb_live_sort" not in st.session_state:
+                    st.session_state["lb_live_sort"] = "mmr"
+                _live_sort_key = st.session_state["lb_live_sort"]
+                _live_streams_lb = sorted(
+                    _live_streams_lb,
+                    key=lambda x: x["viewers"] if _live_sort_key == "viewers" else x["cr"],
+                    reverse=True,
+                )
                 _empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"
 
                 def _live_row_html(si, s):
@@ -1494,13 +1501,23 @@ with tabs[0]:
                             _live_col.markdown(_live_row_html(_si, _s), unsafe_allow_html=True)
                     _live_toggle = "▲ Show less" if st.session_state[_live_exp_key] else "▼ Show more"
                     _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
-                    if _live_col.button(_live_toggle, key="lb_toggle_live"):
+                    _live_btn_cols = _live_col.columns([3, 2])
+                    if _live_btn_cols[0].button(_live_toggle, key="lb_toggle_live"):
                         st.session_state[_live_exp_key] = not st.session_state[_live_exp_key]
+                        st.rerun()
+                    _sort_label = "Views" if _live_sort_key == "mmr" else "MMR"
+                    if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
+                        st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
                         st.rerun()
                     _live_col.markdown("</div>", unsafe_allow_html=True)
                 else:
                     _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
-                    _live_col.button("▼ Show more", key="lb_toggle_live_placeholder", disabled=True)
+                    _live_btn_cols = _live_col.columns([3, 2])
+                    _live_btn_cols[0].button("▼ Show more", key="lb_toggle_live_placeholder", disabled=True)
+                    _sort_label = "Views" if _live_sort_key == "mmr" else "MMR"
+                    if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
+                        st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
+                        st.rerun()
                     _live_col.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Återstående listor i par (vänster/höger per rad) ───────────────

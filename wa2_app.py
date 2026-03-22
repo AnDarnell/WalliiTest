@@ -1447,11 +1447,13 @@ with tabs[0]:
                 _live_streams_lb = [s for s in _twitch_get_live_streams() if not _lb_regions or s.get("region", "").upper() in _lb_regions]
                 _live_col = _row0[1]
                 HEADER_COLOR = "#8a8a8a"
+                _total_viewers = sum(s["viewers"] for s in _live_streams_lb)
+                _viewers_str = f" <span style='color:#666;font-size:0.78em;font-weight:400;text-transform:none;letter-spacing:0;'>({_total_viewers:,} total viewers)</span>" if _total_viewers > 0 else ""
                 _live_col.markdown(
                     f"<div style='color:{HEADER_COLOR};font-size:0.85rem;text-transform:uppercase;"
                     f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>"
                     f"<svg width='10' height='10' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-right:5px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
-                    f"Live now</div>",
+                    f"Live now{_viewers_str}</div>",
                     unsafe_allow_html=True,
                 )
                 if "lb_live_sort" not in st.session_state:

@@ -1237,7 +1237,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["Single player", "RatingAvg", "Info/Explanations"])
+tabs = st.tabs(["Single player", "Calculator", "Info/Explanations", "RatingAvg"])
 
 
 # ── Single player tab ─────────────────────────────────────────────────────────
@@ -2470,7 +2470,7 @@ with tabs[0]:
 
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
 
-with tabs[1]:
+with tabs[3]:
     st.info("Ignore this, just backend stuff for debug/testign. Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace) for some of the values.")
 
     st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Supabase regression curve (all regions combined)</p>", unsafe_allow_html=True)
@@ -2506,7 +2506,7 @@ with tabs[1]:
 
     st.divider()
 
-with tabs[1]:
+with tabs[3]:
     rr = st.selectbox("Curve region (CSV)", ["EU"], index=0)
 
     if rr == "Fallback export.csv":
@@ -2602,6 +2602,63 @@ with tabs[1]:
     ax.set_ylabel("Avg Place")
     style_dark_axes(ax)
     st.pyplot(fig)
+
+with tabs[1]:
+    st.markdown("<h2 style='text-decoration:none;'>Placement Calculator</h2>", unsafe_allow_html=True)
+    st.markdown("Given your MMR and the MMR change from a game, estimate what average MMR your opponents had for your most likely placements, and vice versa:")
+    _calc_cols = st.columns(2)
+    _calc_mmr  = _calc_cols[0].number_input("Your MMR", min_value=0, max_value=30000, value=8000, step=50, key="calc_mmr")
+    _calc_gain = _calc_cols[1].number_input("MMR change", min_value=-500, max_value=500, value=100, step=1, key="calc_gain")
+
+    _placements_full = [1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
+    _dex_avg   = float(_calc_mmr) if _calc_mmr < 8200 else (_calc_mmr - 0.85 * (_calc_mmr - 8200))
+    _p_to_avg = {}
+    for _p in _placements_full:
+        _avg_opp = _calc_mmr - 148.1181435 * (100 - ((_p - 1) * (200 / 7) + _calc_gain))
+        if int(_p) == _p:
+            _p_to_avg[int(_p)] = _avg_opp
+
+    # Sort whole placements by delta and show top 2
+    _ranked = sorted(
+        [(pd, _p_to_avg[pd], abs(_dex_avg - _p_to_avg[pd])) for pd in [1,2,3,4,5,6,7,8] if pd in _p_to_avg],
+        key=lambda x: x[2]
+    )
+    if _ranked:
+        # Certainty: diff between 2nd smallest and smallest delta (all 13 steps, matching sheet formula)
+        _all_deltas_full = sorted(
+            abs(_dex_avg - (_calc_mmr - 148.1181435 * (100 - ((_p - 1) * (200 / 7) + _calc_gain))))
+            for _p in _placements_full
+        )
+        _cert_diff = (_all_deltas_full[1] - _all_deltas_full[0]) if len(_all_deltas_full) >= 2 else 9999
+        if _cert_diff <= 350:
+            _cert_label, _cert_color = "Very uncertain", "#e57373"
+        elif _cert_diff <= 700:
+            _cert_label, _cert_color = "Kinda uncertain", "#ffb74d"
+        elif _cert_diff <= 1000:
+            _cert_label, _cert_color = "Certain", "#fff176"
+        else:
+            _cert_label, _cert_color = "Very certain", "#81c784"
+
+        _rows_html = ""
+        for _i, (_pd, _avg_opp, _) in enumerate(_ranked[:2]):
+            _is_best = _i == 0
+            _row_bg  = f"background:{_cert_color}22;border-color:{_cert_color}66;" if _is_best else "background:#111;border-color:#1e1e1e;"
+            _row_col = _cert_color if _is_best else "#8a8a8a"
+            _label   = "Most likely" if _is_best else "2nd most likely"
+            _rows_html += (
+                f"<div style='display:flex;justify-content:space-between;{_row_bg}"
+                f"border:1px solid;border-radius:4px;padding:0.4rem 0.7rem;margin-bottom:0.3rem;'>"
+                f"<span style='color:{_row_col};font-weight:{'700' if _is_best else '400'};'>#{_pd} place <span style='font-size:0.78em;font-weight:400;'>({_label})</span></span>"
+                f"<span style='color:{_row_col};'>avg opp: {_avg_opp:,.0f} MMR</span>"
+                f"</div>"
+            )
+        _rows_html += (
+            f"<div style='margin-top:0.4rem;font-size:0.8rem;color:{_cert_color};'>"
+            f"Certainty: <strong style='color:{_cert_color};'>{_cert_label}</strong></div>"
+        )
+        st.markdown(_rows_html, unsafe_allow_html=True)
+    else:
+        st.caption("No valid placement found for these values.")
 
 with tabs[2]:
     st.markdown("<h2 style='text-decoration:none;'>About</h2>", unsafe_allow_html=True)

@@ -1507,7 +1507,7 @@ with tabs[0]:
                     if _live_btn_cols[0].button(_live_toggle, key="lb_toggle_live"):
                         st.session_state[_live_exp_key] = not st.session_state[_live_exp_key]
                         st.rerun()
-                    _sort_label = "Views" if _live_sort_key == "mmr" else "MMR"
+                    _sort_label = "MMR" if _live_sort_key == "mmr" else "Views"
                     if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
                         st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
                         st.rerun()
@@ -1516,7 +1516,7 @@ with tabs[0]:
                     _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
                     _live_btn_cols = _live_col.columns([3, 2])
                     _live_btn_cols[0].button("▼ Show more", key="lb_toggle_live_placeholder", disabled=True)
-                    _sort_label = "Views" if _live_sort_key == "mmr" else "MMR"
+                    _sort_label = "MMR" if _live_sort_key == "mmr" else "Views"
                     if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
                         st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
                         st.rerun()

@@ -1412,7 +1412,7 @@ with tabs[0]:
                 with _ap_col:
                     _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
                 with _cn_col:
-                    _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn")
+                    _inc_cn = st.checkbox("CN *", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 if _mmr_filter != "All":

@@ -2619,7 +2619,7 @@ with tabs[1]:
     st.markdown("Given your MMR and the MMR change from a game, estimate what average MMR your opponents had for your most likely placements, and vice versa:")
     _calc_cols = st.columns(2)
     _calc_mmr  = _calc_cols[0].number_input("Your MMR", min_value=0, max_value=30000, value=8000, step=50, key="calc_mmr")
-    _calc_gain = _calc_cols[1].number_input("MMR change", min_value=-500, max_value=500, value=100, step=1, key="calc_gain")
+    _calc_gain = _calc_cols[1].number_input("...and MMR gain/loss", min_value=-500, max_value=500, value=100, step=1, key="calc_gain")
 
     _placements_full = [1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
     _dex_avg   = float(_calc_mmr) if _calc_mmr < 8200 else (_calc_mmr - 0.85 * (_calc_mmr - 8200))

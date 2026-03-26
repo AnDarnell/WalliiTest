@@ -1397,7 +1397,7 @@ with tabs[0]:
                             st.rerun()
                         container.markdown("</div>", unsafe_allow_html=True)
 
-                backend_label = "all time" if TOPLIST_BACKEND == "supabase" else "this session"
+                backend_label = "Season 12" if TOPLIST_BACKEND == "supabase" else "this session"
                 st.markdown(
                     f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                     unsafe_allow_html=True

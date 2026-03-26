@@ -1334,6 +1334,7 @@ with tabs[0]:
                     _plinks = _sb_fetch_player_links()
                     _twitch_svg = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-left:4px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
                     _yt_svg     = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-left:4px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+                    _live_players = {s["player"].lower(): s["twitch_url"] for s in _twitch_get_live_streams()}
 
                     def row_html(i, r):
                         row_color = value_color = HEADER_COLOR
@@ -1353,6 +1354,13 @@ with tabs[0]:
                         if _pl.get("youtube_url"):
                             _icons += f"<a href='{html.escape(_pl['youtube_url'])}' target='_blank' title='YouTube'>{_yt_svg}</a>"
                         _flag = _country_flag(_pl.get("nationality", ""))
+                        _live_url = _live_players.get(player.lower())
+                        _live_badge = (
+                            f"<a href='{html.escape(_live_url)}' target='_blank' "
+                            f"style='margin-left:6px;font-size:0.65rem;font-weight:700;color:#fff;"
+                            f"background:#e53935;border-radius:3px;padding:1px 5px;text-decoration:none;"
+                            f"vertical-align:middle;letter-spacing:0.04em;'>LIVE</a>"
+                        ) if _live_url else ""
                         return (
                             "<div style='display:flex;justify-content:space-between;"
                             "border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
@@ -1362,7 +1370,7 @@ with tabs[0]:
                             f"onmouseover=\"this.style.textDecoration='underline'\" "
                             f"onmouseout=\"this.style.textDecoration='none'\">{player}</a> "
                             f"<span style='color:#666'>({region})</span>"
-                            f"{'&nbsp;' + _flag if _flag else ''}{_icons}</span>"
+                            f"{'&nbsp;' + _flag if _flag else ''}{_icons}{_live_badge}</span>"
                             f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
                             "</div>"
                         )
@@ -2618,12 +2626,10 @@ with tabs[1]:
     _p_to_avg = {}
     for _p in _placements_full:
         _avg_opp = _calc_mmr - 148.1181435 * (100 - ((_p - 1) * (200 / 7) + _calc_gain))
-        if int(_p) == _p:
-            _p_to_avg[int(_p)] = _avg_opp
+        _p_to_avg[_p] = _avg_opp
 
-    # Sort whole placements by delta and show top 2
     _ranked = sorted(
-        [(pd, _p_to_avg[pd], abs(_dex_avg - _p_to_avg[pd])) for pd in [1,2,3,4,5,6,7,8] if pd in _p_to_avg],
+        [(_p, _p_to_avg[_p], abs(_dex_avg - _p_to_avg[_p])) for _p in _placements_full],
         key=lambda x: x[2]
     )
     if _ranked:
@@ -2647,18 +2653,22 @@ with tabs[1]:
             _is_best = _i == 0
             _row_bg  = f"background:{_cert_color}22;border-color:{_cert_color}66;" if _is_best else "background:#111;border-color:#1e1e1e;"
             _row_col = _cert_color if _is_best else "#8a8a8a"
-            _label   = "Most likely" if _is_best else "2nd most likely"
+            _suffixes = {1: "st", 2: "nd", 3: "rd"}
+            if _pd != int(_pd):
+                _pd_str = f"{_pd:g}th"
+            else:
+                _pd_str = f"{int(_pd)}{_suffixes.get(int(_pd), 'th')}"
+            _prefix  = "Most likely" if _is_best else "Also possible"
+            _cert_note = f" <span style='font-size:0.78em;font-weight:400;color:{_cert_color};'>({_cert_label.lower()})</span>" if _is_best else ""
             _rows_html += (
-                f"<div style='display:flex;justify-content:space-between;{_row_bg}"
-                f"border:1px solid;border-radius:4px;padding:0.4rem 0.7rem;margin-bottom:0.3rem;'>"
-                f"<span style='color:{_row_col};font-weight:{'700' if _is_best else '400'};'>#{_pd} place <span style='font-size:0.78em;font-weight:400;'>({_label})</span></span>"
-                f"<span style='color:{_row_col};'>avg opp: {_avg_opp:,.0f} MMR</span>"
+                f"<div style='{_row_bg}border:1px solid;border-radius:4px;"
+                f"padding:0.5rem 0.7rem;margin-bottom:0.3rem;'>"
+                f"<div style='color:{_row_col};font-weight:{'700' if _is_best else '400'};'>"
+                f"{_prefix}: <strong>{_pd_str} place</strong> "
+                f"<span style='color:{_row_col};'>against an avg opponent MMR of "
+                f"<strong>{_avg_opp:,.0f}</strong></span>{_cert_note}</div>"
                 f"</div>"
             )
-        _rows_html += (
-            f"<div style='margin-top:0.4rem;font-size:0.8rem;color:{_cert_color};'>"
-            f"Certainty: <strong style='color:{_cert_color};'>{_cert_label}</strong></div>"
-        )
         st.markdown(_rows_html, unsafe_allow_html=True)
     else:
         st.caption("No valid placement found for these values.")

@@ -2695,7 +2695,7 @@ with tabs[0]:
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
 
 with tabs[3]:
-    st.info("Ignore this, just backend stuff for debug/testign. Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace) for some of the values.")
+    st.info("Ignore this (if you want), just backend stuff for debug/testign. Used for estimating expected average placement at a given MMR based on currently uploaded CSV curves (regression between MMR and avgPlace) for some of the values.")
 
     st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>Supabase regression curve (all regions combined)</p>", unsafe_allow_html=True)
     _sb_bx, _sb_by = _sb_load_regression("ALL")

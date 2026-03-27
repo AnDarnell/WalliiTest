@@ -1863,6 +1863,7 @@ with tabs[0]:
             with st.spinner("Fetching data..."):
                 try:
                     st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region)
+                    _save_opp_buckets(sp_player, st.session_state["sp_region"], st.session_state["sp_games"])
                 except ValueError as e:
                     msg = str(e)
                     m = re.search(r"appears to be in: ([A-Z,\s]+)", msg)
@@ -1874,6 +1875,7 @@ with tabs[0]:
                                 st.session_state["sp_region"] = detected
                                 st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, detected)
                                 sp_region = detected
+                                _save_opp_buckets(sp_player, detected, st.session_state["sp_games"])
                             except Exception as e2:
                                 st.error(str(e2))
                                 st.session_state["sp_games"] = []
@@ -2520,27 +2522,42 @@ with tabs[0]:
             # ── Opponent MMR analysis ─────────────────────────────────────────
             st.divider()
             st.markdown("<p style='color:#8a8a8a;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;'>Performance by opponent MMR range</p>", unsafe_allow_html=True)
+
             _opp_buckets = {}
             for _g in games:
-                _gp = _g.get("placement")
+                _gp   = _g.get("placement")
                 _gmmr = _g.get("mmr_before")
                 _ggain = _g.get("gain")
                 if _gp is None or _gmmr is None or _ggain is None:
                     continue
+                if _gmmr < 10000:
+                    continue
                 _avg_opp = _gmmr - 148.1181435 * (100 - ((_gp - 1) * (200 / 7) + _ggain))
-                _bucket = int(_avg_opp // 1000) * 1000
+                _bucket  = int(_avg_opp // 1000) * 1000
+                # expected placement for this player's MMR at this moment
+                _exp = 1 + (7 / 200) * (100 - (_gmmr - _avg_opp) / 148.1181435)
                 if _bucket not in _opp_buckets:
-                    _opp_buckets[_bucket] = []
-                _opp_buckets[_bucket].append(_gp)
+                    _opp_buckets[_bucket] = {"placements": [], "expected": []}
+                _opp_buckets[_bucket]["placements"].append(_gp)
+                if _exp is not None:
+                    _opp_buckets[_bucket]["expected"].append(_exp)
 
             _MIN_GAMES_BUCKET = 5
-            _valid_buckets = {k: v for k, v in _opp_buckets.items() if len(v) >= _MIN_GAMES_BUCKET}
+            _valid_buckets = {k: v for k, v in _opp_buckets.items() if len(v["placements"]) >= _MIN_GAMES_BUCKET and k >= 7000}
             if _valid_buckets:
                 _opp_rows = ""
                 for _bk in sorted(_valid_buckets.keys()):
-                    _bv = _valid_buckets[_bk]
-                    _bavg = sum(_bv) / len(_bv)
-                    _bar_w = max(4, int((8 - _bavg) / 7 * 100))
+                    _bv   = _valid_buckets[_bk]
+                    _bavg = sum(_bv["placements"]) / len(_bv["placements"])
+                    _bexp = sum(_bv["expected"]) / len(_bv["expected"]) if _bv["expected"] else None
+                    _dev  = (_bavg - _bexp) if _bexp is not None else None
+                    if _dev is not None:
+                        _dev_color = "#81c784" if _dev < -0.15 else "#e57373" if _dev > 0.15 else "#8a8a8a"
+                        _dev_str   = f"{_dev:+.2f}"
+                        _dev_html  = f"<span style='color:{_dev_color};font-size:0.78rem;min-width:44px;text-align:right;'>{_dev_str}</span>"
+                    else:
+                        _dev_html = ""
+                    _bar_w     = max(4, int((8 - _bavg) / 7 * 100))
                     _bar_color = "#81c784" if _bavg <= 3 else "#fff176" if _bavg <= 4.5 else "#e57373"
                     _opp_rows += (
                         f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;'>"
@@ -2548,11 +2565,13 @@ with tabs[0]:
                         f"<div style='flex:1;background:#1e1e1e;border-radius:3px;height:8px;'>"
                         f"<div style='width:{_bar_w}%;background:{_bar_color};border-radius:3px;height:8px;'></div></div>"
                         f"<span style='color:#ccc;font-size:0.82rem;min-width:32px;text-align:right;'>{_bavg:.2f}</span>"
-                        f"<span style='color:#444;font-size:0.72rem;min-width:50px;'>({len(_bv)} games)</span>"
+                        f"{_dev_html}"
+                        f"<span style='color:#444;font-size:0.72rem;min-width:50px;'>({len(_bv['placements'])} games)</span>"
                         f"</div>"
                     )
                 st.markdown(_opp_rows, unsafe_allow_html=True)
-                st.caption("Avg placement per 1k MMR interval of estimated opponent average. Min 5 games per interval shown.")
+                _legend = "Avg placement per 1k MMR interval. Only games played at 10k+ MMR (early season affects the stats a bit much otherwise)."
+                st.caption(_legend)
             else:
                 st.caption("Not enough data to show opponent MMR breakdown.")
 

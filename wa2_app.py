@@ -550,6 +550,45 @@ def compute_and_upsert(player_name, region, games):
         "mmr_milestones":  json.dumps(_mmr_milestones),
         "updated_at":      datetime.utcnow().isoformat() + "Z",
     })
+    _save_opp_buckets(player_name, region, games)
+
+def _save_opp_buckets(player_name, region, games):
+    if not SUPABASE_ENABLED or not games:
+        return
+    buckets = {}
+    for g in games:
+        gp = g.get("placement")
+        gmmr = g.get("mmr_before")
+        ggain = g.get("gain")
+        if gp is None or gmmr is None or ggain is None:
+            continue
+        avg_opp = gmmr - 148.1181435 * (100 - ((gp - 1) * (200 / 7) + ggain))
+        bucket = int(avg_opp // 1000) * 1000
+        if bucket not in buckets:
+            buckets[bucket] = []
+        buckets[bucket].append(gp)
+    payload = [
+        {
+            "player": player_name.lower(),
+            "region": region.upper(),
+            "bucket_start": bk,
+            "avg_placement": round(sum(bv) / len(bv), 4),
+            "game_count": len(bv),
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        }
+        for bk, bv in buckets.items() if len(bv) >= 1
+    ]
+    if not payload:
+        return
+    try:
+        requests.post(
+            f"{SUPABASE_URL}/rest/v1/player_opp_buckets",
+            headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+            json=payload,
+            timeout=10,
+        ).raise_for_status()
+    except Exception:
+        pass
 
 def lb_top_n(metric, n=TOP_N, higher_is_better=True):
     if TOPLIST_BACKEND == "supabase":
@@ -2477,6 +2516,45 @@ with tabs[0]:
 
             except Exception as e:
                 st.error(str(e))
+
+            # ── Opponent MMR analysis ─────────────────────────────────────────
+            st.divider()
+            st.markdown("<p style='color:#8a8a8a;font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;font-weight:600;'>Performance by opponent MMR range</p>", unsafe_allow_html=True)
+            _opp_buckets = {}
+            for _g in games:
+                _gp = _g.get("placement")
+                _gmmr = _g.get("mmr_before")
+                _ggain = _g.get("gain")
+                if _gp is None or _gmmr is None or _ggain is None:
+                    continue
+                _avg_opp = _gmmr - 148.1181435 * (100 - ((_gp - 1) * (200 / 7) + _ggain))
+                _bucket = int(_avg_opp // 1000) * 1000
+                if _bucket not in _opp_buckets:
+                    _opp_buckets[_bucket] = []
+                _opp_buckets[_bucket].append(_gp)
+
+            _MIN_GAMES_BUCKET = 5
+            _valid_buckets = {k: v for k, v in _opp_buckets.items() if len(v) >= _MIN_GAMES_BUCKET}
+            if _valid_buckets:
+                _opp_rows = ""
+                for _bk in sorted(_valid_buckets.keys()):
+                    _bv = _valid_buckets[_bk]
+                    _bavg = sum(_bv) / len(_bv)
+                    _bar_w = max(4, int((8 - _bavg) / 7 * 100))
+                    _bar_color = "#81c784" if _bavg <= 3 else "#fff176" if _bavg <= 4.5 else "#e57373"
+                    _opp_rows += (
+                        f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;'>"
+                        f"<span style='color:#666;font-size:0.78rem;min-width:90px;'>{_bk:,}–{_bk+1000:,}</span>"
+                        f"<div style='flex:1;background:#1e1e1e;border-radius:3px;height:8px;'>"
+                        f"<div style='width:{_bar_w}%;background:{_bar_color};border-radius:3px;height:8px;'></div></div>"
+                        f"<span style='color:#ccc;font-size:0.82rem;min-width:32px;text-align:right;'>{_bavg:.2f}</span>"
+                        f"<span style='color:#444;font-size:0.72rem;min-width:50px;'>({len(_bv)} games)</span>"
+                        f"</div>"
+                    )
+                st.markdown(_opp_rows, unsafe_allow_html=True)
+                st.caption("Avg placement per 1k MMR interval of estimated opponent average. Min 5 games per interval shown.")
+            else:
+                st.caption("Not enough data to show opponent MMR breakdown.")
 
 
 # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────

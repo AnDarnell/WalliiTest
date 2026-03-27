@@ -2055,7 +2055,7 @@ with tabs[0]:
                     avg_tip = (
                         f"Expected at CR {current_mmr:,}: {expected_avg:.2f} | "
                         f"Δ: {sign}{delta:.2f} (avg - expected) | "
-                        f"source: {_curve_source}"
+                        f"Source: {_curve_source}"
                     )
 
                 # Header row: [←] player [region] [#rank]

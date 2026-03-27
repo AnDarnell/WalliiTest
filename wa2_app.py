@@ -232,8 +232,9 @@ def _sb_upsert(region, player_name, record: dict):
         "cr":             record.get("cr"),
         "u_score":        record.get("u_score"),
         "bot2_count":       record.get("bot2_count"),
-        "mmr_milestones":   record.get("mmr_milestones"),
-        "updated_at":       datetime.utcnow().isoformat() + "Z",
+        "mmr_milestones":    record.get("mmr_milestones"),
+        "matchup_scaling":   record.get("matchup_scaling"),
+        "updated_at":        datetime.utcnow().isoformat() + "Z",
     }
 
     if not SUPABASE_ENABLED:
@@ -267,7 +268,7 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
-_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,updated_at"
+_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,matchup_scaling,updated_at"
 
 @st.cache_data(show_spinner=False, ttl=300)
 def _sb_fetch_all():
@@ -548,9 +549,41 @@ def compute_and_upsert(player_name, region, games):
         "u_score":         float(u_score),
         "bot2_count":      int(bot2_count),
         "mmr_milestones":  json.dumps(_mmr_milestones),
+        "matchup_scaling": compute_matchup_scaling(games),
         "updated_at":      datetime.utcnow().isoformat() + "Z",
     })
     _save_opp_buckets(player_name, region, games)
+
+def compute_matchup_scaling(games):
+    """Returns matchup scaling score or None if insufficient data."""
+    games_10k = [g for g in games if g.get("mmr_before", 0) >= 10000]
+    if len(games_10k) < 300:
+        return None
+    buckets = {}
+    for g in games_10k:
+        gp, gmmr, ggain = g.get("placement"), g.get("mmr_before"), g.get("gain")
+        if gp is None or gmmr is None or ggain is None:
+            continue
+        avg_opp = gmmr - 148.1181435 * (100 - ((gp - 1) * (200 / 7) + ggain))
+        bucket = int(avg_opp // 1000) * 1000
+        if bucket not in buckets:
+            buckets[bucket] = {"placements": [], "expected": []}
+        buckets[bucket]["placements"].append(gp)
+        buckets[bucket]["expected"].append(1 + (7 / 200) * (100 - (gmmr - avg_opp) / 148.1181435))
+    scaling_buckets = [7000, 8000, 9000, 10000]
+    points = []
+    for sbk in scaling_buckets:
+        bv = buckets.get(sbk)
+        if not bv or len(bv["placements"]) < 30 or not bv["expected"]:
+            return None
+        bavg = sum(bv["placements"]) / len(bv["placements"])
+        bexp = sum(bv["expected"]) / len(bv["expected"])
+        points.append((sbk + 500, bexp - bavg))
+    xs = np.array([p[0] for p in points])
+    ys = np.array([p[1] for p in points])
+    ws = np.array([0.5, 1.0, 1.0, 0.5])
+    xs_norm = (xs - xs.mean()) / xs.std()
+    return float(np.polyfit(xs_norm, ys, 1, w=ws)[0])
 
 def _save_opp_buckets(player_name, region, games):
     if not SUPABASE_ENABLED or not games:
@@ -1485,6 +1518,8 @@ with tabs[0]:
                     ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve."),
                     ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
                     ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
+                    ("Matchup scaling +",   [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{r['matchup_scaling']:+.2f}", "Measures how performance changes relative to opponent strength. Positive = performs relatively better vs stronger opponents. Requires 300+ games at 10k+ MMR with 30+ games in each of the 7-11k opponent brackets.", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Matchup scaling -",   [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{r['matchup_scaling']:+.2f}", "Measures how performance changes relative to opponent strength. Negative = performs relatively better vs weaker opponents. Requires 300+ games at 10k+ MMR with 30+ games in each of the 7-11k opponent brackets.", "Experimental - min 300 games at 10k+ MMR"),
 
                 ]
 
@@ -1851,6 +1886,57 @@ with tabs[0]:
                                 _sb_top_n.clear()
                         except Exception as _fre:
                             st.error(str(_fre))
+
+                    st.divider()
+                    st.caption("Recalculates Matchup Scaling for all players using existing player_cache snapshots. No wallii.gg calls.")
+                    if st.button("Rebuild Matchup Scaling", width='stretch'):
+                        try:
+                            _pc_resp = requests.get(
+                                f"{SUPABASE_URL}/rest/v1/player_cache",
+                                headers=SUPABASE_HEADERS,
+                                params={"select": "player_name,region", "limit": "2000"},
+                                timeout=30,
+                            )
+                            _pc_resp.raise_for_status()
+                            _pc_rows = _pc_resp.json()
+                            _ok, _skip, _fail = 0, 0, 0
+                            _bar = st.progress(0.0)
+                            for _pi, _pc in enumerate(_pc_rows):
+                                _bar.progress((_pi + 1) / max(len(_pc_rows), 1), text=f"{_pc.get('player_name','?')}...")
+                                try:
+                                    _snaps, _, _ = _sb_get_cached_snapshots(_pc["player_name"], _pc["region"])
+                                    if not _snaps or len(_snaps) < 2:
+                                        # fetch directly without cache age check
+                                        _sr = requests.get(
+                                            f"{SUPABASE_URL}/rest/v1/snapshots",
+                                            headers=SUPABASE_HEADERS,
+                                            params={"player_name": f"eq.{_pc['player_name'].lower()}", "region": f"eq.{_pc['region'].upper()}", "game_mode": "eq.0", "snapshot_time": f"gte.{SEASON_START}", "order": "snapshot_time.asc", "limit": "2000", "select": "snapshot_time,rating"},
+                                            timeout=15,
+                                        )
+                                        _sr.raise_for_status()
+                                        _snaps = _sr.json()
+                                    if not _snaps or len(_snaps) < 2:
+                                        _skip += 1
+                                        continue
+                                    _ms_games = _snapshots_to_games(_snaps)
+                                    _ms_val = compute_matchup_scaling(_ms_games)
+                                    if _ms_val is None:
+                                        _skip += 1
+                                        continue
+                                    requests.post(
+                                        f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region",
+                                        headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
+                                        json={"player": _pc["player_name"].lower(), "region": _pc["region"].upper(), "matchup_scaling": _ms_val},
+                                        timeout=10,
+                                    ).raise_for_status()
+                                    _ok += 1
+                                except Exception:
+                                    _fail += 1
+                            _bar.progress(1.0, text="Done!")
+                            _cache_bust_toplists()
+                            st.success(f"Updated {_ok} players. Skipped: {_skip}. Failed: {_fail}.")
+                        except Exception as _mse:
+                            st.error(str(_mse))
 
                 elif pwd:
                     st.caption("Wrong password.")
@@ -2543,7 +2629,8 @@ with tabs[0]:
                     _opp_buckets[_bucket]["expected"].append(_exp)
 
             _MIN_GAMES_BUCKET = 5
-            _valid_buckets = {k: v for k, v in _opp_buckets.items() if len(v["placements"]) >= _MIN_GAMES_BUCKET and k >= 7000}
+            _games_above_10k = sum(1 for g in games if g.get("mmr_before", 0) >= 10000)
+            _valid_buckets = {k: v for k, v in _opp_buckets.items() if len(v["placements"]) >= _MIN_GAMES_BUCKET and k >= 7000} if _games_above_10k >= 300 else {}
             if _valid_buckets:
                 _opp_rows = ""
                 for _bk in sorted(_valid_buckets.keys()):
@@ -2559,9 +2646,12 @@ with tabs[0]:
                         _dev_html = ""
                     _bar_w     = max(4, int((8 - _bavg) / 7 * 100))
                     _bar_color = "#81c784" if _bavg <= 3 else "#fff176" if _bavg <= 4.5 else "#e57373"
+                    _uncertain = _bk >= 11000
+                    _ast = "<span title='Data in this interval is unreliable - the placement estimation formula tends to systematically overestimate results at this opponent MMR level, as well as an issue of sample size.' style='color:#666;cursor:help;margin-left:2px;'>*</span>" if _uncertain else ""
+                    _top_margin = "1rem" if _bk == 11000 else "0"
                     _opp_rows += (
-                        f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;'>"
-                        f"<span style='color:#666;font-size:0.78rem;min-width:90px;'>{_bk:,}–{_bk+1000:,}</span>"
+                        f"<div style='display:flex;align-items:center;gap:0.6rem;margin-bottom:0.3rem;margin-top:{_top_margin};'>"
+                        f"<span style='color:#666;font-size:0.78rem;min-width:90px;'>{_bk:,}–{_bk+1000:,}{_ast}</span>"
                         f"<div style='flex:1;background:#1e1e1e;border-radius:3px;height:8px;'>"
                         f"<div style='width:{_bar_w}%;background:{_bar_color};border-radius:3px;height:8px;'></div></div>"
                         f"<span style='color:#ccc;font-size:0.82rem;min-width:32px;text-align:right;'>{_bavg:.2f}</span>"
@@ -2572,6 +2662,19 @@ with tabs[0]:
                 st.markdown(_opp_rows, unsafe_allow_html=True)
                 _legend = "Avg placement per 1k MMR interval. Only games played at 10k+ MMR (early season affects the stats a bit much otherwise)."
                 st.caption(_legend)
+
+                # ── Matchup scaling score ─────────────────────────────────────
+                _slope = compute_matchup_scaling(games)
+                if _slope is not None:
+                    _slope_color = "#81c784" if _slope > 0.1 else "#e57373" if _slope < -0.1 else "#8a8a8a"
+                    st.markdown(
+                        f"<div style='margin-top:0.6rem;'>"
+                        f"<span style='color:#666;font-size:0.78rem;'>Matchup scaling: </span>"
+                        f"<span style='color:{_slope_color};font-size:0.9rem;font-weight:700;'>{_slope:+.2f}</span>"
+                        f"<span style='color:#444;font-size:0.75rem;margin-left:0.4rem;'>({'performs better vs stronger opponents' if _slope > 0.1 else 'performs better vs weaker opponents' if _slope < -0.1 else 'consistent across opponent levels'})</span>"
+                        f"</div>",
+                        unsafe_allow_html=True
+                    )
             else:
                 st.caption("Not enough data to show opponent MMR breakdown.")
 

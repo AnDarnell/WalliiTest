@@ -1312,7 +1312,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["Single player", "Calculator", "Info/Explanations", "RatingAvg"])
+tabs = st.tabs(["Single player", "Calculator", "Info/Explanations", "TestingStuff"])
 
 
 # ── Single player tab ─────────────────────────────────────────────────────────
@@ -1518,8 +1518,8 @@ with tabs[0]:
                     ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve."),
                     ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
                     ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
-                    ("Matchup scaling +",   [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{r['matchup_scaling']:+.2f}", "Measures how performance changes relative to opponent strength. Positive = performs relatively better vs stronger opponents. Requires 300+ games at 10k+ MMR with 30+ games in each of the 7-11k opponent brackets.", "Experimental - min 300 games at 10k+ MMR"),
-                    ("Matchup scaling -",   [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{r['matchup_scaling']:+.2f}", "Measures how performance changes relative to opponent strength. Negative = performs relatively better vs weaker opponents. Requires 300+ games at 10k+ MMR with 30+ games in each of the 7-11k opponent brackets.", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Farmer factor",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental - should be interpreted with caution.", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Lowest farmer factor", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental - should be interpreted with caution.", "Experimental - min 300 games at 10k+ MMR"),
 
                 ]
 
@@ -2666,12 +2666,25 @@ with tabs[0]:
                 # ── Matchup scaling score ─────────────────────────────────────
                 _slope = compute_matchup_scaling(games)
                 if _slope is not None:
-                    _slope_color = "#81c784" if _slope > 0.1 else "#e57373" if _slope < -0.1 else "#8a8a8a"
+                    _ff = -_slope  # flip: positive = good at beating weaker opponents
+                    _ff_color = "#81c784" if _ff > 0.2 else "#e57373" if _ff < -0.2 else "#8a8a8a"
+                    if _ff > 0.45:
+                        _ff_label = "way better vs weaker opponents"
+                    elif _ff > 0.2:
+                        _ff_label = "performs better vs weaker opponents"
+                    elif _ff > 0:
+                        _ff_label = "slightly better vs weaker opponents"
+                    elif _ff > -0.2:
+                        _ff_label = "slightly better vs stronger opponents"
+                    elif _ff > -0.45:
+                        _ff_label = "performs better vs stronger opponents"
+                    else:
+                        _ff_label = "way better vs stronger opponents"
                     st.markdown(
                         f"<div style='margin-top:0.6rem;'>"
-                        f"<span style='color:#666;font-size:0.78rem;'>Matchup scaling: </span>"
-                        f"<span style='color:{_slope_color};font-size:0.9rem;font-weight:700;'>{_slope:+.2f}</span>"
-                        f"<span style='color:#444;font-size:0.75rem;margin-left:0.4rem;'>({'performs better vs stronger opponents' if _slope > 0.1 else 'performs better vs weaker opponents' if _slope < -0.1 else 'consistent across opponent levels'})</span>"
+                        f"<span style='color:#666;font-size:0.78rem;'>Farmer factor: </span>"
+                        f"<span style='color:{_ff_color};font-size:0.9rem;font-weight:700;'>{_ff:+.2f}</span>"
+                        f"<span style='color:#444;font-size:0.75rem;margin-left:0.4rem;'>({_ff_label})</span>"
                         f"</div>",
                         unsafe_allow_html=True
                     )
@@ -2814,6 +2827,28 @@ with tabs[3]:
     style_dark_axes(ax)
     st.pyplot(fig)
 
+    st.divider()
+    st.markdown("<h3 style='text-decoration:none;'>Farmer Factor vs Aggression Score</h3>", unsafe_allow_html=True)
+    _corr_rows = [r for r in _sb_fetch_all() if r.get("matchup_scaling") is not None and r.get("u_score") is not None]
+    if len(_corr_rows) < 5:
+        st.caption("Not enough data yet.")
+    else:
+        _ff_vals = np.array([-r["matchup_scaling"] for r in _corr_rows])
+        _us_vals = np.array([r["u_score"] for r in _corr_rows])
+        _corr = float(np.corrcoef(_ff_vals, _us_vals)[0, 1])
+        _fig_c, _ax_c = plt.subplots(figsize=(8, 5))
+        _fig_c.patch.set_facecolor("#0e0e0e")
+        _ax_c.set_facecolor("#0e0e0e")
+        _ax_c.scatter(_us_vals, _ff_vals, color="#9146FF", alpha=0.6, s=30)
+        _m, _b = np.polyfit(_us_vals, _ff_vals, 1)
+        _xs_line = np.linspace(_us_vals.min(), _us_vals.max(), 100)
+        _ax_c.plot(_xs_line, _m * _xs_line + _b, color="#d4a843", linewidth=2)
+        _ax_c.set_xlabel("Aggression Score (u_score)")
+        _ax_c.set_ylabel("Farmer Factor")
+        style_dark_axes(_ax_c)
+        st.pyplot(_fig_c)
+        st.caption(f"Pearson correlation: **{_corr:.3f}** ({len(_corr_rows)} players)")
+
 with tabs[1]:
     st.markdown("<h2 style='text-decoration:none;'>Placement Calculator</h2>", unsafe_allow_html=True)
     st.markdown("Given your MMR and the MMR change from a game, estimate what average MMR your opponents had for your most likely placements, and vice versa:")
@@ -2928,6 +2963,17 @@ with tabs[2]:
             "<code>score&nbsp;= 0.5 × (part1 + part2)</code><br><br>"
             "(Since all players here have a majority of games in top 4, logarithmic ratios are used to make it more of a spectrum. The score is normalized so that 0 means even distribution between 1st/2-4th and 7-8th/5-6th, positive means more 1st and 7-8th, and negative means more 2-4th and 5-6th.)<br><br>"
             "<strong>Positive = aggressive</strong>, <strong>Negative = consistent/defensive</strong>."
+        ),
+        "Farmer Factor": (
+            "An experimental metric that measures how a player's performance changes depending on the strength of their opponents.<br><br>"
+            "For each game (only counting games played at 10k+ MMR), the <strong>break-even placement</strong> is calculated - "
+            "the placement needed to gain exactly 0 MMR given the player's rating and the lobby's average MMR. "
+            "The deviation between actual and break-even placement is then tracked across four opponent MMR intervals (7-8k, 8-9k, 9-10k, 10-11k).<br><br>"
+            "A weighted linear regression through these four data points produces the final score:<br><br>"
+            "<strong>Positive (high farmer factor)</strong> = performs relatively better against weaker opponents than stronger ones.<br>"
+            "<strong>Negative (low farmer factor)</strong> = performs relatively better against stronger opponents than weaker ones.<br><br>"
+            "Requires at least <strong>300 games at 10k+ MMR</strong> and <strong>30 games in each of the four opponent brackets</strong>.<br><br>"
+            "<em>Note: this metric is experimental. The estimated opponent MMR is derived from the MMR formula rather than directly measured, which introduces some systematic bias - especially at the 11k+ range.</em>"
         ),
     }
     _selected_metric = st.selectbox("Select a metric", list(_info_metrics.keys()), label_visibility="collapsed")

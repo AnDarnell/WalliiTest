@@ -3000,7 +3000,7 @@ with tabs[2]:
             "<strong>Positive = aggressive</strong>, <strong>Negative = consistent/defensive</strong>."
         ),
         "Farmer Factor": (
-            "An experimental metric that measures how a player's performance changes depending on the strength of their opponents.<br><br>"
+            "This measures how a player's performance changes depending on the strength of their opponents.<br><br>"
             "For each game (only counting games played at 10k+ MMR), the <strong>break-even placement</strong> is calculated - "
             "the placement needed to gain exactly 0 MMR given the player's rating and the lobby's average MMR. "
             "The deviation between actual and break-even placement is then tracked across four opponent MMR intervals (7-8k, 8-9k, 9-10k, 10-11k).<br><br>"
@@ -3008,7 +3008,6 @@ with tabs[2]:
             "<strong>Positive (high farmer factor)</strong> = performs relatively better against weaker opponents than stronger ones.<br>"
             "<strong>Negative (low farmer factor)</strong> = performs relatively better against stronger opponents than weaker ones.<br><br>"
             "Requires at least <strong>300 games at 10k+ MMR</strong> and <strong>30 games in each of the four opponent brackets</strong>.<br><br>"
-            "<em>Note: this metric is experimental. The estimated opponent MMR is derived from the MMR formula rather than directly measured, which introduces some systematic bias - especially at the 11k+ range.</em>"
         ),
     }
     _selected_metric = st.selectbox("Select a metric", list(_info_metrics.keys()), label_visibility="collapsed")

@@ -792,19 +792,23 @@ def _compute_player_stats(games):
     _part2 = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
     u_score = 0.5 * (_part1 + _part2)
 
+    _ms = compute_matchup_scaling(games)
+    farmer_factor = -_ms if _ms is not None else None
+
     return {
-        "total":        total,
-        "avg":          avg,
-        "first_pct":    wins / total * 100,
-        "top4_pct":     top4 / total * 100,
-        "current_mmr":  current_mmr,
-        "peak_mmr":     peak_mmr,
-        "max_drawdown": max_dd,
-        "hot_streak":   longest_streak,
-        "roach_streak": longest_roach,
-        "form_diff":    form_diff,
-        "tilt_factor":  tilt_factor,
-        "u_score":      u_score,
+        "total":         total,
+        "avg":           avg,
+        "first_pct":     wins / total * 100,
+        "top4_pct":      top4 / total * 100,
+        "current_mmr":   current_mmr,
+        "peak_mmr":      peak_mmr,
+        "max_drawdown":  max_dd,
+        "hot_streak":    longest_streak,
+        "roach_streak":  longest_roach,
+        "form_diff":     form_diff,
+        "tilt_factor":   tilt_factor,
+        "u_score":       u_score,
+        "farmer_factor": farmer_factor,
     }
 
 def fetch_and_calculate(player_name, region):
@@ -1466,7 +1470,7 @@ with tabs[0]:
                         container.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
                         if container.button(toggle_label, key=f"lb_toggle_{title}"):
                             st.session_state[expand_key] = not expanded
-                            st.rerun()
+                            st.rerun(scope="fragment")
                         container.markdown("</div>", unsafe_allow_html=True)
 
                 backend_label = "Season 12" if TOPLIST_BACKEND == "supabase" else "this session"
@@ -1474,19 +1478,17 @@ with tabs[0]:
                     f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                     unsafe_allow_html=True
                 )
-                _mmr_col, _region_col = st.columns([4, 4])
+                _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
                 with _mmr_col:
                     _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
-                with _region_col:
-                    _eu_col, _na_col, _ap_col, _cn_col = st.columns(4)
-                    with _eu_col:
-                        _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
-                    with _na_col:
-                        _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
-                    with _ap_col:
-                        _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
-                    with _cn_col:
-                        _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
+                with _eu_col:
+                    _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
+                with _na_col:
+                    _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
+                with _ap_col:
+                    _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
+                with _cn_col:
+                    _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 if _mmr_filter != "All":
@@ -1593,11 +1595,11 @@ with tabs[0]:
                     _live_btn_cols = _live_col.columns([3, 2])
                     if _live_btn_cols[0].button(_live_toggle, key="lb_toggle_live"):
                         st.session_state[_live_exp_key] = not st.session_state[_live_exp_key]
-                        st.rerun()
+                        st.rerun(scope="fragment")
                     _sort_label = "MMR" if _live_sort_key == "mmr" else "Views"
                     if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
                         st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
-                        st.rerun()
+                        st.rerun(scope="fragment")
                     _live_col.markdown("</div>", unsafe_allow_html=True)
                 else:
                     _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
@@ -1606,7 +1608,7 @@ with tabs[0]:
                     _sort_label = "MMR" if _live_sort_key == "mmr" else "Views"
                     if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
                         st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
-                        st.rerun()
+                        st.rerun(scope="fragment")
                     _live_col.markdown("</div>", unsafe_allow_html=True)
 
                 # ── Återstående listor i par (vänster/höger per rad) ───────────────
@@ -1672,7 +1674,7 @@ with tabs[0]:
                     _next_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
                     if _next_col.button(_yt_toggle, key="lb_toggle_yt"):
                         st.session_state[_yt_exp_key] = not st.session_state[_yt_exp_key]
-                        st.rerun()
+                        st.rerun(scope="fragment")
                     _next_col.markdown("</div>", unsafe_allow_html=True)
                 else:
                     _next_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
@@ -2412,6 +2414,7 @@ with tabs[0]:
                         ("Form (last 50)", f"{_s1['form_diff']:+.2f}" if _s1["form_diff"] is not None else "—",     f"{_s2['form_diff']:+.2f}" if _s2["form_diff"] is not None else "—",     _fmt_diff(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has a {val} better current form"),                _winner(_s1["form_diff"],    _s2["form_diff"],    higher_is_better=False)),
                         ("Tilt Factor",    f"{_s1['tilt_factor']:.2f}" if _s1["tilt_factor"] is not None else "—", f"{_s2['tilt_factor']:.2f}" if _s2["tilt_factor"] is not None else "—", _fmt_diff(_s1["tilt_factor"],  _s2["tilt_factor"],  higher_is_better=False, fmt=lambda x: f"{x:.2f}",    template="{name} has a {val} lower tilt factor"),                _winner(_s1["tilt_factor"],  _s2["tilt_factor"],  higher_is_better=False)),
                         ("Aggression",     f"{_s1['u_score']:+.2f}",                                                f"{_s2['u_score']:+.2f}",                                                (f"{_n1} has a {'slightly ' if abs(_s1['u_score'] - _s2['u_score']) < 0.3 else ''}more aggressive style") if _s1["u_score"] > _s2["u_score"] else (f"{_n2} has a {'slightly ' if abs(_s1['u_score'] - _s2['u_score']) < 0.3 else ''}more aggressive style" if _s2["u_score"] > _s1["u_score"] else "Similar style"), _winner(_s1["u_score"], _s2["u_score"], higher_is_better=True)),
+                        ("Farmer Factor",  f"{_s1['farmer_factor']:+.2f}" if _s1["farmer_factor"] is not None else "N/A (need 300+ games at 10k+)", f"{_s2['farmer_factor']:+.2f}" if _s2["farmer_factor"] is not None else "N/A (need 300+ games at 10k+)", _fmt_diff(_s1["farmer_factor"], _s2["farmer_factor"], higher_is_better=True, fmt=lambda x: f"{x:.2f}", template="{name} performs relatively better vs weaker opponents"), _winner(_s1["farmer_factor"], _s2["farmer_factor"], higher_is_better=True)),
                     ]
                     _rows    = [{"Stat": s, _n1: v1, _n2: v2, "Comparison": cmp} for s, v1, v2, cmp, _ in _stat_defs]
                     _winners = [w for *_, w in _stat_defs]
@@ -2432,7 +2435,7 @@ with tabs[0]:
                     st.dataframe(
                         _df_h2h.style.apply(_color_h2h, axis=None),
                         use_container_width=True,
-                        height=460,
+                        height=495,
                         column_config={
                             _n1:    st.column_config.TextColumn(width="small"),
                             _n2:    st.column_config.TextColumn(width="small"),
@@ -2829,6 +2832,34 @@ with tabs[3]:
     style_dark_axes(ax)
     st.pyplot(fig)
 
+    def _remove_outliers(xs, ys, z_thresh=2.5):
+        mask = (np.abs((xs - xs.mean()) / xs.std()) < z_thresh) & (np.abs((ys - ys.mean()) / ys.std()) < z_thresh)
+        return xs[mask], ys[mask], int((~mask).sum())
+
+    st.divider()
+    st.markdown("<h3 style='text-decoration:none;'>Farmer Factor vs MMR</h3>", unsafe_allow_html=True)
+    _corr_mmr_rows = [r for r in _sb_fetch_all() if r.get("matchup_scaling") is not None and r.get("cr") is not None]
+    if len(_corr_mmr_rows) < 5:
+        st.caption("Not enough data yet.")
+    else:
+        _ff_mmr_vals = np.array([-r["matchup_scaling"] for r in _corr_mmr_rows])
+        _cr_vals = np.array([r["cr"] for r in _corr_mmr_rows])
+        _cr_vals, _ff_mmr_vals, _mmr_removed = _remove_outliers(_cr_vals, _ff_mmr_vals)
+        _corr_mmr = float(np.corrcoef(_ff_mmr_vals, _cr_vals)[0, 1])
+        _fig_m, _ax_m = plt.subplots(figsize=(8, 5))
+        _fig_m.patch.set_facecolor("#0e0e0e")
+        _ax_m.set_facecolor("#0e0e0e")
+        _ax_m.scatter(_cr_vals, _ff_mmr_vals, color="#9146FF", alpha=0.6, s=30)
+        _m_m, _b_m = np.polyfit(_cr_vals, _ff_mmr_vals, 1)
+        _xs_line_m = np.linspace(_cr_vals.min(), _cr_vals.max(), 100)
+        _ax_m.plot(_xs_line_m, _m_m * _xs_line_m + _b_m, color="#d4a843", linewidth=2)
+        _ax_m.set_xlabel("MMR (cr)")
+        _ax_m.set_ylabel("Farmer Factor")
+        style_dark_axes(_ax_m)
+        st.pyplot(_fig_m)
+        _removed_note = f", {_mmr_removed} outliers removed" if _mmr_removed else ""
+        st.caption(f"Pearson correlation: **{_corr_mmr:.3f}** ({len(_cr_vals)} players{_removed_note})")
+
     st.divider()
     st.markdown("<h3 style='text-decoration:none;'>Farmer Factor vs Aggression Score</h3>", unsafe_allow_html=True)
     _corr_rows = [r for r in _sb_fetch_all() if r.get("matchup_scaling") is not None and r.get("u_score") is not None]
@@ -2837,6 +2868,7 @@ with tabs[3]:
     else:
         _ff_vals = np.array([-r["matchup_scaling"] for r in _corr_rows])
         _us_vals = np.array([r["u_score"] for r in _corr_rows])
+        _us_vals, _ff_vals, _us_removed = _remove_outliers(_us_vals, _ff_vals)
         _corr = float(np.corrcoef(_ff_vals, _us_vals)[0, 1])
         _fig_c, _ax_c = plt.subplots(figsize=(8, 5))
         _fig_c.patch.set_facecolor("#0e0e0e")
@@ -2849,7 +2881,8 @@ with tabs[3]:
         _ax_c.set_ylabel("Farmer Factor")
         style_dark_axes(_ax_c)
         st.pyplot(_fig_c)
-        st.caption(f"Pearson correlation: **{_corr:.3f}** ({len(_corr_rows)} players)")
+        _removed_note = f", {_us_removed} outliers removed" if _us_removed else ""
+        st.caption(f"Pearson correlation: **{_corr:.3f}** ({len(_us_vals)} players{_removed_note}")
 
 with tabs[1]:
     st.markdown("<h2 style='text-decoration:none;'>Placement Calculator</h2>", unsafe_allow_html=True)

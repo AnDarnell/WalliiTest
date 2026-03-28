@@ -1474,17 +1474,19 @@ with tabs[0]:
                     f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                     unsafe_allow_html=True
                 )
-                _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
+                _mmr_col, _region_col = st.columns([4, 4])
                 with _mmr_col:
                     _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
-                with _eu_col:
-                    _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
-                with _na_col:
-                    _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
-                with _ap_col:
-                    _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
-                with _cn_col:
-                    _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
+                with _region_col:
+                    _eu_col, _na_col, _ap_col, _cn_col = st.columns(4)
+                    with _eu_col:
+                        _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
+                    with _na_col:
+                        _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
+                    with _ap_col:
+                        _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
+                    with _cn_col:
+                        _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 if _mmr_filter != "All":

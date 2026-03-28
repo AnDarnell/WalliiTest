@@ -2328,6 +2328,7 @@ with tabs[0]:
                                 for t in range(10000, 22000, 1000)
                                 if any(g["mmr_after"] >= t for g in games)
                             }),
+                            "matchup_scaling": compute_matchup_scaling(games),
                             "updated_at":   datetime.utcnow().isoformat() + "Z",
                         }
                     )

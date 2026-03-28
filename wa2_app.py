@@ -2885,6 +2885,30 @@ with tabs[3]:
         _removed_note = f", {_us_removed} outliers removed" if _us_removed else ""
         st.caption(f"Pearson correlation: **{_corr:.3f}** ({len(_us_vals)} players{_removed_note}")
 
+    st.divider()
+    st.markdown("<h3 style='text-decoration:none;'>Aggression Score vs Tilt Factor</h3>", unsafe_allow_html=True)
+    _corr_tilt_rows = [r for r in _sb_fetch_all() if r.get("u_score") is not None and r.get("tilt_factor") is not None]
+    if len(_corr_tilt_rows) < 5:
+        st.caption("Not enough data yet.")
+    else:
+        _us_tilt_vals = np.array([r["u_score"] for r in _corr_tilt_rows])
+        _tf_vals = np.array([r["tilt_factor"] for r in _corr_tilt_rows])
+        _us_tilt_vals, _tf_vals, _tilt_removed = _remove_outliers(_us_tilt_vals, _tf_vals)
+        _corr_tilt = float(np.corrcoef(_us_tilt_vals, _tf_vals)[0, 1])
+        _fig_t, _ax_t = plt.subplots(figsize=(8, 5))
+        _fig_t.patch.set_facecolor("#0e0e0e")
+        _ax_t.set_facecolor("#0e0e0e")
+        _ax_t.scatter(_us_tilt_vals, _tf_vals, color="#9146FF", alpha=0.6, s=30)
+        _m_t, _b_t = np.polyfit(_us_tilt_vals, _tf_vals, 1)
+        _xs_line_t = np.linspace(_us_tilt_vals.min(), _us_tilt_vals.max(), 100)
+        _ax_t.plot(_xs_line_t, _m_t * _xs_line_t + _b_t, color="#d4a843", linewidth=2)
+        _ax_t.set_xlabel("Aggression Score (u_score)")
+        _ax_t.set_ylabel("Tilt Factor")
+        style_dark_axes(_ax_t)
+        st.pyplot(_fig_t)
+        _removed_note = f", {_tilt_removed} outliers removed" if _tilt_removed else ""
+        st.caption(f"Pearson correlation: **{_corr_tilt:.3f}** ({len(_us_tilt_vals)} players{_removed_note})")
+
 with tabs[1]:
     st.markdown("<h2 style='text-decoration:none;'>Placement Calculator</h2>", unsafe_allow_html=True)
     st.markdown("Given your MMR and the MMR change from a game, estimate what average MMR your opponents had for your most likely placements, and vice versa:")

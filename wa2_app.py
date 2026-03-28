@@ -279,7 +279,7 @@ def _sb_fetch_all():
         r = requests.get(
             url,
             headers=SUPABASE_HEADERS,
-            params={"select": _ALL_FIELDS, "limit": "500"},
+            params={"select": _ALL_FIELDS, "limit": "2000"},
             timeout=10,
         )
         if DEBUG:
@@ -1927,10 +1927,10 @@ with tabs[0]:
                                     if _ms_val is None:
                                         _skip += 1
                                         continue
-                                    requests.post(
-                                        f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region",
-                                        headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
-                                        json={"player": _pc["player_name"].lower(), "region": _pc["region"].upper(), "matchup_scaling": _ms_val},
+                                    requests.patch(
+                                        f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?player=eq.{_pc['player_name'].lower()}&region=eq.{_pc['region'].upper()}",
+                                        headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "return=minimal"},
+                                        json={"matchup_scaling": _ms_val},
                                         timeout=10,
                                     ).raise_for_status()
                                     _ok += 1

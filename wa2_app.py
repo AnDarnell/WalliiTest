@@ -1522,8 +1522,8 @@ with tabs[0]:
                     ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve."),
                     ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
                     ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
-                    ("Farmer factor",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental - should be interpreted with caution.", "Experimental - min 300 games at 10k+ MMR"),
-                    ("Lowest farmer factor", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental - should be interpreted with caution.", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Farmer factor",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Lowest farmer factor", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental.", "Experimental - min 300 games at 10k+ MMR"),
 
                 ]
 
@@ -2074,8 +2074,8 @@ with tabs[0]:
 
                 with hInfo:
                     st.markdown(
-                        "<p style='color:#555;font-size:0.72rem;text-align:right;margin:0;'>"
-                        "Unsure about a metric? See <em>Info &amp; Explanations</em> at the top."
+                        "<p style='color:#888;font-size:0.8rem;text-align:right;margin:0;'>"
+                        "See the <strong>Info &amp; Explanations</strong> tab for details."
                         "</p>",
                         unsafe_allow_html=True
                     )
@@ -2132,6 +2132,13 @@ with tabs[0]:
                     peak_time_str = peak_time_dt.strftime("%b %-d, %Y")
                 except Exception:
                     peak_time_str = peak_time_raw[:10]
+                _wallii_url = f"https://www.wallii.gg/stats/{sp_player}?region={sp_region.lower()}&mode=solo&view=all"
+                c1.markdown(
+                    f"<div style='margin-top:0.45rem;font-size:0.85rem;color:#777;'>"
+                    f"Live updates: <a href='{html.escape(_wallii_url)}' target='_blank' style='color:#9ab8d8;text-decoration:none;' "
+                    f"onmouseover=\"this.style.textDecoration='underline'\" onmouseout=\"this.style.textDecoration='none'\">wallii.gg</a></div>",
+                    unsafe_allow_html=True
+                )
                 c5.markdown(
                     "<div title='Peak date: " + peak_time_str + "' style='margin-top:0.45rem;color:#777;font-size:0.85rem;'>Peak: "
                     "<span style='color:#aaa;font-weight:600;'>" + f"{peak_mmr:,}" + "</span> "
@@ -2148,10 +2155,11 @@ with tabs[0]:
                     unsafe_allow_html=True
                 )
 
-                _dist_mode = st.radio("Distribution period", ["All time", "Last 7 days"], horizontal=True, label_visibility="collapsed", key="dist_mode")
-                if _dist_mode == "Last 7 days":
-                    _7d_ago = datetime.now(timezone.utc) - timedelta(days=7)
-                    _chart_games = [g for g in games if datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= _7d_ago]
+                _dist_mode = st.radio("Distribution period", ["All time", "Last 30 days", "Last 7 days"], horizontal=True, label_visibility="collapsed", key="dist_mode")
+                if _dist_mode in ("Last 7 days", "Last 30 days"):
+                    _days = 7 if _dist_mode == "Last 7 days" else 30
+                    _cutoff = datetime.now(timezone.utc) - timedelta(days=_days)
+                    _chart_games = [g for g in games if datetime.fromisoformat(g["time"].replace("Z", "+00:00")) >= _cutoff]
                 else:
                     _chart_games = games
                 if _chart_games:

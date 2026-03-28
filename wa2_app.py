@@ -233,7 +233,7 @@ def _sb_upsert(region, player_name, record: dict):
         "u_score":        record.get("u_score"),
         "bot2_count":       record.get("bot2_count"),
         "mmr_milestones":    record.get("mmr_milestones"),
-        "matchup_scaling":   record.get("matchup_scaling"),
+        **({"matchup_scaling": record["matchup_scaling"]} if record.get("matchup_scaling") is not None else {}),
         "updated_at":        datetime.utcnow().isoformat() + "Z",
     }
 

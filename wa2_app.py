@@ -1374,7 +1374,7 @@ with tabs[0]:
                         st.caption(f"TopN fetch: {code} | {txt}")
 
             @st.fragment
-            def _leaderboard_section(): refreshed
+            def _leaderboard_section():
                 def render_list(container, title, items, fmt, tooltip=None, asterisk_tip=None):
                     HEADER_COLOR = "#8a8a8a"
 
@@ -1720,7 +1720,6 @@ with tabs[0]:
                     lambda r: datetime.fromisoformat(r["_mdate"].replace("Z", "+00:00")).strftime("%b %d"),
                     tooltip=f"First players to reach {_milestone_k} MMR this season.",
                 )
-            st.info("Note: To avoid overloading wallii.gg with requests, player profiles are and cached at most once every 24 hours. Think of this as seasonal/historical stats rather than live data.\n\nFor the latest updates, please visit [wallii.gg](https://www.wallii.gg) directly!")
 
 
             _leaderboard_section()

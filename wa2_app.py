@@ -1226,6 +1226,166 @@ def diff_pct_color(diff):
     else:
         return "#4a8c5c"
 
+# ── Card Browser ──────────────────────────────────────────────────────────────
+
+from pathlib import Path
+
+CARDS_ROOT = Path(__file__).parent / "cards"  # ändra till din mapp
+
+TRIBES = [
+    "beast", "demons", "dragons", "elementals",
+    "mechs", "murloc", "naga", "neutral",
+    "pirates", "quilboar", "undead",
+]
+TRIBE_LABELS = {t: t.capitalize() for t in TRIBES}
+TIERS = [1, 2, 3, 4, 5, 6]
+
+
+def _get_minion_images(tribes, tiers):
+    from collections import defaultdict
+    by_name = defaultdict(lambda: defaultdict(list))
+
+    # Skanna ALLA tribes för att hitta delade kort
+    for tribe in TRIBES:
+        folder = CARDS_ROOT / f"S13_{tribe}" / "minions"
+        for tier in tiers:
+            tier_folder = folder / f"tier {tier}"
+            if tier_folder.exists():
+                for img in sorted(tier_folder.glob("*.png")):
+                    by_name[img.name][tier].append((tribe, img))
+
+    # Filtrera: visa bara kort som tillhör minst en vald tribe
+    result = []
+    selected_set = set(tribes)
+    for name, tiers_dict in by_name.items():
+        for tier, entries in tiers_dict.items():
+            tribes_list = [t for t, _ in entries]
+            if not selected_set.intersection(tribes_list):
+                continue
+            path = entries[0][1]
+            result.append((tribes_list, tier, path))
+
+    result.sort(key=lambda x: (x[1], x[2].name))
+    return result
+
+
+def _get_trinket_images(tribes, trinket_type):
+    """trinket_type: 'trinket_greater' eller 'trinket_lesser'"""
+    result = []
+    for tribe in tribes:
+        folder = CARDS_ROOT / f"S13_{tribe}" / trinket_type
+        if folder.exists():
+            for img in sorted(folder.glob("*.png")):
+                result.append((tribe, img))
+    return result
+
+
+def _get_spell_images():
+    folder = CARDS_ROOT / "S13_spells"
+    if not folder.exists():
+        return []
+    return list(sorted(folder.glob("*.png")))
+
+
+def show_card_browser():
+    st.markdown("""
+    <style>
+    div[data-testid="stCheckbox"] label p { font-size: 0.72rem !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
+    st.markdown("## Card Library – Season 13")
+
+    # ── Typ-väljare ───────────────────────────────────────────────────────────
+    card_type = st.radio(
+        "Typ",
+        ["Minions", "Trinkets", "Spells"],
+        horizontal=True,
+        key="cb_type",
+    )
+
+    if card_type == "Spells":
+        images = _get_spell_images()
+        if not images:
+            st.info("Inga spell-bilder hittades.")
+            return
+        cols_per_row = 6
+        cols = st.columns(cols_per_row)
+        for i, img in enumerate(images):
+            cols[i % cols_per_row].image(str(img), use_container_width=True)
+        return
+
+    # ── Tribe-filter ──────────────────────────────────────────────────────────
+    with st.container(border=True):
+        st.markdown("**Tribe**")
+        tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
+        selected_label = st.radio(
+            "Tribe",
+            tribe_options,
+            index=0,
+            horizontal=True,
+            key="cb_tribe_radio",
+            label_visibility="collapsed",
+        )
+        if selected_label == "All":
+            selected_tribes = list(TRIBES)
+        else:
+            selected_tribes = [t for t in TRIBES if TRIBE_LABELS[t] == selected_label]
+
+
+    # ── Minions ───────────────────────────────────────────────────────────────
+    if card_type == "Minions":
+        with st.container(border=True):
+            st.markdown("**Tier**")
+            tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
+            selected_tier_label = st.radio(
+                "Tier",
+                tier_options,
+                index=0,
+                horizontal=True,
+                key="cb_tier_radio",
+                label_visibility="collapsed",
+            )
+            if selected_tier_label == "All":
+                selected_tiers = TIERS
+            else:
+                selected_tiers = [int(selected_tier_label.split(" ")[1])]
+
+        images = _get_minion_images(selected_tribes, selected_tiers)
+
+        if not images:
+            st.info("Inga kort matchade filtret.")
+            return
+
+        for tier in selected_tiers:
+            tier_imgs = [(t_list, p) for t_list, ti, p in images if ti == tier]
+            if not tier_imgs:
+                continue
+            st.markdown(f"### ⭐ Tier {tier}")
+            cols_per_row = max(4, min(8, len(selected_tribes) * 2))
+            cols = st.columns(cols_per_row)
+            for i, (tribes_list, path) in enumerate(tier_imgs):
+                cols[i % cols_per_row].image(str(path), use_container_width=True)
+
+    # ── Trinkets ──────────────────────────────────────────────────────────────
+    elif card_type == "Trinkets":
+        trinket_type = st.radio(
+            "Trinket-typ",
+            ["Greater", "Lesser"],
+            horizontal=True,
+            key="cb_trinket_type",
+        )
+        folder_name = "trinket_greater" if trinket_type == "Greater" else "trinket_lesser"
+        images = _get_trinket_images(selected_tribes, folder_name)
+
+        if not images:
+            st.info("Inga trinkets matchade filtret.")
+            return
+
+        cols_per_row = max(4, min(8, len(selected_tribes) * 2))
+        cols = st.columns(cols_per_row)
+        for i, (tribe, path) in enumerate(images):
+            cols[i % cols_per_row].image(str(path), use_container_width=True)
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 
@@ -1395,7 +1555,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-tabs = st.tabs(["Single player", "Calculator", "Info/Explanations", "TestingStuff"])
+tabs = st.tabs(["Single player", "Calculator", "Info/Explanations", "TestingStuff", "Card Library"])
 
 
 # ── Single player tab ─────────────────────────────────────────────────────────
@@ -2657,6 +2817,7 @@ with tabs[0]:
                     ])
                     peak_idx = df_mmr["MMR"].idxmax()
                     df_peak = df_mmr.loc[[peak_idx]]
+                    df_peak = df_peak.assign(PeakLabel=df_peak["MMR"].map(lambda v: f"Peak: {int(v):,}"))
 
                     milestone_rows = []
                     crossed = set()
@@ -2702,6 +2863,15 @@ with tabs[0]:
                             tooltip=[alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("MMR:Q", title="Peak MMR"), alt.Tooltip("Date:N", title="Date")],
                         )
                     )
+                    peak_text = (
+                        alt.Chart(df_peak)
+                        .mark_text(color="#d4a843", fontSize=11, fontWeight=600, dx=10, dy=-10, align="left")
+                        .encode(
+                            x="Game:Q",
+                            y="MMR:Q",
+                            text="PeakLabel:N",
+                        )
+                    )
                     milestone_dots = (
                         alt.Chart(df_milestones)
                         .mark_point(color="#aaaaaa", size=40, filled=True, opacity=0.6)
@@ -2711,7 +2881,7 @@ with tabs[0]:
                             tooltip=[alt.Tooltip("Milestone:N", title="First time crossing"), alt.Tooltip("Game:Q", title="Game"), alt.Tooltip("Date:N", title="Date")],
                         )
                     )
-                    chart = line + milestone_dots + peak_dot + rule + hover_points
+                    chart = line + milestone_dots + peak_dot + peak_text + rule + hover_points
                     st.altair_chart(chart.properties(height=250).configure_view(strokeWidth=0), width='stretch')
 
                 if st.button("Compare with leaderboard neighbors", width='stretch'):
@@ -3107,6 +3277,9 @@ with tabs[3]:
         st.pyplot(_fig_t)
         _removed_note = f", {_tilt_removed} outliers removed" if _tilt_removed else ""
         st.caption(f"Pearson correlation: **{_corr_tilt:.3f}** ({len(_us_tilt_vals)} players{_removed_note})")
+
+with tabs[4]:
+    show_card_browser()
 
 with tabs[1]:
     st.markdown("<h2 style='text-decoration:none;'>Placement Calculator</h2>", unsafe_allow_html=True)

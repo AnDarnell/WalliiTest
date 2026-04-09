@@ -663,7 +663,7 @@ def _sb_get_cached_snapshots(player_name, region):
         last_fetched = cache_rows[0]["last_fetched"]
         cached_rank  = cache_rows[0].get("current_rank")
         age_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last_fetched.replace("Z", "+00:00"))).total_seconds() / 3600
-        if age_hours >= 200:
+        if age_hours >= 24:  # if cache is older than 24h, ignore it.
             return None, None, None
         rows = []
         offset = 0
@@ -1331,10 +1331,20 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
     transform: translateY(0);
 }
 .lb-hover-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
     color: #eee;
     font-size: 0.8rem;
     font-weight: 700;
     margin-bottom: 0.45rem;
+}
+.lb-hover-meta {
+    color: #777;
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
 }
 .lb-hover-grid {
     display: grid;
@@ -1638,6 +1648,9 @@ with tabs[0]:
                 def _hover_card_html(player_name, stats_row):
                     if not stats_row:
                         return ""
+                    _region = html.escape(str(stats_row.get("region", "")).upper()) if stats_row.get("region") else ""
+                    _cr = stats_row.get("cr")
+                    _meta = " ".join(x for x in [_region, f"{int(_cr):,}" if _cr is not None else ""] if x)
                     _avg_val = stats_row.get("avg_place")
                     _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
                     _avg_color = "#777"
@@ -1670,7 +1683,7 @@ with tabs[0]:
                     _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
                     return (
                         f"<div class='lb-hover-card'>"
-                        f"<div class='lb-hover-title'>{html.escape(player_name)}</div>"
+                        f"<div class='lb-hover-title'><span>{html.escape(player_name)}</span><span class='lb-hover-meta'>{_meta}</span></div>"
                         f"<div class='lb-hover-grid'>"
                         f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
                         f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"

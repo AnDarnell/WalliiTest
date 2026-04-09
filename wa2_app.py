@@ -1299,12 +1299,12 @@ def show_card_browser():
     # ── Typ-väljare ───────────────────────────────────────────────────────────
     card_type = st.radio(
         "Type",
-        ["Minions", "Trinkets", "Spells"],
+        ["Minions", "Trinkets", "Spells*"],
         horizontal=True,
         key="cb_type",
     )
 
-    if card_type == "Spells":
+    if card_type == "Spells*":
         images = _get_spell_images()
         if not images:
             st.info("Updating soon...")

@@ -1315,41 +1315,23 @@ def show_card_browser():
             cols[i % cols_per_row].image(str(img), use_container_width=True)
         return
 
-    # ── Tribe-filter ──────────────────────────────────────────────────────────
-    with st.container(border=True):
-        st.markdown("**Tribe**")
-        tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
-        selected_label = st.radio(
-            "Tribe",
-            tribe_options,
-            index=0,
-            horizontal=True,
-            key="cb_tribe_radio",
-            label_visibility="collapsed",
-        )
-        if selected_label == "All":
-            selected_tribes = list(TRIBES)
-        else:
-            selected_tribes = [t for t in TRIBES if TRIBE_LABELS[t] == selected_label]
-
+    # ── Tribe & Tier filters ──────────────────────────────────────────────────
+    _fcol1, _fcol2 = st.columns(2)
+    tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
+    selected_label = _fcol1.selectbox("Tribe", tribe_options, index=0, key="cb_tribe_select")
+    if selected_label == "All":
+        selected_tribes = list(TRIBES)
+    else:
+        selected_tribes = [t for t in TRIBES if TRIBE_LABELS[t] == selected_label]
 
     # ── Minions ───────────────────────────────────────────────────────────────
     if card_type == "Minions":
-        with st.container(border=True):
-            st.markdown("**Tier**")
-            tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
-            selected_tier_label = st.radio(
-                "Tier",
-                tier_options,
-                index=0,
-                horizontal=True,
-                key="cb_tier_radio",
-                label_visibility="collapsed",
-            )
-            if selected_tier_label == "All":
-                selected_tiers = TIERS
-            else:
-                selected_tiers = [int(selected_tier_label.split(" ")[1])]
+        tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
+        selected_tier_label = _fcol2.selectbox("Tier", tier_options, index=0, key="cb_tier_select")
+        if selected_tier_label == "All":
+            selected_tiers = TIERS
+        else:
+            selected_tiers = [int(selected_tier_label.split(" ")[1])]
 
         images = _get_minion_images(selected_tribes, selected_tiers)
 

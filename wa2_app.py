@@ -1307,7 +1307,7 @@ def show_card_browser():
     if card_type == "Spells":
         images = _get_spell_images()
         if not images:
-            st.info("Inga spell-bilder hittades.")
+            st.info("Updating soon...")
             return
         cols_per_row = 6
         cols = st.columns(cols_per_row)

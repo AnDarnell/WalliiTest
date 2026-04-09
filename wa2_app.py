@@ -1517,6 +1517,9 @@ with tabs[0]:
                             f"background:#e53935;border-radius:3px;padding:1px 5px;text-decoration:none;"
                             f"vertical-align:middle;letter-spacing:0.04em;'>LIVE</a>"
                         ) if _live_url else ""
+                        _region_meta = html.escape(str(region).upper()) if region else ""
+                        _cr_meta = r.get("cr")
+                        _meta = " ".join(x for x in [_region_meta, f"{int(_cr_meta):,}" if _cr_meta is not None else ""] if x)
                         _avg_val = r.get("avg_place")
                         _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
                         _avg_color = "#777"
@@ -1549,7 +1552,7 @@ with tabs[0]:
                         _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
                         _hover_card = (
                             f"<div class='lb-hover-card'>"
-                            f"<div class='lb-hover-title'>{html.escape(player)}</div>"
+                            f"<div class='lb-hover-title'><span>{html.escape(player)}</span><span class='lb-hover-meta'>{_meta}</span></div>"
                             f"<div class='lb-hover-grid'>"
                             f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
                             f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"

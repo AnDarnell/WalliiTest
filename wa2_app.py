@@ -684,6 +684,14 @@ def _sb_get_cached_snapshots(player_name, region):
     except Exception:
         return None, None, None
 
+
+def _sb_get_cached_games(player_name, region):
+    """Returns (games, cached_rank) using only Supabase snapshot cache."""
+    snapshots, _, cached_rank = _sb_get_cached_snapshots(player_name, region)
+    if not snapshots:
+        return None, cached_rank
+    return _snapshots_to_games(snapshots), cached_rank
+
 def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
     """Save snapshots to Supabase in batches, then update player_cache."""
     player_name = player_name.lower()
@@ -704,6 +712,7 @@ def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
         timeout=10,
     ).raise_for_status()
 
+@st.cache_data(show_spinner=False, ttl=300)
 def _sb_load_regression(region):
     """Load regression curve from Supabase. Returns (bx, by) or (None, None)."""
     try:
@@ -1287,6 +1296,66 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
 .lb-show-more button:hover { color: #888 !important; }
 .lb-show-more button:disabled, .lb-show-more button[disabled] { text-decoration: line-through !important; opacity: 1 !important; }
 
+.lb-hover-row {
+    position: relative;
+    overflow: visible !important;
+}
+.lb-hover-card {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    min-width: 220px;
+    max-width: 260px;
+    background: rgba(14, 14, 14, 0.98);
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+    pointer-events: none;
+    z-index: 100;
+}
+.lb-hover-name {
+    position: relative;
+    display: inline-block;
+}
+.lb-hover-name:hover {
+    z-index: 40;
+}
+.lb-hover-name:hover .lb-hover-card {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.lb-hover-title {
+    color: #eee;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.45rem;
+}
+.lb-hover-grid {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 0.8rem;
+    row-gap: 0.22rem;
+    align-items: baseline;
+}
+.lb-hover-label {
+    color: #666;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.lb-hover-value {
+    color: #ddd;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: right;
+}
+
 /* Icon button wrapper (Home arrow) */
 .icon-btn button {
     background: transparent !important;
@@ -1411,6 +1480,7 @@ with tabs[0]:
                     _twitch_svg = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-left:4px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
                     _yt_svg     = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-left:4px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
                     _live_players = {s["player"].lower(): s["twitch_url"] for s in _twitch_get_live_streams()}
+                    _hover_bx, _hover_by = _sb_load_regression("ALL")
 
                     def row_html(i, r):
                         row_color = value_color = HEADER_COLOR
@@ -1437,14 +1507,57 @@ with tabs[0]:
                             f"background:#e53935;border-radius:3px;padding:1px 5px;text-decoration:none;"
                             f"vertical-align:middle;letter-spacing:0.04em;'>LIVE</a>"
                         ) if _live_url else ""
+                        _avg_val = r.get("avg_place")
+                        _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
+                        _avg_color = "#777"
+                        _hover_cr = r.get("cr")
+                        if _avg_val is not None and _hover_cr is not None and _hover_bx is not None and len(_hover_bx) >= 2:
+                            try:
+                                _expected_avg = interp_with_extrap(_hover_cr, _hover_bx, _hover_by)
+                                _expected_avg = float(np.clip(_expected_avg, 1.0, 8.0))
+                                _avg_color = delta_color(float(_avg_val - _expected_avg))
+                            except Exception:
+                                _avg_color = "#ddd"
+                        _top1 = f"{r['first_pct']:.1f}%" if r.get("first_pct") is not None else "—"
+                        _top4 = f"{r['top4_pct']:.1f}%" if r.get("top4_pct") is not None else "—"
+                        _u_val = r.get("u_score")
+                        _u_color = (
+                            "#b388e8" if _u_val is not None and _u_val >= 0.2
+                            else "#aaa" if _u_val is not None and _u_val >= -0.1
+                            else "#5b8fd4" if _u_val is not None
+                            else "#777"
+                        )
+                        _u_text = f"{_u_val:+.2f}" if _u_val is not None else "—"
+                        _ff_raw = r.get("matchup_scaling")
+                        _ff_val = -_ff_raw if _ff_raw is not None else None
+                        _ff_color = (
+                            "#7ab87a" if _ff_val is not None and _ff_val >= 0.35
+                            else "#d4a843" if _ff_val is not None and _ff_val >= -0.15
+                            else "#c47a75" if _ff_val is not None
+                            else "#777"
+                        )
+                        _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
+                        _hover_card = (
+                            f"<div class='lb-hover-card'>"
+                            f"<div class='lb-hover-title'>{html.escape(player)}</div>"
+                            f"<div class='lb-hover-grid'>"
+                            f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
+                            f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"
+                            f"<span class='lb-hover-label'>Top 4%</span><span class='lb-hover-value'>{_top4}</span>"
+                            f"<span class='lb-hover-label'>Aggression</span><span class='lb-hover-value' style='color:{_u_color};'>{_u_text}</span>"
+                            f"<span class='lb-hover-label'>Farmer Factor</span><span class='lb-hover-value' style='color:{_ff_color};'>{_ff_text}</span>"
+                            f"</div></div>"
+                        )
                         return (
-                            "<div style='display:flex;justify-content:space-between;"
+                            "<div class='lb-hover-row' style='display:flex;justify-content:space-between;"
                             "border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
                             "padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
                             f"<span style='color:{row_color};font-weight:700'>{i}. "
+                            f"<span class='lb-hover-name'>"
                             f"<a href='{link}' target='_self' style='color:inherit;text-decoration:none;' "
                             f"onmouseover=\"this.style.textDecoration='underline'\" "
-                            f"onmouseout=\"this.style.textDecoration='none'\">{player}</a> "
+                            f"onmouseout=\"this.style.textDecoration='none'\">{player}</a>"
+                            f"{_hover_card}</span> "
                             f"<span style='color:#666'>({region})</span>"
                             f"{'&nbsp;' + _flag if _flag else ''}{_icons}{_live_badge}</span>"
                             f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
@@ -1519,6 +1632,54 @@ with tabs[0]:
                         rows = [r for r in rows if r.get("player") in _top_mmr_players]
                     return rows[:limit] if limit is not None else rows
 
+                _all_stats_by_player = {r["player"].lower(): r for r in _sb_fetch_all() if r.get("player")}
+                _hover_bx, _hover_by = _sb_load_regression("ALL")
+
+                def _hover_card_html(player_name, stats_row):
+                    if not stats_row:
+                        return ""
+                    _avg_val = stats_row.get("avg_place")
+                    _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
+                    _avg_color = "#777"
+                    _hover_cr = stats_row.get("cr")
+                    if _avg_val is not None and _hover_cr is not None and _hover_bx is not None and len(_hover_bx) >= 2:
+                        try:
+                            _expected_avg = interp_with_extrap(_hover_cr, _hover_bx, _hover_by)
+                            _expected_avg = float(np.clip(_expected_avg, 1.0, 8.0))
+                            _avg_color = delta_color(float(_avg_val - _expected_avg))
+                        except Exception:
+                            _avg_color = "#ddd"
+                    _top1 = f"{stats_row['first_pct']:.1f}%" if stats_row.get("first_pct") is not None else "—"
+                    _top4 = f"{stats_row['top4_pct']:.1f}%" if stats_row.get("top4_pct") is not None else "—"
+                    _u_val = stats_row.get("u_score")
+                    _u_color = (
+                        "#b388e8" if _u_val is not None and _u_val >= 0.2
+                        else "#aaa" if _u_val is not None and _u_val >= -0.1
+                        else "#5b8fd4" if _u_val is not None
+                        else "#777"
+                    )
+                    _u_text = f"{_u_val:+.2f}" if _u_val is not None else "—"
+                    _ff_raw = stats_row.get("matchup_scaling")
+                    _ff_val = -_ff_raw if _ff_raw is not None else None
+                    _ff_color = (
+                        "#7ab87a" if _ff_val is not None and _ff_val >= 0.35
+                        else "#d4a843" if _ff_val is not None and _ff_val >= -0.15
+                        else "#c47a75" if _ff_val is not None
+                        else "#777"
+                    )
+                    _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
+                    return (
+                        f"<div class='lb-hover-card'>"
+                        f"<div class='lb-hover-title'>{html.escape(player_name)}</div>"
+                        f"<div class='lb-hover-grid'>"
+                        f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
+                        f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"
+                        f"<span class='lb-hover-label'>Top 4%</span><span class='lb-hover-value'>{_top4}</span>"
+                        f"<span class='lb-hover-label'>Aggression</span><span class='lb-hover-value' style='color:{_u_color};'>{_u_text}</span>"
+                        f"<span class='lb-hover-label'>Farmer Factor</span><span class='lb-hover-value' style='color:{_ff_color};'>{_ff_text}</span>"
+                        f"</div></div>"
+                    )
+
                 lists = [
                     ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Mean placement across all recorded games. Lower is better."),
                     ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
@@ -1571,14 +1732,17 @@ with tabs[0]:
                     s_title  = html.escape(s["title"][:50] + ("..." if len(s["title"]) > 50 else ""))
                     s_color  = "#d4a843" if si == 1 else "#bfc4c8" if si == 2 else "#b57a4a" if si == 3 else "#8a8a8a"
                     s_profile = f"?goto_player={html.escape(s['player'])}&goto_region={html.escape(s.get('region',''))}"
+                    _hover_card = _hover_card_html(s["player"], _all_stats_by_player.get(s["player"].lower()))
                     return (
-                        f"<div style='display:flex;justify-content:space-between;"
+                        f"<div class='lb-hover-row' style='display:flex;justify-content:space-between;"
                         f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
                         f"padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
                         f"<span style='color:{s_color};font-weight:700'>{si}. "
+                        f"<span class='lb-hover-name'>"
                         f"<a href='{s_profile}' target='_self' style='color:inherit;text-decoration:none;' "
                         f"onmouseover=\"this.style.textDecoration='underline'\" "
                         f"onmouseout=\"this.style.textDecoration='none'\">{s['player']}</a>"
+                        f"{_hover_card}</span>"
                         f"{_country_flag(s.get('nationality',''))}"
                         f"<span style='color:#666;font-size:0.8rem;font-weight:400;margin-left:0.4rem;'>({s.get('region','').upper()} {s.get('cr',''):,})</span>"
                         f"<a href='{s_twitch}' target='_blank' title='{s_title}' style='margin-left:5px;'>"
@@ -2559,14 +2723,16 @@ with tabs[0]:
 
                             for i, (name, rank) in enumerate(zip(all_names, all_ranks)):
                                 status.markdown(
-                                    "<p style='color:#666;font-size:0.8rem;'>Fetching "
+                                    "<p style='color:#666;font-size:0.8rem;'>Loading cached stats for "
                                     + name + " (rank " + str(rank) + ")...</p>",
                                     unsafe_allow_html=True
                                 )
                                 try:
-                                    ng, _, _rank = fetch_and_calculate(name, sp_region)
-                                    if len(ng) >= MIN_GAMES_NEIGHBOR:
+                                    ng, _rank = _sb_get_cached_games(name, sp_region)
+                                    if ng is not None and len(ng) >= MIN_GAMES_NEIGHBOR:
                                         all_pcts.append(norm_to_pct(ng))
+                                    else:
+                                        failed.append(name)
                                 except Exception:
                                     failed.append(name)
                                 progress.progress((i + 1) / len(all_names))
@@ -2575,7 +2741,7 @@ with tabs[0]:
                             status.empty()
 
                             if not all_pcts:
-                                st.session_state["nb_result"] = {"error": f"No neighbors had {MIN_GAMES_NEIGHBOR}+ games to compare."}
+                                st.session_state["nb_result"] = {"error": f"No cached neighbors had {MIN_GAMES_NEIGHBOR}+ games to compare in Supabase."}
                             else:
                                 st.session_state["nb_result"] = {
                                     "pcts":        all_pcts,

@@ -1546,7 +1546,7 @@ with tabs[0]:
                 # ── Live streams (höger, rad 0) ────────────────────────────────────
                 _live_streams_lb = [s for s in _twitch_get_live_streams() if not _lb_regions or s.get("region", "").upper() in _lb_regions]
                 _live_col = _row0[1]
-                HEADER_COLOR = "#8a8a8a"
+                HEADER_COLOR = "#c45151"
                 _total_viewers = sum(s["viewers"] for s in _live_streams_lb)
                 _viewers_str = f" <span style='color:#666;font-size:0.78em;font-weight:400;text-transform:none;letter-spacing:0;'>({_total_viewers:,} total viewers)</span>" if _total_viewers > 0 else ""
                 _live_col.markdown(

@@ -1497,7 +1497,7 @@ with tabs[0]:
                     "letter-spacing:0.08em;'>Note</span>"
                     "<div style='color:#d7d0bb;font-size:0.86rem;line-height:1.45;margin-top:0.22rem;'>"
                     "Wallii.gg is temporarily down, and stats currently showing are from an earlier cached version "
-                    "(nothing is triggering updates at the moment)</div></div>",
+                    "(nothing is triggering updates at the moment). You can still use the site as normal, and find currently live streamers.</div></div>",
                     unsafe_allow_html=True,
                 )
 

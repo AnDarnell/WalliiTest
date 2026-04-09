@@ -1490,6 +1490,17 @@ with tabs[0]:
                 with _cn_col:
                     _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
+                st.markdown(
+                    "<div style='background:#1a1710;border:1px solid #5c4b1f;border-radius:6px;"
+                    "padding:0.65rem 0.85rem;margin:0.4rem 0 0.9rem;'>"
+                    "<span style='color:#d4a843;font-size:0.8rem;font-weight:700;text-transform:uppercase;"
+                    "letter-spacing:0.08em;'>Note</span>"
+                    "<div style='color:#d7d0bb;font-size:0.86rem;line-height:1.45;margin-top:0.22rem;'>"
+                    "Wallii.gg is temporarily down, and stats currently showing are from an earlier cached version "
+                    "(nothing is triggering updates at the moment)</div></div>",
+                    unsafe_allow_html=True,
+                )
+
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 if _mmr_filter != "All":
                     _mmr_n = int(_mmr_filter.split()[1])

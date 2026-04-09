@@ -1298,7 +1298,7 @@ def show_card_browser():
 
     # ── Typ-väljare ───────────────────────────────────────────────────────────
     card_type = st.radio(
-        "Typ",
+        "Type",
         ["Minions", "Trinkets", "Spells"],
         horizontal=True,
         key="cb_type",

@@ -1241,6 +1241,7 @@ TRIBE_LABELS = {t: t.capitalize() for t in TRIBES}
 TIERS = [1, 2, 3, 4, 5, 6]
 
 
+@st.cache_data(show_spinner=False)
 def _get_minion_images(tribes, tiers):
     from collections import defaultdict
     by_name = defaultdict(lambda: defaultdict(list))
@@ -1269,6 +1270,7 @@ def _get_minion_images(tribes, tiers):
     return result
 
 
+@st.cache_data(show_spinner=False)
 def _get_trinket_images(tribes, trinket_type):
     """trinket_type: 'trinket_greater' eller 'trinket_lesser'"""
     result = []
@@ -1280,11 +1282,56 @@ def _get_trinket_images(tribes, trinket_type):
     return result
 
 
+@st.cache_data(show_spinner=False)
 def _get_spell_images():
     folder = CARDS_ROOT / "S13_spells"
     if not folder.exists():
         return []
     return list(sorted(folder.glob("*.png")))
+
+@st.cache_data(show_spinner=False)
+def _get_all_trinket_cards():
+    """Cache all trinket image paths once — filesystem scan happens only on first call."""
+    result = []
+    for trinket_type in ("trinket_greater", "trinket_lesser"):
+        for tribe in TRIBES:
+            folder = CARDS_ROOT / f"S13_{tribe}" / trinket_type
+            if folder.exists():
+                for img in sorted(folder.glob("*.png")):
+                    result.append({
+                        "tribe": tribe,
+                        "trinket_type": trinket_type,
+                        "name": img.stem,
+                        "path_str": str(img),
+                    })
+    return result
+
+@st.cache_data(show_spinner=False)
+def _get_all_minion_cards():
+    """Cache all minion card metadata + paths once — filesystem scan happens only on first call."""
+    from collections import defaultdict
+    by_name = defaultdict(lambda: defaultdict(list))
+    for tribe in TRIBES:
+        folder = CARDS_ROOT / f"S13_{tribe}" / "minions"
+        for tier in TIERS:
+            tier_folder = folder / f"tier {tier}"
+            if tier_folder.exists():
+                for img in sorted(tier_folder.glob("*.png")):
+                    by_name[img.stem][tier].append((tribe, img))
+    result = []
+    for name, tiers_dict in by_name.items():
+        for tier, entries in tiers_dict.items():
+            tribes_list = [t for t, _ in entries]
+            path = entries[0][1]
+            result.append({
+                "name": name,
+                "display_name": name.replace("_", " "),
+                "tier": tier,
+                "tribes": tribes_list,
+                "path_str": str(path),
+            })
+    result.sort(key=lambda x: (x["tier"], x["name"]))
+    return result
 
 
 def show_card_browser():
@@ -1325,49 +1372,56 @@ def show_card_browser():
         selected_tribes = [t for t in TRIBES if TRIBE_LABELS[t] == selected_label]
 
     # ── Minions ───────────────────────────────────────────────────────────────
+    # NY KOD:
     if card_type == "Minions":
         tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
         selected_tier_label = _fcol2.selectbox("Tier", tier_options, index=0, key="cb_tier_select")
-        if selected_tier_label == "All":
-            selected_tiers = TIERS
-        else:
-            selected_tiers = [int(selected_tier_label.split(" ")[1])]
+        selected_tiers = TIERS if selected_tier_label == "All" else [int(selected_tier_label.split(" ")[1])]
 
-        images = _get_minion_images(selected_tribes, selected_tiers)
+        all_cards = _get_all_minion_cards()  # cachat med b64
+        selected_set = set(selected_tribes)
+        filtered = [
+            c for c in all_cards
+            if c["tier"] in selected_tiers and selected_set.intersection(c["tribes"])
+        ]
 
-        if not images:
+        if not filtered:
             st.info("Inga kort matchade filtret.")
             return
 
         for tier in selected_tiers:
-            tier_imgs = [(t_list, p) for t_list, ti, p in images if ti == tier]
-            if not tier_imgs:
+            tier_cards = [c for c in filtered if c["tier"] == tier]
+            if not tier_cards:
                 continue
             st.markdown(f"### ⭐ Tier {tier}")
             cols_per_row = max(4, min(8, len(selected_tribes) * 2))
             cols = st.columns(cols_per_row)
-            for i, (tribes_list, path) in enumerate(tier_imgs):
-                cols[i % cols_per_row].image(str(path), use_container_width=True)
+            for i, card in enumerate(tier_cards):
+                col = cols[i % cols_per_row]
+                col.image(card["path_str"], use_container_width=True)
 
     # ── Trinkets ──────────────────────────────────────────────────────────────
     elif card_type == "Trinkets":
         trinket_type = st.radio(
-            "Trinket-typ",
-            ["Greater", "Lesser"],
-            horizontal=True,
-            key="cb_trinket_type",
+            "Trinket-typ", ["Greater", "Lesser"], horizontal=True, key="cb_trinket_type"
         )
         folder_name = "trinket_greater" if trinket_type == "Greater" else "trinket_lesser"
-        images = _get_trinket_images(selected_tribes, folder_name)
 
-        if not images:
+        all_trinkets = _get_all_trinket_cards()
+        selected_set = set(selected_tribes)
+        filtered = [
+            t for t in all_trinkets
+            if t["trinket_type"] == folder_name and t["tribe"] in selected_set
+        ]
+
+        if not filtered:
             st.info("Inga trinkets matchade filtret.")
             return
 
         cols_per_row = max(4, min(8, len(selected_tribes) * 2))
         cols = st.columns(cols_per_row)
-        for i, (tribe, path) in enumerate(images):
-            cols[i % cols_per_row].image(str(path), use_container_width=True)
+        for i, card in enumerate(filtered):
+            cols[i % cols_per_row].image(card["path_str"], use_container_width=True)
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 

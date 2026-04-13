@@ -1365,7 +1365,7 @@ def show_card_browser():
     # ── Tribe & Tier filters ──────────────────────────────────────────────────
     _fcol1, _fcol2 = st.columns(2)
     tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
-    selected_label = _fcol1.selectbox("Tribe", tribe_options, index=0, key="cb_tribe_select")
+    selected_label = _fcol1.selectbox("Tribe", tribe_options, index=tribe_options.index("Beast"), key="cb_tribe_select")
     if selected_label == "All":
         selected_tribes = list(TRIBES)
     else:

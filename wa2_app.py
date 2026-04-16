@@ -394,11 +394,12 @@ def _twitch_get_live_streams():
                 "title":        s["title"],
                 "viewers":      s["viewer_count"],
                 "region":       pstats.get("region", ""),
+                "season":       pstats.get("season") or 0,
                 "cr":           pstats.get("cr") or 0,
                 "nationality":  links.get(player.lower(), {}).get("nationality", ""),
                 "twitch_url":   links.get(player_by_login.get(login, ""), {}).get("twitch_url", f"https://twitch.tv/{login}"),
             })
-        result.sort(key=lambda x: x["cr"], reverse=True)
+        result.sort(key=lambda x: (x["season"], x["cr"]), reverse=True)
         result = result[:10]
 
 

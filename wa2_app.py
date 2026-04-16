@@ -737,7 +737,7 @@ def _sb_get_cached_snapshots(player_name, region, season=CURRENT_SEASON):
         last_fetched = cache_rows[0]["last_fetched"]
         cached_rank  = cache_rows[0].get("current_rank")
         age_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last_fetched.replace("Z", "+00:00"))).total_seconds() / 3600
-        if age_hours >= 24:
+        if age_hours >= 12:
             return None, None, None
         rows = _sb_fetch_snapshots_range(player_name, region, date_from, date_to)
         return rows, last_fetched, cached_rank

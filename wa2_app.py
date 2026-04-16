@@ -2069,7 +2069,7 @@ with tabs[0]:
                 _live_sort_key = st.session_state["lb_live_sort"]
                 _live_streams_lb = sorted(
                     _live_streams_lb,
-                    key=lambda x: x["viewers"] if _live_sort_key == "viewers" else x["cr"],
+                    key=lambda x: x["viewers"] if _live_sort_key == "viewers" else (x.get("season", 0), x.get("cr", 0)),
                     reverse=True,
                 )
                 _empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"

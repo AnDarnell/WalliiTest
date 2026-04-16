@@ -2783,6 +2783,7 @@ with tabs[0]:
 
                 first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
                 first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
+                first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
                 if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0
                     top4_pct  = top4 / total * 100 if total else 0.0
@@ -2813,6 +2814,27 @@ with tabs[0]:
                             }),
                             "matchup_scaling": compute_matchup_scaling(games),
                             "updated_at":   datetime.utcnow().isoformat() + "Z",
+                        }
+                    )
+                elif ENABLE_SESSION_TOPLISTS and total > 0:
+                    lb_upsert_player(
+                        sp_region,
+                        sp_player,
+                        {
+                            "season":         CURRENT_SEASON,
+                            "games":          int(total),
+                            "hot_streak":     int(longest_streak),
+                            "roach_streak":   int(longest_roach),
+                            "max_drawdown":   int(max_dd),
+                            "dd_detail":      dd_tip,
+                            "first_10k_date": first_10k_date,
+                            "cr":             int(current_mmr),
+                            "mmr_milestones": json.dumps({
+                                str(t): next((g["time"] for g in games if g["mmr_after"] >= t), None)
+                                for t in range(10000, 22000, 1000)
+                                if any(g["mmr_after"] >= t for g in games)
+                            }),
+                            "updated_at":     datetime.utcnow().isoformat() + "Z",
                         }
                     )
                 elif ENABLE_SESSION_TOPLISTS and first_10k_date:

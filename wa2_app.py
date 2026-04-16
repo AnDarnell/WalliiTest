@@ -1678,7 +1678,7 @@ with tabs[0]:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
         season_options = sorted(SEASONS.keys(), reverse=True)
         season_labels  = [f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else "") for s in season_options]
-        default_season_index = season_options.index(12) if 12 in season_options else 0
+        default_season_index = season_options.index(13) if 13 in season_options else 0
         season_choice  = st.selectbox("Season", options=season_options, format_func=lambda s: f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else ""), index=default_season_index)
         submitted = st.form_submit_button("Search", width='stretch')
 
@@ -1874,7 +1874,7 @@ with tabs[0]:
                         container.markdown("</div>", unsafe_allow_html=True)
 
                 _lb_season_options = sorted(SEASONS.keys(), reverse=True)
-                _lb_season_index = _lb_season_options.index(12) if 12 in _lb_season_options else 0
+                _lb_season_index = _lb_season_options.index(13) if 13 in _lb_season_options else 0
                 st.markdown(
                     "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
                     "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \

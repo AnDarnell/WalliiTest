@@ -168,6 +168,14 @@ _qp = st.query_params
 if "goto_player" in _qp:
     st.session_state["sp_player"] = _qp["goto_player"].lower()
     st.session_state["sp_region"] = _qp.get("goto_region", "EU")
+    season_param = _qp.get("goto_season", None)
+    if isinstance(season_param, list):
+        season_param = season_param[0] if season_param else None
+    try:
+        season_choice = int(season_param) if season_param is not None else CURRENT_SEASON
+    except ValueError:
+        season_choice = CURRENT_SEASON
+    st.session_state["sp_season"] = season_choice if season_choice in SEASONS else CURRENT_SEASON
     st.session_state.pop("sp_games", None)
     st.session_state.pop("sp_rank", None)
     st.session_state.pop("h2h_games", None)
@@ -1363,6 +1371,29 @@ def _get_spell_images():
     return list(sorted(folder.glob("*.png")))
 
 @st.cache_data(show_spinner=False)
+def _get_all_spell_cards():
+    result = []
+    folder = CARDS_ROOT / "S13_spells"
+    if not folder.exists():
+        return result
+    category_folder = folder / "staying"
+    if not category_folder.exists():
+        return result
+    for tier in TIERS:
+        tier_folder = category_folder / f"tier {tier}"
+        if not tier_folder.exists():
+            continue
+        for img in sorted(tier_folder.glob("*.png")):
+            result.append({
+                "name": img.stem,
+                "display_name": img.stem.replace("_", " "),
+                "tier": tier,
+                "path_str": str(img),
+            })
+    result.sort(key=lambda x: (x["tier"], x["name"]))
+    return result
+
+@st.cache_data(show_spinner=False)
 def _get_all_trinket_cards():
     """Cache all trinket image paths once — filesystem scan happens only on first call."""
     result = []
@@ -1424,19 +1455,37 @@ def show_card_browser():
         key="cb_type",
     )
 
+    _fcol1, _fcol2 = st.columns(2)
+
     if card_type == "Spells*":
-        images = _get_spell_images()
-        if not images:
+        tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
+        selected_tier_label = _fcol1.selectbox("Tier", tier_options, index=0, key="cb_spell_tier_select")
+        selected_tiers = TIERS if selected_tier_label == "All" else [int(selected_tier_label.split(" ")[1])]
+
+        all_cards = _get_all_spell_cards()
+        if not all_cards:
             st.info("Updating soon...")
             return
-        cols_per_row = 6
-        cols = st.columns(cols_per_row)
-        for i, img in enumerate(images):
-            cols[i % cols_per_row].image(str(img), use_container_width=True)
+
+        filtered = [c for c in all_cards if c["tier"] in selected_tiers]
+
+        if not filtered:
+            st.info("No cards matched the filter.")
+            return
+
+        for tier in selected_tiers:
+            tier_cards = [c for c in filtered if c["tier"] == tier]
+            if not tier_cards:
+                continue
+            st.markdown(f"### ⭐ Tier {tier}")
+            cols_per_row = max(4, min(8, len(tier_cards)))
+            cols = st.columns(cols_per_row)
+            for i, card in enumerate(tier_cards):
+                col = cols[i % cols_per_row]
+                col.image(card["path_str"], use_container_width=True)
         return
 
     # ── Tribe & Tier filters ──────────────────────────────────────────────────
-    _fcol1, _fcol2 = st.columns(2)
     tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
     selected_label = _fcol1.selectbox("Tribe", tribe_options, index=tribe_options.index("Beast"), key="cb_tribe_select")
     if selected_label == "All":
@@ -1459,7 +1508,7 @@ def show_card_browser():
         ]
 
         if not filtered:
-            st.info("Inga kort matchade filtret.")
+            st.info("No cards matched the filter.")
             return
 
         for tier in selected_tiers:
@@ -1476,7 +1525,7 @@ def show_card_browser():
     # ── Trinkets ──────────────────────────────────────────────────────────────
     elif card_type == "Trinkets":
         trinket_type = st.radio(
-            "Trinket-typ", ["Greater", "Lesser"], horizontal=True, key="cb_trinket_type"
+            "Trinket type", ["Greater", "Lesser"], horizontal=True, key="cb_trinket_type"
         )
         folder_name = "trinket_greater" if trinket_type == "Greater" else "trinket_lesser"
 
@@ -1488,7 +1537,7 @@ def show_card_browser():
         ]
 
         if not filtered:
-            st.info("Inga trinkets matchade filtret.")
+            st.info("No trinkets matched the filter.")
             return
 
         cols_per_row = max(4, min(8, len(selected_tribes) * 2))
@@ -1776,7 +1825,7 @@ with tabs[0]:
                             row_color = value_color = "#b57a4a"
                         player = r['player']
                         region = r.get('region', '')
-                        link   = f"?goto_player={html.escape(player)}&goto_region={html.escape(region)}"
+                        link   = f"?goto_player={html.escape(player)}&goto_region={html.escape(region)}&goto_season={_lb_season}"
                         _pl    = _plinks.get(player.lower(), {})
                         _icons = ""
                         if _pl.get("twitch_url"):
@@ -2028,7 +2077,7 @@ with tabs[0]:
                     s_twitch = html.escape(s["twitch_url"])
                     s_title  = html.escape(s["title"][:50] + ("..." if len(s["title"]) > 50 else ""))
                     s_color  = "#d4a843" if si == 1 else "#bfc4c8" if si == 2 else "#b57a4a" if si == 3 else "#8a8a8a"
-                    s_profile = f"?goto_player={html.escape(s['player'])}&goto_region={html.escape(s.get('region',''))}"
+                    s_profile = f"?goto_player={html.escape(s['player'])}&goto_region={html.escape(s.get('region',''))}&goto_season={_lb_season}"
                     _hover_card = _hover_card_html(s["player"], _all_stats_by_player.get(s["player"].lower()))
                     return (
                         f"<div class='lb-hover-row' style='display:flex;justify-content:space-between;"
@@ -2534,8 +2583,8 @@ with tabs[0]:
                         f"Source: {_curve_source}"
                     )
 
-                # Header row: [←] player [region] [#rank]
-                hL, hR, hInfo = st.columns([0.7, 5.3, 4.0], vertical_alignment="center")
+                # Header row: [←] player [region] [#rank]  season toggle on the right
+                hL, hR, hT = st.columns([0.7, 5.0, 3.5], vertical_alignment="center")
 
                 with hL:
                     st.markdown("<div class='icon-btn'>", unsafe_allow_html=True)
@@ -2544,13 +2593,24 @@ with tabs[0]:
                         st.rerun()
                     st.markdown("</div>", unsafe_allow_html=True)
 
-                with hInfo:
-                    st.markdown(
-                        "<p style='color:#888;font-size:0.8rem;text-align:right;margin:0;'>"
-                        "See the <strong>Info &amp; Explanations</strong> tab for details."
-                        "</p>",
-                        unsafe_allow_html=True
+                with hT:
+                    current_profile_season = st.session_state.get("sp_season", CURRENT_SEASON)
+                    if current_profile_season not in (12, 13):
+                        current_profile_season = 13
+                    season_toggle = st.radio(
+                        "",
+                        [12, 13],
+                        index=[12, 13].index(current_profile_season),
+                        format_func=lambda s: f"Season {s}",
+                        horizontal=True,
+                        key="profile_season_toggle",
+                        label_visibility="collapsed",
                     )
+                    if season_toggle != st.session_state.get("sp_season"):
+                        st.session_state["sp_season"] = season_toggle
+                        st.session_state["sp_games"] = None
+                        st.session_state["sp_rank"] = None
+                        st.rerun()
 
                 with hR:
                     player_rank_display = st.session_state.get("sp_rank")
@@ -2698,11 +2758,11 @@ with tabs[0]:
 
                 # ── Tilt factor ───────────────────────────────────────────────
                 tilt_factor_val = None
-                if total < 60:
+                if total < 30:
                     st.markdown(
                         "<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
                         "Tilt factor"
-                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>- requires 60+ games</span>"
+                        "<span style='color:#333;font-size:0.8rem;margin-left:0.8rem;font-weight:400;text-transform:none;letter-spacing:0;'>- requires 30 games</span>"
                         f"{form_html}"
                         "</div>",
                         unsafe_allow_html=True
@@ -2735,12 +2795,18 @@ with tabs[0]:
                         unsafe_allow_html=True
                     )
 
-                u_color = (
-                    "#b388e8" if u_score_val >= 0.2
-                    else "#aaa"  if u_score_val >= -0.1
-                    else "#5b8fd4"
-                )
-                u_tip = "Measures play style based on placement distribution. Aggressive (positive) = U-shaped - more 1st and 7th/8th relative to 2nd-4th and 5th-6th. Defensive (negative) = flatter - more consistent mid-range finishes. See Info/Explanations for details."
+                if total >= 30:
+                    u_color = (
+                        "#b388e8" if u_score_val >= 0.2
+                        else "#aaa"  if u_score_val >= -0.1
+                        else "#5b8fd4"
+                    )
+                    u_label = f"{u_score_val:+.2f}"
+                    u_tip = "Measures play style based on placement distribution. Aggressive (positive) = U-shaped - more 1st and 7th/8th relative to 2nd-4th and 5th-6th. Defensive (negative) = flatter - more consistent mid-range finishes. See Info/Explanations for details."
+                else:
+                    u_color = "#777"
+                    u_label = "—"
+                    u_tip = "Requires 30 games to show aggression."
 
                 # ── Form Rating (omvänd interpolation: placement → MMR) ───────
                 _form_rating_html = ""
@@ -2774,7 +2840,7 @@ with tabs[0]:
                 st.markdown(
                     f"<div style='margin:0.3rem 0 0.8rem;color:#555;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;'>"
                     f"Aggression"
-                    f"<span style='color:{u_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{u_score_val:+.2f}</span>"
+                    f"<span style='color:{u_color};font-size:1.0rem;font-weight:600;margin-left:0.8rem;'>{u_label}</span>"
                     f"<span title='{u_tip}' style='color:#444;font-size:0.8rem;margin-left:0.5rem;cursor:help;'>?</span>"
                     f"{_form_rating_html}"
                     f"</div>",
@@ -2862,6 +2928,12 @@ with tabs[0]:
                             code, txt = st.session_state["sb_upsert_status"]
                             st.caption(f"Upsert: {code} | {txt}")
 
+                st.markdown(
+                    "<p style='color:#888;font-size:0.8rem;text-align:left;margin:0.6rem 0 0.8rem;'>"
+                    "See the <strong>Info &amp; Explanations</strong> tab for details."
+                    "</p>",
+                    unsafe_allow_html=True
+                )
                 # ── Head-to-Head ──────────────────────────────────────────────
                 st.markdown("<hr style='border-color:#1e1e1e;margin:0.8rem 0;'>", unsafe_allow_html=True)
                 st.markdown("<p style='color:#8a8a8a;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem;'>Head-to-Head comparison ⚔️</p>", unsafe_allow_html=True)
@@ -3054,7 +3126,7 @@ with tabs[0]:
                     player_rank = st.session_state.get("sp_rank")
 
                     if player_rank is None:
-                        st.session_state["nb_result"] = {"error": "Ingen rank hittades för den här spelaren - de kanske inte är på leaderboard."}
+                        st.session_state["nb_result"] = {"error": "No rank found for this player - they may not be on the leaderboard."}
                     else:
                         with st.spinner(f"Finding neighbors around rank {player_rank}..."):
                             names_above, names_below, ranks_above, ranks_below = fetch_neighbor_names(

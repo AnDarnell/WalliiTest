@@ -592,6 +592,8 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
 
 def compute_matchup_scaling(games):
     """Returns matchup scaling score or None if insufficient data."""
+    if len(games) < 300:
+        return None
     games_10k = [g for g in games if g.get("mmr_before", 0) >= 10000]
     if len(games_10k) < 300:
         return None
@@ -2041,8 +2043,8 @@ with tabs[0]:
                     ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve."),
                     ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
                     ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
-                    ("Farmer factor",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental", "Experimental - min 300 games at 10k+ MMR"),
-                    ("Lowest farmer factor", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental.", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Farmer factor",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Lowest farmer factor", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental.", "Experimental - min 300 games at 10k+ MMR"),
 
                 ]
 

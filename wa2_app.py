@@ -38,7 +38,11 @@ import html
 
 DEBUG = False  # set True if you want debug panels + logs
 
-SEASON_START       = "2025-12-01"
+SEASONS = {
+    12: {"start": "2025-12-01", "end": "2026-04-13"},
+    13: {"start": "2026-04-14", "end": None},  # None = pågående säsong
+    }
+CURRENT_SEASON = 13
 THRESHOLD_BASE     = 9000
 THRESHOLD_INCREASE = 1000
 VALID_REGIONS      = ["NA", "EU", "AP", "CN"]
@@ -97,20 +101,22 @@ def style_dark_axes(ax):
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-def get_threshold(snapshot_time_str):
-    season_start = datetime.fromisoformat(SEASON_START).replace(tzinfo=timezone.utc)
+def get_threshold(snapshot_time_str, season_start_str=None):
+    if season_start_str is None:
+        season_start_str = SEASONS[CURRENT_SEASON]["start"]
+    season_start = datetime.fromisoformat(season_start_str).replace(tzinfo=timezone.utc)
     game_time    = datetime.fromisoformat(snapshot_time_str)
     if game_time.tzinfo is None:
         game_time = game_time.replace(tzinfo=timezone.utc)
     days_in = max(0, (game_time - season_start).days)
     return THRESHOLD_BASE + (days_in // 20) * THRESHOLD_INCREASE
 
-def est_place(mmr, gain, snapshot_time=None):
+def est_place(mmr, gain, snapshot_time=None, season_start_str=None):
     mmr  = float(mmr)
     gain = float(gain)
     placements = [1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
     dex_avg    = mmr if mmr < 8200 else (mmr - 0.85 * (mmr - 8200))
-    threshold  = get_threshold(snapshot_time) if snapshot_time else THRESHOLD_BASE
+    threshold  = get_threshold(snapshot_time, season_start_str) if snapshot_time else THRESHOLD_BASE
     best_placement, best_delta = placements[0], None
     for p in placements:
         avg_opp = mmr - 148.1181435 * (100 - ((p - 1) * (200 / 7) + gain))
@@ -217,6 +223,7 @@ def _sb_upsert(region, player_name, record: dict):
     payload = {
         "player":       (player_name or "").lower(),
         "region":       (region or "").upper(),
+        "season":       record.get("season", CURRENT_SEASON),
         "games":        record.get("games"),
         "hot_streak":   record.get("hot_streak"),
         "roach_streak": record.get("roach_streak"),
@@ -243,7 +250,7 @@ def _sb_upsert(region, player_name, record: dict):
         return
 
     try:
-        url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region"
+        url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}?on_conflict=player,region,season"   
         r = requests.post(
             url,
             headers={
@@ -268,10 +275,10 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
-_ALL_FIELDS = "player,region,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,matchup_scaling,updated_at"
+_ALL_FIELDS = "player,region,season,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,matchup_scaling,updated_at"
 
 @st.cache_data(show_spinner=False, ttl=300)
-def _sb_fetch_all():
+def _sb_fetch_all(season=CURRENT_SEASON):
     if not SUPABASE_ENABLED:
         return []
     try:
@@ -279,7 +286,7 @@ def _sb_fetch_all():
         r = requests.get(
             url,
             headers=SUPABASE_HEADERS,
-            params={"select": _ALL_FIELDS, "limit": "2000"},
+            params={"select": _ALL_FIELDS, "season": f"eq.{season}", "limit": "2000"},
             timeout=10,
         )
         if DEBUG:
@@ -348,7 +355,14 @@ def _twitch_get_live_streams():
             player_by_login[login] = player
     if not usernames:
         return []
-    stats_by_player = {r["player"].lower(): r for r in _sb_fetch_all() if r.get("player")}
+    # Hämta stats från alla säsonger, prioritera nyaste
+    _all_stats = []
+    for _s in sorted(SEASONS.keys()):
+        _all_stats += _sb_fetch_all(season=_s)
+    stats_by_player = {}
+    for r in _all_stats:
+        if r.get("player"):
+            stats_by_player[r["player"].lower()] = r  # nyaste skriver över äldre
     try:
         params = [("user_login", u) for u in usernames]
         r = requests.get(
@@ -440,8 +454,8 @@ def _yt_fetch_subscribers():
     return result
 
 @st.cache_data(show_spinner=False, ttl=60)
-def _sb_top_n(metric, n=TOP_N, higher_is_better=True):
-    rows = [r for r in _sb_fetch_all() if r.get(metric) is not None]
+def _sb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
+    rows = [r for r in _sb_fetch_all(season=season) if r.get(metric) is not None]
     rows.sort(key=lambda r: (r[metric], r.get("cr") or 0), reverse=higher_is_better)
     return rows[:n]
 
@@ -453,8 +467,8 @@ def lb_upsert_player(region, player_name, record: dict):
     else:
         _session_upsert(region, player_name, record)
 
-def compute_and_upsert(player_name, region, games):
-    if not games or len(games) < 50:
+def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
+    if not games:
         return
     norm  = normalized_counts(games)
     total = len(games)
@@ -532,7 +546,20 @@ def compute_and_upsert(player_name, region, games):
             if str(_thresh) not in _mmr_milestones and mmr >= _thresh:
                 _mmr_milestones[str(_thresh)] = g["time"]
 
+    if total < 50:
+        if first_10k_date is not None:
+            lb_upsert_player(region, player_name, {
+                "season":         season,
+                "games":          int(total),
+                "first_10k_date": first_10k_date,
+                "cr":             int(current_mmr),
+                "mmr_milestones": json.dumps(_mmr_milestones),
+                "updated_at":     datetime.utcnow().isoformat() + "Z",
+            })
+        return
+
     lb_upsert_player(region, player_name, {
+        "season":          season,
         "games":           int(total),
         "hot_streak":      int(longest_streak),
         "roach_streak":    int(longest_roach),
@@ -623,16 +650,16 @@ def _save_opp_buckets(player_name, region, games):
     except Exception:
         pass
 
-def lb_top_n(metric, n=TOP_N, higher_is_better=True):
+def lb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
     if TOPLIST_BACKEND == "supabase":
-        return _sb_top_n(metric, n, higher_is_better)
+        return _sb_top_n(metric, n, higher_is_better, season=season)
     else:
         return _session_top_n(metric, n, higher_is_better)
 
 
 # ── Single-player fetch & calculate ───────────────────────────────────────────
 
-def _snapshots_to_games(snapshots):
+def _snapshots_to_games(snapshots, season_start_str=None):
     games = []
     for i in range(1, len(snapshots)):
         prev, curr = snapshots[i - 1], snapshots[i]
@@ -641,13 +668,60 @@ def _snapshots_to_games(snapshots):
             "mmr_before": prev["rating"],
             "mmr_after":  curr["rating"],
             "gain":       gain,
-            "placement":  est_place(prev["rating"], gain, snapshot_time=curr["snapshot_time"]),
+            "placement":  est_place(prev["rating"], gain, snapshot_time=curr["snapshot_time"], season_start_str=season_start_str),
             "time":       curr["snapshot_time"],
         })
     return games
 
-def _sb_get_cached_snapshots(player_name, region):
-    """Returns (snapshots, last_fetched) from Supabase, or (None, None)."""
+def _sb_fetch_snapshots_range(player_name, region, date_from, date_to=None):
+    """Hämtar snapshots från Supabase för ett givet datumintervall."""
+    player_name = player_name.lower()
+    rows = []
+    offset = 0
+    while True:
+        # Bygg params som lista av tupler för att kunna ha två snapshot_time-filter
+        params = [
+            ("player_name", f"eq.{player_name}"),
+            ("region",      f"eq.{region.upper()}"),
+            ("game_mode",   "eq.0"),
+            ("snapshot_time", f"gte.{date_from}"),
+            ("order",       "snapshot_time.asc"),
+            ("limit",       "1000"),
+            ("offset",      str(offset)),
+            ("select",      "snapshot_time,rating"),
+        ]
+        if date_to:
+            params.append(("snapshot_time", f"lte.{date_to}"))
+        sr = requests.get(
+            f"{SUPABASE_URL}/rest/v1/snapshots",
+            headers=SUPABASE_HEADERS,
+            params=params,
+            timeout=10,
+        )
+        sr.raise_for_status()
+        batch = sr.json()
+        rows.extend(batch)
+        if len(batch) < 1000:
+            break
+        offset += 1000
+    return rows if rows else None
+
+
+def _sb_get_cached_snapshots(player_name, region, season=CURRENT_SEASON):
+    """Returns (snapshots, last_fetched, cached_rank) from Supabase, or (None, None, None)."""
+    season_cfg  = SEASONS[season]
+    date_from   = season_cfg["start"]
+    date_to     = season_cfg["end"]
+
+    # Historiska säsonger: data är komplett, skippa cache-ålder-check
+    if season != CURRENT_SEASON:
+        try:
+            rows = _sb_fetch_snapshots_range(player_name, region, date_from, date_to)
+            return rows, None, None
+        except Exception:
+            return None, None, None
+
+    # Pågående säsong: kolla cache-ålder
     player_name = player_name.lower()
     try:
         cr = requests.get(
@@ -663,34 +737,21 @@ def _sb_get_cached_snapshots(player_name, region):
         last_fetched = cache_rows[0]["last_fetched"]
         cached_rank  = cache_rows[0].get("current_rank")
         age_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last_fetched.replace("Z", "+00:00"))).total_seconds() / 3600
-        if age_hours >= 24:  # if cache is older than 24h, ignore it.
+        if age_hours >= 24:
             return None, None, None
-        rows = []
-        offset = 0
-        while True:
-            sr = requests.get(
-                f"{SUPABASE_URL}/rest/v1/snapshots",
-                headers=SUPABASE_HEADERS,
-                params={"player_name": f"eq.{player_name}", "region": f"eq.{region.upper()}", "game_mode": "eq.0", "snapshot_time": f"gte.{SEASON_START}", "order": "snapshot_time.asc", "limit": "1000", "offset": str(offset), "select": "snapshot_time,rating"},
-                timeout=10,
-            )
-            sr.raise_for_status()
-            batch = sr.json()
-            rows.extend(batch)
-            if len(batch) < 1000:
-                break
-            offset += 1000
-        return (rows if rows else None), last_fetched, cached_rank
+        rows = _sb_fetch_snapshots_range(player_name, region, date_from, date_to)
+        return rows, last_fetched, cached_rank
     except Exception:
         return None, None, None
 
 
-def _sb_get_cached_games(player_name, region):
+def _sb_get_cached_games(player_name, region, season=CURRENT_SEASON):
     """Returns (games, cached_rank) using only Supabase snapshot cache."""
-    snapshots, _, cached_rank = _sb_get_cached_snapshots(player_name, region)
+    season_start_str = SEASONS[season]["start"]
+    snapshots, _, cached_rank = _sb_get_cached_snapshots(player_name, region, season=season)
     if not snapshots:
         return None, cached_rank
-    return _snapshots_to_games(snapshots), cached_rank
+    return _snapshots_to_games(snapshots, season_start_str=season_start_str), cached_rank
 
 def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
     """Save snapshots to Supabase in batches, then update player_cache."""
@@ -820,12 +881,24 @@ def _compute_player_stats(games):
         "farmer_factor": farmer_factor,
     }
 
-def fetch_and_calculate(player_name, region):
-    # ── 1. Try Supabase cache first ───────────────────────────────────────────
+def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
+    season_cfg       = SEASONS[season]
+    season_start_str = season_cfg["start"]
+    season_end_str   = season_cfg["end"]
+
+    # ── 1. Historisk säsong: hämta bara från Supabase, inget wallii-anrop ────
+    if season != CURRENT_SEASON:
+        if SUPABASE_ENABLED:
+            cached, _, _ = _sb_get_cached_snapshots(player_name, region, season=season)
+            if cached and len(cached) >= 2:
+                return _snapshots_to_games(cached, season_start_str=season_start_str), region, None
+        raise ValueError(f"No cached data found for season {season}.")
+
+    # ── 2. Pågående säsong: försök Supabase-cache först ──────────────────────
     if SUPABASE_ENABLED:
-        cached, _, cached_rank = _sb_get_cached_snapshots(player_name, region)
+        cached, _, cached_rank = _sb_get_cached_snapshots(player_name, region, season=season)
         if cached and len(cached) >= 2:
-            return _snapshots_to_games(cached), region, cached_rank
+            return _snapshots_to_games(cached, season_start_str=season_start_str), region, cached_rank
 
     # ── 2. Fetch from wallii.gg ───────────────────────────────────────────────
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -869,7 +942,7 @@ def fetch_and_calculate(player_name, region):
     if SUPABASE_ENABLED:
         _sb_save_snapshots(player_name, region, snapshots, current_rank)
 
-    return _snapshots_to_games(snapshots), region, current_rank
+    return _snapshots_to_games(snapshots, season_start_str=season_start_str), region, current_rank
 
 
 # ── Normalize ─────────────────────────────────────────────────────────────────
@@ -1603,6 +1676,10 @@ with tabs[0]:
             player = st.text_input("Player", placeholder="Name")
         with col2:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
+        season_options = sorted(SEASONS.keys(), reverse=True)
+        season_labels  = [f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else "") for s in season_options]
+        default_season_index = season_options.index(12) if 12 in season_options else 0
+        season_choice  = st.selectbox("Season", options=season_options, format_func=lambda s: f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else ""), index=default_season_index)
         submitted = st.form_submit_button("Search", width='stretch')
 
     if submitted and player:
@@ -1616,6 +1693,7 @@ with tabs[0]:
             st.session_state["search_count"]     = _count + 1
             st.session_state["sp_player"] = player.strip().lower()
             st.session_state["sp_region"] = region
+            st.session_state["sp_season"] = season_choice
             st.session_state["sp_games"]  = None
             st.session_state["sp_rank"]   = None
             st.session_state.pop("h2h_games", None)
@@ -1795,9 +1873,27 @@ with tabs[0]:
                             st.rerun(scope="fragment")
                         container.markdown("</div>", unsafe_allow_html=True)
 
-                backend_label = "Season 12" if TOPLIST_BACKEND == "supabase" else "this session"
+                _lb_season_options = sorted(SEASONS.keys(), reverse=True)
+                _lb_season_index = _lb_season_options.index(12) if 12 in _lb_season_options else 0
                 st.markdown(
-                    f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards ({backend_label}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
+                    "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
+                    "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \
+                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Note:</strong>" \
+                    "Season 13 is out! You can still view stats from last season by ticking the box below. You can also still search for people's stats from last season." \
+                    " The leaderboards might look weird for a while until people get enough games. Some metrics has a game-requirement (usually 50).</div>",
+                    unsafe_allow_html=True,
+                )
+                _lb_season = st.radio(
+                    "Leaderboard season",
+                    options=_lb_season_options,
+                    format_func=lambda s: f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else ""),
+                    horizontal=True,
+                    index=_lb_season_index,
+                    key="lb_season_selector",
+                    label_visibility="collapsed",
+                )
+                st.markdown(
+                    f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards (Season {_lb_season}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                     unsafe_allow_html=True
                 )
                 _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
@@ -1815,7 +1911,7 @@ with tabs[0]:
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 if _mmr_filter != "All":
                     _mmr_n = int(_mmr_filter.split()[1])
-                    _all_by_mmr = sorted(_sb_fetch_all(), key=lambda r: r.get("cr") or 0, reverse=True)
+                    _all_by_mmr = sorted(_sb_fetch_all(season=_lb_season), key=lambda r: r.get("cr") or 0, reverse=True)
                     _top_mmr_players = set()
                     for _rgn in _lb_regions:
                         _rgn_rows = [r for r in _all_by_mmr if r.get("region") == _rgn]
@@ -1824,13 +1920,13 @@ with tabs[0]:
                     _top_mmr_players = None
 
                 def _lb(metric, higher_is_better=True, n=9999, limit=TOP_N):
-                    rows = lb_top_n(metric, higher_is_better=higher_is_better, n=n)
+                    rows = lb_top_n(metric, higher_is_better=higher_is_better, n=n, season=_lb_season)
                     rows = [r for r in rows if r.get("region") in _lb_regions]
                     if _top_mmr_players is not None:
                         rows = [r for r in rows if r.get("player") in _top_mmr_players]
                     return rows[:limit] if limit is not None else rows
 
-                _all_stats_by_player = {r["player"].lower(): r for r in _sb_fetch_all() if r.get("player")}
+                _all_stats_by_player = {r["player"].lower(): r for r in _sb_fetch_all(season=_lb_season) if r.get("player")}
                 _hover_bx, _hover_by = _sb_load_regression("ALL")
 
                 def _hover_card_html(player_name, stats_row):
@@ -2326,7 +2422,9 @@ with tabs[0]:
         if st.session_state.get("sp_games") is None:
             with st.spinner("Fetching data..."):
                 try:
-                    st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region)
+                    _sp_season = st.session_state.get("sp_season", CURRENT_SEASON)
+                    st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region, season=_sp_season)
+                    compute_and_upsert(sp_player, st.session_state["sp_region"], st.session_state["sp_games"], season=_sp_season)
                     _save_opp_buckets(sp_player, st.session_state["sp_region"], st.session_state["sp_games"])
                 except ValueError as e:
                     msg = str(e)
@@ -2683,6 +2781,8 @@ with tabs[0]:
                     unsafe_allow_html=True
                 )
 
+                first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
+                first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
                 if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0
                     top4_pct  = top4 / total * 100 if total else 0.0
@@ -2690,6 +2790,7 @@ with tabs[0]:
                         sp_region,
                         sp_player,
                         {
+                            "season":       CURRENT_SEASON,
                             "games":        int(total),
                             "hot_streak":   int(longest_streak),
                             "roach_streak": int(longest_roach),
@@ -2701,7 +2802,7 @@ with tabs[0]:
                             "form_rating":  _form_mmr_int if total >= 60 and _form_rating_html else None,
                             "max_drawdown":   int(max_dd),
                             "dd_detail":      dd_tip,
-                            "first_10k_date": next((g["time"] for g in games if g["mmr_after"] >= 10000), None),
+                            "first_10k_date": first_10k_date,
                             "cr":             int(current_mmr),
                             "u_score":        float(u_score_val),
                             "bot2_count":     int(norm[7] + norm[8]),
@@ -2712,6 +2813,23 @@ with tabs[0]:
                             }),
                             "matchup_scaling": compute_matchup_scaling(games),
                             "updated_at":   datetime.utcnow().isoformat() + "Z",
+                        }
+                    )
+                elif ENABLE_SESSION_TOPLISTS and first_10k_date:
+                    lb_upsert_player(
+                        sp_region,
+                        sp_player,
+                        {
+                            "season":         CURRENT_SEASON,
+                            "games":          int(total),
+                            "first_10k_date": first_10k_date,
+                            "cr":             int(current_mmr),
+                            "mmr_milestones": json.dumps({
+                                str(t): next((g["time"] for g in games if g["mmr_after"] >= t), None)
+                                for t in range(10000, 22000, 1000)
+                                if any(g["mmr_after"] >= t for g in games)
+                            }),
+                            "updated_at":     datetime.utcnow().isoformat() + "Z",
                         }
                     )
 

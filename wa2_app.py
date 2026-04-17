@@ -2928,7 +2928,7 @@ with tabs[0]:
                         sp_region,
                         sp_player,
                         {
-                            "season":       CURRENT_SEASON,
+                            "season":       current_profile_season,
                             "games":        int(total),
                             "hot_streak":   int(longest_streak),
                             "roach_streak": int(longest_roach),
@@ -2958,7 +2958,7 @@ with tabs[0]:
                         sp_region,
                         sp_player,
                         {
-                            "season":         CURRENT_SEASON,
+                            "season":         current_profile_season,
                             "games":          int(total),
                             "hot_streak":     int(longest_streak),
                             "roach_streak":   int(longest_roach),
@@ -2979,7 +2979,7 @@ with tabs[0]:
                         sp_region,
                         sp_player,
                         {
-                            "season":         CURRENT_SEASON,
+                            "season":         current_profile_season,
                             "games":          int(total),
                             "first_10k_date": first_10k_date,
                             "cr":             int(current_mmr),

@@ -228,10 +228,22 @@ def _cache_bust_toplists():
         pass
 
 def _sb_upsert(region, player_name, record: dict):
+    season = record.get("season")
+    if season is None or season not in SEASONS:
+        if DEBUG:
+            dlog(
+                "Skipping Supabase upsert because missing or invalid season",
+                player_name,
+                region,
+                season,
+                record.get("games"),
+            )
+        return
+
     payload = {
         "player":       (player_name or "").lower(),
         "region":       (region or "").upper(),
-        "season":       record.get("season", CURRENT_SEASON),
+        "season":       int(season),
         "games":        record.get("games"),
         "hot_streak":   record.get("hot_streak"),
         "roach_streak": record.get("roach_streak"),

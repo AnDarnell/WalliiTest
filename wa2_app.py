@@ -479,6 +479,33 @@ def lb_upsert_player(region, player_name, record: dict):
 def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
     if not games:
         return
+
+    if season not in SEASONS:
+        season = CURRENT_SEASON
+    season_cfg = SEASONS[season]
+    season_start = datetime.fromisoformat(season_cfg["start"]).replace(tzinfo=timezone.utc)
+    season_end = datetime.fromisoformat(season_cfg["end"]).replace(tzinfo=timezone.utc) if season_cfg["end"] else None
+
+    def _parse_snapshot_time(ts):
+        if isinstance(ts, str) and ts.endswith("Z"):
+            ts = ts[:-1] + "+00:00"
+        dt = datetime.fromisoformat(ts)
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+    game_times = [_parse_snapshot_time(g["time"]) for g in games]
+    if season_end is not None:
+        if not all(season_start <= t <= season_end for t in game_times):
+            if DEBUG:
+                dlog(
+                    "Skipping upsert because games are outside selected season",
+                    player_name,
+                    region,
+                    season,
+                    game_times[0].isoformat(),
+                    game_times[-1].isoformat(),
+                )
+            return
+
     norm  = normalized_counts(games)
     total = len(games)
     avg   = sum(g["placement"] for g in games) / total
@@ -2501,8 +2528,9 @@ with tabs[0]:
                             st.info(f"Not found in {sp_region} - retrying as {detected}...")
                             try:
                                 st.session_state["sp_region"] = detected
-                                st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, detected)
+                                st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, detected, season=_sp_season)
                                 sp_region = detected
+                                compute_and_upsert(sp_player, st.session_state["sp_region"], st.session_state["sp_games"], season=_sp_season)
                                 _save_opp_buckets(sp_player, detected, st.session_state["sp_games"])
                             except Exception as e2:
                                 st.error(str(e2))

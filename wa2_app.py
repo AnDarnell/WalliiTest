@@ -493,18 +493,28 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
         return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
     game_times = [_parse_snapshot_time(g["time"]) for g in games]
-    if season_end is not None:
-        if not all(season_start <= t <= season_end for t in game_times):
-            if DEBUG:
-                dlog(
-                    "Skipping upsert because games are outside selected season",
-                    player_name,
-                    region,
-                    season,
-                    game_times[0].isoformat(),
-                    game_times[-1].isoformat(),
-                )
-            return
+    if not all(season_start <= t for t in game_times):
+        if DEBUG:
+            dlog(
+                "Skipping upsert because games start before selected season",
+                player_name,
+                region,
+                season,
+                game_times[0].isoformat(),
+                game_times[-1].isoformat(),
+            )
+        return
+    if season_end is not None and not all(t <= season_end for t in game_times):
+        if DEBUG:
+            dlog(
+                "Skipping upsert because games extend beyond selected season",
+                player_name,
+                region,
+                season,
+                game_times[0].isoformat(),
+                game_times[-1].isoformat(),
+            )
+        return
 
     norm  = normalized_counts(games)
     total = len(games)

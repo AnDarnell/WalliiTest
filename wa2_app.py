@@ -946,8 +946,15 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
 
     snapshots = sorted(snapshots, key=lambda x: x["snapshot_time"])
 
+    # Only use snapshots from the selected season.
+    snapshots = [
+        s for s in snapshots
+        if s["snapshot_time"] >= season_start_str
+        and (season_end_str is None or s["snapshot_time"] <= season_end_str)
+    ]
+
     if len(snapshots) < 2:
-        raise ValueError("Not enough snapshots to compute games.")
+        raise ValueError(f"No snapshots found for season {season}. Please check season selection or player history.")
 
     # ── 3. Save to Supabase ───────────────────────────────────────────────────
     if SUPABASE_ENABLED:

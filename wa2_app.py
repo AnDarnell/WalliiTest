@@ -946,11 +946,18 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
 
     snapshots = sorted(snapshots, key=lambda x: x["snapshot_time"])
 
-    # Only use snapshots from the selected season.
+    def _parse_snapshot_time(ts):
+        if isinstance(ts, str) and ts.endswith("Z"):
+            ts = ts[:-1] + "+00:00"
+        dt = datetime.fromisoformat(ts)
+        return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+    season_start = _parse_snapshot_time(season_start_str)
+    season_end = _parse_snapshot_time(season_end_str) if season_end_str is not None else None
+
     snapshots = [
         s for s in snapshots
-        if s["snapshot_time"] >= season_start_str
-        and (season_end_str is None or s["snapshot_time"] <= season_end_str)
+        if season_start <= _parse_snapshot_time(s["snapshot_time"]) <= (season_end if season_end is not None else datetime.max.replace(tzinfo=timezone.utc))
     ]
 
     if len(snapshots) < 2:

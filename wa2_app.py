@@ -491,7 +491,11 @@ def lb_upsert_player(region, player_name, record: dict):
 def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
     if not games:
         return
-
+    if not any(g["gain"] != 0 for g in games):
+            if DEBUG:
+                dlog("Skipping upsert - no actual games (all gains are 0)", player_name, region, season)
+            return
+    
     if season not in SEASONS:
         season = CURRENT_SEASON
     season_cfg = SEASONS[season]

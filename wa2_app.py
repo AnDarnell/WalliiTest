@@ -26,12 +26,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import streamlit as st
-import importlib
-_st_components = importlib.import_module("streamlit.components.v1")
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
 from urllib.parse import urlencode
 import html
+
+
+def _utc_now():
+    return datetime.now(timezone.utc)
+
+
+def _utc_now_iso_z():
+    return _utc_now().isoformat().replace("+00:00", "Z")
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
@@ -261,7 +267,7 @@ def _sb_upsert(region, player_name, record: dict):
         "bot2_count":       record.get("bot2_count"),
         "mmr_milestones":    record.get("mmr_milestones"),
         **({"matchup_scaling": record["matchup_scaling"]} if record.get("matchup_scaling") is not None else {}),
-        "updated_at":        datetime.utcnow().isoformat() + "Z",
+        "updated_at":        _utc_now_iso_z(),
     }
 
     if not SUPABASE_ENABLED:
@@ -616,7 +622,7 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
                 "first_10k_date": first_10k_date,
                 "cr":             int(current_mmr),
                 "mmr_milestones": json.dumps(_mmr_milestones),
-                "updated_at":     datetime.utcnow().isoformat() + "Z",
+                "updated_at":     _utc_now_iso_z(),
             })
         return
 
@@ -639,7 +645,7 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
         "bot2_count":      int(bot2_count),
         "mmr_milestones":  json.dumps(_mmr_milestones),
         "matchup_scaling": compute_matchup_scaling(games),
-        "updated_at":      datetime.utcnow().isoformat() + "Z",
+        "updated_at":      _utc_now_iso_z(),
     })
     _save_opp_buckets(player_name, region, games)
 
@@ -698,7 +704,7 @@ def _save_opp_buckets(player_name, region, games):
             "bucket_start": bk,
             "avg_placement": round(sum(bv) / len(bv), 4),
             "game_count": len(bv),
-            "updated_at": datetime.utcnow().isoformat() + "Z",
+            "updated_at": _utc_now_iso_z(),
         }
         for bk, bv in buckets.items() if len(bv) >= 1
     ]
@@ -1552,7 +1558,7 @@ def show_card_browser():
             cols = st.columns(cols_per_row)
             for i, card in enumerate(tier_cards):
                 col = cols[i % cols_per_row]
-                col.image(card["path_str"], use_container_width=True)
+                col.image(card["path_str"], width="stretch")
         return
 
     # ── Tribe & Tier filters ──────────────────────────────────────────────────
@@ -1590,7 +1596,7 @@ def show_card_browser():
             cols = st.columns(cols_per_row)
             for i, card in enumerate(tier_cards):
                 col = cols[i % cols_per_row]
-                col.image(card["path_str"], use_container_width=True)
+                col.image(card["path_str"], width="stretch")
 
     # ── Trinkets ──────────────────────────────────────────────────────────────
     elif card_type == "Trinkets":
@@ -1613,7 +1619,7 @@ def show_card_browser():
         cols_per_row = max(4, min(8, len(selected_tribes) * 2))
         cols = st.columns(cols_per_row)
         for i, card in enumerate(filtered):
-            cols[i % cols_per_row].image(card["path_str"], use_container_width=True)
+            cols[i % cols_per_row].image(card["path_str"], width="stretch")
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 
@@ -2950,7 +2956,7 @@ with tabs[0]:
                                 if any(g["mmr_after"] >= t for g in games)
                             }),
                             "matchup_scaling": compute_matchup_scaling(games),
-                            "updated_at":   datetime.utcnow().isoformat() + "Z",
+                            "updated_at":   _utc_now_iso_z(),
                         }
                     )
                 elif ENABLE_SESSION_TOPLISTS and total > 0:
@@ -2971,7 +2977,7 @@ with tabs[0]:
                                 for t in range(10000, 22000, 1000)
                                 if any(g["mmr_after"] >= t for g in games)
                             }),
-                            "updated_at":     datetime.utcnow().isoformat() + "Z",
+                            "updated_at":     _utc_now_iso_z(),
                         }
                     )
                 elif ENABLE_SESSION_TOPLISTS and first_10k_date:
@@ -2988,7 +2994,7 @@ with tabs[0]:
                                 for t in range(10000, 22000, 1000)
                                 if any(g["mmr_after"] >= t for g in games)
                             }),
-                            "updated_at":     datetime.utcnow().isoformat() + "Z",
+                            "updated_at":     _utc_now_iso_z(),
                         }
                     )
 
@@ -3012,7 +3018,7 @@ with tabs[0]:
                     _h2h_cols = st.columns([3, 1, 1])
                     _h2h_name = _h2h_cols[0].text_input("H2H player", placeholder="Compare stats with player…", label_visibility="collapsed", key="h2h_name_input")
                     _h2h_region = _h2h_cols[1].selectbox("H2H region", VALID_REGIONS, key="h2h_region_input", label_visibility="collapsed")
-                    _h2h_submitted = _h2h_cols[2].form_submit_button("Compare", use_container_width=True)
+                    _h2h_submitted = _h2h_cols[2].form_submit_button("Compare", width="stretch")
                 if _h2h_submitted and _h2h_name.strip():
                     import time as _time
                     _h2h_last  = st.session_state.get("h2h_last_time", 0)
@@ -3100,7 +3106,7 @@ with tabs[0]:
 
                     st.dataframe(
                         _df_h2h.style.apply(_color_h2h, axis=None),
-                        use_container_width=True,
+                        width="stretch",
                         height=495,
                         column_config={
                             _n1:    st.column_config.TextColumn(width="small"),
@@ -3729,7 +3735,7 @@ with tabs[2]:
         _report_player  = st.text_input("Player name")
         _report_message = st.text_area("What seems wrong?", height=100)
         _submitted = st.form_submit_button("Send report")
-    _now = datetime.utcnow()
+    _now = _utc_now()
     _last_report = st.session_state.get("last_report_time")
     _cooldown_secs = 300  # 5 minutes
     if _submitted:
@@ -3753,13 +3759,18 @@ _all_rows = _sb_fetch_all()
 _ts_values = [r["updated_at"] for r in _all_rows if r.get("updated_at")]
 if _ts_values:
     _latest_ts = max(_ts_values)
-    _st_components.html(
-        f"""<div style='text-align:center;color:#333;font-size:0.75rem;font-family:sans-serif;' id="fts">Data last updated ...</div>
-<script>
-var d = new Date("{_latest_ts}");
-document.getElementById("fts").textContent = "Data last updated " + d.toLocaleString(undefined, {{day:"numeric",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}}) + "  \u00b7  v{APP_VERSION}";
-</script>""",
-        height=30,
+    try:
+        _latest_dt = datetime.fromisoformat(_latest_ts.replace("Z", "+00:00"))
+        if _latest_dt.tzinfo is None:
+            _latest_dt = _latest_dt.replace(tzinfo=timezone.utc)
+        _latest_label = _latest_dt.astimezone().strftime("%d %b %Y, %H:%M")
+    except Exception:
+        _latest_label = _latest_ts
+    st.markdown(
+        "<div style='text-align:center;color:#333;font-size:0.75rem;font-family:sans-serif;'>"
+        f"Data last updated {html.escape(_latest_label)} &nbsp;&middot;&nbsp; v{APP_VERSION}"
+        "</div>",
+        unsafe_allow_html=True,
     )
 
 # streamlit run wa2_app.py

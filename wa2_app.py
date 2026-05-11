@@ -16,8 +16,6 @@ Fallback:
   export.csv (used if the region-specific file is missing)
 """
 
-APP_VERSION = "1.0.0"
-
 import json
 import re
 import requests
@@ -30,6 +28,23 @@ from datetime import datetime, timezone, timedelta, date
 from urllib.parse import urlencode
 import html
 
+from wa2_cards import show_card_browser
+from wa2_config import (
+    APP_VERSION,
+    CSV_BY_REGION,
+    CURRENT_SEASON,
+    DEBUG,
+    DEFAULT_CSV_NAME,
+    ENABLE_SESSION_TOPLISTS,
+    MIN_GAMES_NEIGHBOR,
+    PLAYER_STATS_TABLE,
+    SEASONS,
+    THRESHOLD_BASE,
+    THRESHOLD_INCREASE,
+    TOPLIST_BACKEND,
+    TOP_N,
+    VALID_REGIONS,
+)
 from wa2_charts import (
     delta_color,
     diff_pct_color,
@@ -56,26 +71,6 @@ def _utc_now_iso_z():
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-DEBUG = False  # set True if you want debug panels + logs
-
-SEASONS = {
-    12: {"start": "2025-12-01", "end": "2026-04-13"},
-    13: {"start": "2026-04-14", "end": None},  # None = pågående säsong
-    }
-CURRENT_SEASON = 13
-THRESHOLD_BASE     = 9000
-THRESHOLD_INCREASE = 1000
-VALID_REGIONS      = ["NA", "EU", "AP", "CN"]
-
-DEFAULT_CSV_NAME   = "export.csv"
-
-CSV_BY_REGION = {
-    "EU": "export_eu.csv",
-    "NA": "export_na.csv",
-    "AP": "export_ap.csv",
-    "CN": "export_cn.csv",
-}
-
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = (
     st.secrets.get("SUPABASE_KEY")
@@ -94,16 +89,9 @@ SUPABASE_HEADERS = {
     "Content-Profile": "public",
 }
 
-MIN_GAMES_NEIGHBOR = 300
-
 TWITCH_CLIENT_ID     = st.secrets.get("TWITCH_CLIENT_ID", "")
 TWITCH_CLIENT_SECRET = st.secrets.get("TWITCH_CLIENT_SECRET", "")
 YOUTUBE_API_KEY      = st.secrets.get("YOUTUBE_API_KEY", "")
-
-ENABLE_SESSION_TOPLISTS = True
-TOPLIST_BACKEND = "supabase"     # "supabase" or "session"
-PLAYER_STATS_TABLE = "player_stats"
-TOP_N = 10
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1212,242 +1200,6 @@ def fetch_top_n_for_scan(region, n=100):
 # ── Weighted binned curve (RatingAvg tab) ─────────────────────────────────────
 
 # ── Card Browser ──────────────────────────────────────────────────────────────
-
-from pathlib import Path
-
-CARDS_ROOT = Path(__file__).parent / "cards"  # ändra till din mapp
-
-TRIBES = [
-    "beast", "demons", "dragons", "elementals",
-    "mechs", "murloc", "naga", "neutral",
-    "pirates", "quilboar", "undead",
-]
-TRIBE_LABELS = {t: t.capitalize() for t in TRIBES}
-TIERS = [1, 2, 3, 4, 5, 6]
-
-
-@st.cache_data(show_spinner=False)
-def _get_minion_images(tribes, tiers):
-    from collections import defaultdict
-    by_name = defaultdict(lambda: defaultdict(list))
-
-    # Skanna ALLA tribes för att hitta delade kort
-    for tribe in TRIBES:
-        folder = CARDS_ROOT / f"S13_{tribe}" / "minions"
-        for tier in tiers:
-            tier_folder = folder / f"tier {tier}"
-            if tier_folder.exists():
-                for img in sorted(tier_folder.glob("*.png")):
-                    by_name[img.name][tier].append((tribe, img))
-
-    # Filtrera: visa bara kort som tillhör minst en vald tribe
-    result = []
-    selected_set = set(tribes)
-    for name, tiers_dict in by_name.items():
-        for tier, entries in tiers_dict.items():
-            tribes_list = [t for t, _ in entries]
-            if not selected_set.intersection(tribes_list):
-                continue
-            path = entries[0][1]
-            result.append((tribes_list, tier, path))
-
-    result.sort(key=lambda x: (x[1], x[2].name))
-    return result
-
-
-@st.cache_data(show_spinner=False)
-def _get_trinket_images(tribes, trinket_type):
-    """trinket_type: 'trinket_greater' eller 'trinket_lesser'"""
-    result = []
-    for tribe in tribes:
-        folder = CARDS_ROOT / f"S13_{tribe}" / trinket_type
-        if folder.exists():
-            for img in sorted(folder.glob("*.png")):
-                result.append((tribe, img))
-    return result
-
-
-@st.cache_data(show_spinner=False)
-def _get_spell_images():
-    folder = CARDS_ROOT / "S13_spells"
-    if not folder.exists():
-        return []
-    return list(sorted(folder.glob("*.png")))
-
-@st.cache_data(show_spinner=False)
-def _get_all_spell_cards():
-    result = []
-    folder = CARDS_ROOT / "S13_spells"
-    if not folder.exists():
-        return result
-    category_folder = folder / "staying"
-    if not category_folder.exists():
-        return result
-    for tier in TIERS:
-        tier_folder = category_folder / f"tier {tier}"
-        if not tier_folder.exists():
-            continue
-        for img in sorted(tier_folder.glob("*.png")):
-            result.append({
-                "name": img.stem,
-                "display_name": img.stem.replace("_", " "),
-                "tier": tier,
-                "path_str": str(img),
-            })
-    result.sort(key=lambda x: (x["tier"], x["name"]))
-    return result
-
-@st.cache_data(show_spinner=False)
-def _get_all_trinket_cards():
-    """Cache all trinket image paths once — filesystem scan happens only on first call."""
-    result = []
-    for trinket_type in ("trinket_greater", "trinket_lesser"):
-        for tribe in TRIBES:
-            folder = CARDS_ROOT / f"S13_{tribe}" / trinket_type
-            if folder.exists():
-                for img in sorted(folder.glob("*.png")):
-                    result.append({
-                        "tribe": tribe,
-                        "trinket_type": trinket_type,
-                        "name": img.stem,
-                        "path_str": str(img),
-                    })
-    return result
-
-@st.cache_data(show_spinner=False)
-def _get_all_minion_cards():
-    """Cache all minion card metadata + paths once — filesystem scan happens only on first call."""
-    from collections import defaultdict
-    by_name = defaultdict(lambda: defaultdict(list))
-    for tribe in TRIBES:
-        folder = CARDS_ROOT / f"S13_{tribe}" / "minions"
-        for tier in TIERS:
-            tier_folder = folder / f"tier {tier}"
-            if tier_folder.exists():
-                for img in sorted(tier_folder.glob("*.png")):
-                    by_name[img.stem][tier].append((tribe, img))
-    result = []
-    for name, tiers_dict in by_name.items():
-        for tier, entries in tiers_dict.items():
-            tribes_list = [t for t, _ in entries]
-            path = entries[0][1]
-            result.append({
-                "name": name,
-                "display_name": name.replace("_", " "),
-                "tier": tier,
-                "tribes": tribes_list,
-                "path_str": str(path),
-            })
-    result.sort(key=lambda x: (x["tier"], x["name"]))
-    return result
-
-
-def show_card_browser():
-    st.markdown("""
-    <style>
-    div[data-testid="stCheckbox"] label p { font-size: 1rem !important; }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.markdown("## Card Library – Season 13")
-
-    # ── Typ-väljare ───────────────────────────────────────────────────────────
-    card_type = st.radio(
-        "Type",
-        ["Minions", "Trinkets", "Spells*"],
-        horizontal=True,
-        key="cb_type",
-    )
-
-    _fcol1, _fcol2 = st.columns(2)
-
-    if card_type == "Spells*":
-        tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
-        selected_tier_label = _fcol1.selectbox("Tier", tier_options, index=0, key="cb_spell_tier_select")
-        selected_tiers = TIERS if selected_tier_label == "All" else [int(selected_tier_label.split(" ")[1])]
-
-        all_cards = _get_all_spell_cards()
-        if not all_cards:
-            st.info("Updating soon...")
-            return
-
-        filtered = [c for c in all_cards if c["tier"] in selected_tiers]
-
-        if not filtered:
-            st.info("No cards matched the filter.")
-            return
-
-        for tier in selected_tiers:
-            tier_cards = [c for c in filtered if c["tier"] == tier]
-            if not tier_cards:
-                continue
-            st.markdown(f"### ⭐ Tier {tier}")
-            cols_per_row = max(4, min(8, len(tier_cards)))
-            cols = st.columns(cols_per_row)
-            for i, card in enumerate(tier_cards):
-                col = cols[i % cols_per_row]
-                col.image(card["path_str"], width="stretch")
-        return
-
-    # ── Tribe & Tier filters ──────────────────────────────────────────────────
-    tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
-    selected_label = _fcol1.selectbox("Tribe", tribe_options, index=tribe_options.index("Beast"), key="cb_tribe_select")
-    if selected_label == "All":
-        selected_tribes = list(TRIBES)
-    else:
-        selected_tribes = [t for t in TRIBES if TRIBE_LABELS[t] == selected_label]
-
-    # ── Minions ───────────────────────────────────────────────────────────────
-    # NY KOD:
-    if card_type == "Minions":
-        tier_options = ["All"] + [f"Tier {t}" for t in TIERS]
-        selected_tier_label = _fcol2.selectbox("Tier", tier_options, index=0, key="cb_tier_select")
-        selected_tiers = TIERS if selected_tier_label == "All" else [int(selected_tier_label.split(" ")[1])]
-
-        all_cards = _get_all_minion_cards()  # cachat med b64
-        selected_set = set(selected_tribes)
-        filtered = [
-            c for c in all_cards
-            if c["tier"] in selected_tiers and selected_set.intersection(c["tribes"])
-        ]
-
-        if not filtered:
-            st.info("No cards matched the filter.")
-            return
-
-        for tier in selected_tiers:
-            tier_cards = [c for c in filtered if c["tier"] == tier]
-            if not tier_cards:
-                continue
-            st.markdown(f"### ⭐ Tier {tier}")
-            cols_per_row = max(4, min(8, len(selected_tribes) * 2))
-            cols = st.columns(cols_per_row)
-            for i, card in enumerate(tier_cards):
-                col = cols[i % cols_per_row]
-                col.image(card["path_str"], width="stretch")
-
-    # ── Trinkets ──────────────────────────────────────────────────────────────
-    elif card_type == "Trinkets":
-        trinket_type = st.radio(
-            "Trinket type", ["Greater", "Lesser"], horizontal=True, key="cb_trinket_type"
-        )
-        folder_name = "trinket_greater" if trinket_type == "Greater" else "trinket_lesser"
-
-        all_trinkets = _get_all_trinket_cards()
-        selected_set = set(selected_tribes)
-        filtered = [
-            t for t in all_trinkets
-            if t["trinket_type"] == folder_name and t["tribe"] in selected_set
-        ]
-
-        if not filtered:
-            st.info("No trinkets matched the filter.")
-            return
-
-        cols_per_row = max(4, min(8, len(selected_tribes) * 2))
-        cols = st.columns(cols_per_row)
-        for i, card in enumerate(filtered):
-            cols[i % cols_per_row].image(card["path_str"], width="stretch")
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 

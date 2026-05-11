@@ -6,7 +6,6 @@ Requires:
   pip install streamlit requests matplotlib numpy pandas
 
 CSV (bundled with app):
-  Put your region CSVs next to this file.
   Expected columns: lb_mmr, current_mmr, avg_place, games
 
 Recommended filenames (auto-picked by region):
@@ -16,49 +15,34 @@ Fallback:
   export.csv (used if the region-specific file is missing)
 """
 
+
 import json
 import re
 import requests
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import streamlit as st
 from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
 from urllib.parse import urlencode
 import html
 
-from wa2_cards import show_card_browser
 from wa2_config import (
-    APP_VERSION,
-    CSV_BY_REGION,
-    CURRENT_SEASON,
-    DEBUG,
-    DEFAULT_CSV_NAME,
-    ENABLE_SESSION_TOPLISTS,
-    MIN_GAMES_NEIGHBOR,
-    PLAYER_STATS_TABLE,
-    SEASONS,
-    THRESHOLD_BASE,
-    THRESHOLD_INCREASE,
-    TOPLIST_BACKEND,
-    TOP_N,
-    VALID_REGIONS,
+    APP_VERSION, DEBUG, SEASONS, CURRENT_SEASON,
+    THRESHOLD_BASE, THRESHOLD_INCREASE, VALID_REGIONS,
+    DEFAULT_CSV_NAME, CSV_BY_REGION, MIN_GAMES_NEIGHBOR,
+    ENABLE_SESSION_TOPLISTS, TOPLIST_BACKEND, PLAYER_STATS_TABLE, TOP_N,
 )
 from wa2_charts import (
-    delta_color,
-    diff_pct_color,
-    make_chart,
-    make_neighbor_chart,
-    norm_to_pct,
-    normalized_counts,
-    style_dark_axes,
+    style_dark_axes, normalized_counts, norm_to_pct,
+    make_chart, make_neighbor_chart, delta_color, diff_pct_color,
 )
 from wa2_rating import (
-    binned_weighted_curve,
-    interp_with_extrap,
-    load_rating_curve,
+    interp_with_extrap, weighted_quantile, binned_weighted_curve, load_rating_curve,
 )
+from wa2_cards import show_card_browser
 
 
 def _utc_now():
@@ -68,8 +52,6 @@ def _utc_now():
 def _utc_now_iso_z():
     return _utc_now().isoformat().replace("+00:00", "Z")
 
-
-# ── Config ────────────────────────────────────────────────────────────────────
 
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = (
@@ -89,6 +71,7 @@ SUPABASE_HEADERS = {
     "Content-Profile": "public",
 }
 
+
 TWITCH_CLIENT_ID     = st.secrets.get("TWITCH_CLIENT_ID", "")
 TWITCH_CLIENT_SECRET = st.secrets.get("TWITCH_CLIENT_SECRET", "")
 YOUTUBE_API_KEY      = st.secrets.get("YOUTUBE_API_KEY", "")
@@ -99,29 +82,6 @@ YOUTUBE_API_KEY      = st.secrets.get("YOUTUBE_API_KEY", "")
 def dlog(*args):
     if DEBUG:
         print(*args)
-
-def _extract_wallii_rank(page_html):
-    rank_block = re.search(r'>\s*Rank\s*<(.{0,1000})', page_html, re.DOTALL | re.IGNORECASE)
-    if rank_block:
-        span_match = re.search(
-            r'<span[^>]*class="[^"]*\btext-sm\b[^"]*\bfont-semibold\b[^"]*\btext-foreground\b[^"]*"[^>]*>\s*#?\s*([\d,]+)\s*</span>',
-            rank_block.group(1),
-            re.DOTALL | re.IGNORECASE,
-        )
-        if span_match:
-            return int(span_match.group(1).replace(",", ""))
-
-    text = re.sub(r"<[^>]+>", " ", html.unescape(page_html))
-    text = re.sub(r"\s+", " ", text)
-    text_match = re.search(r"\bRank\s+#?\s*([\d,]+)\b", text, re.IGNORECASE)
-    if text_match:
-        return int(text_match.group(1).replace(",", ""))
-
-    old_match = re.search(r'text-2xl text-white">\s*#?\s*([\d,]+)\s*<', page_html)
-    if old_match:
-        return int(old_match.group(1).replace(",", ""))
-
-    return None
 
 def get_threshold(snapshot_time_str, season_start_str=None):
     if season_start_str is None:
@@ -965,14 +925,10 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
         raise ValueError(f"No cached data found for season {season}.")
 
     # ── 2. Pågående säsong: försök Supabase-cache först ──────────────────────
-    cached_games = None
-    cached_rank = None
     if SUPABASE_ENABLED:
         cached, _, cached_rank = _sb_get_cached_snapshots(player_name, region, season=season)
         if cached and len(cached) >= 2:
-            cached_games = _snapshots_to_games(cached, season_start_str=season_start_str)
-            if cached_rank is not None:
-                return cached_games, region, cached_rank
+            return _snapshots_to_games(cached, season_start_str=season_start_str), region, cached_rank
 
     # ── 2. Fetch from wallii.gg ───────────────────────────────────────────────
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -989,20 +945,8 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
         raise ValueError("Player not found - check if correct region.")
     r.raise_for_status()
 
-    current_rank = _extract_wallii_rank(r.text)
-    dlog(
-        "DEBUG current_rank:",
-        current_rank,
-        "| rank snippet:",
-        repr(r.text[r.text.lower().find("rank") : r.text.lower().find("rank") + 500])
-        if "rank" in r.text.lower()
-        else "rank NOT FOUND",
-    )
-
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', r.text, re.DOTALL)
     if not match:
-        if cached_games is not None:
-            return cached_games, region, current_rank
         raise ValueError("Player not found - check spelling and region.")
 
     data_str      = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
@@ -1010,6 +954,10 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
     snapshots_all = [s for s in snapshots_all if s["game_mode"] == "0"]
     available_regions = list({s["region"].upper() for s in snapshots_all})
     snapshots     = [s for s in snapshots_all if s["region"].upper() == region.upper()]
+
+    rank_match   = re.search(r'text-2xl text-white">(\d+)<', r.text)
+    current_rank = int(rank_match.group(1)) if rank_match else None
+    dlog("DEBUG rank_match:", rank_match, "| snippet:", repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND")
 
     if not snapshots and available_regions:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
@@ -1039,9 +987,6 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
         _sb_save_snapshots(player_name, region, snapshots, current_rank)
 
     return _snapshots_to_games(snapshots, season_start_str=season_start_str), region, current_rank
-
-
-# ── Normalize ─────────────────────────────────────────────────────────────────
 
 
 # ── Leaderboard neighbor lookup ───────────────────────────────────────────────
@@ -1196,166 +1141,6 @@ def fetch_top_n_for_scan(region, n=100):
             names.append(name)
     return names
 
-
-# ── Weighted binned curve (RatingAvg tab) ─────────────────────────────────────
-
-# ── Card Browser ──────────────────────────────────────────────────────────────
-
-# ── Page styling ──────────────────────────────────────────────────────────────
-
-st.set_page_config(page_title="Placement Stats", layout="centered", page_icon="nerdbob2.png")
-st.logo("nerdbob.png")
-
-st.markdown("""
-<style>
-html, body, [class*="css"] { font-family: 'Georgia', serif; }
-.stApp { background-color: #0e0e0e; color: #ccc; }
-
-.stTextInput input, .stNumberInput input {
-    background-color: #161616 !important;
-    border: 1px solid #2a2a2a !important;
-    color: #eee !important;
-    border-radius: 4px !important;
-}
-.stTextInput input:focus, .stNumberInput input:focus { border-color: #d4a843 !important; }
-.stTextInput label, .stSelectbox label, .stNumberInput label {
-    color: #666 !important; font-size: 0.75rem !important;
-    text-transform: uppercase !important; letter-spacing: 0.07em !important;
-}
-.stSelectbox > div > div {
-    background-color: #161616 !important;
-    border: 1px solid #2a2a2a !important;
-    color: #eee !important;
-    border-radius: 4px !important;
-}
-.stFormSubmitButton button, .stButton button {
-    background-color: #161616 !important;
-    color: #d4a843 !important;
-    border: 1px solid #d4a843 !important;
-    border-radius: 4px !important;
-    font-size: 0.85rem !important;
-    letter-spacing: 0.08em !important;
-    text-transform: uppercase !important;
-}
-.stFormSubmitButton button:hover, .stButton button:hover {
-    background-color: #d4a843 !important;
-    color: #0e0e0e !important;
-}
-.streamlit-expanderHeader {
-    background-color: #161616 !important;
-    border: 1px solid #2a2a2a !important;
-    color: #666 !important; font-size: 0.8rem !important;
-    border-radius: 4px !important;
-}
-.stTable th { color: #555 !important; font-size: 0.75rem !important; text-transform: uppercase !important; }
-.stTable td { color: #bbb !important; }
-hr { border-color: #1e1e1e !important; }
-#MainMenu, footer, header { visibility: hidden; }
-h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !important; }
-
-/* Show-more toggle */
-.lb-show-more button {
-    background: transparent !important;
-    border: none !important;
-    color: #444 !important;
-    font-size: 0.72rem !important;
-    padding: 0.05rem 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.06em !important;
-    font-weight: 600 !important;
-    box-shadow: none !important;
-}
-.lb-show-more button:hover { color: #888 !important; }
-.lb-show-more button:disabled, .lb-show-more button[disabled] { text-decoration: line-through !important; opacity: 1 !important; }
-
-.lb-hover-row {
-    position: relative;
-    overflow: visible !important;
-}
-.lb-hover-card {
-    position: absolute;
-    left: 0;
-    top: calc(100% + 6px);
-    min-width: 220px;
-    max-width: 260px;
-    background: rgba(14, 14, 14, 0.98);
-    border: 1px solid #3a3a3a;
-    border-radius: 8px;
-    padding: 0.6rem 0.75rem;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-4px);
-    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
-    pointer-events: none;
-    z-index: 100;
-}
-.lb-hover-name {
-    position: relative;
-    display: inline-block;
-}
-.lb-hover-name:hover {
-    z-index: 40;
-}
-.lb-hover-name:hover .lb-hover-card {
-    opacity: 1;
-    visibility: visible;
-    transform: translateY(0);
-}
-.lb-hover-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 0.75rem;
-    color: #eee;
-    font-size: 0.8rem;
-    font-weight: 700;
-    margin-bottom: 0.45rem;
-}
-.lb-hover-meta {
-    color: #777;
-    font-size: 0.72rem;
-    font-weight: 500;
-    white-space: nowrap;
-}
-.lb-hover-grid {
-    display: grid;
-    grid-template-columns: auto auto;
-    column-gap: 0.8rem;
-    row-gap: 0.22rem;
-    align-items: baseline;
-}
-.lb-hover-label {
-    color: #666;
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-.lb-hover-value {
-    color: #ddd;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-align: right;
-}
-
-/* Icon button wrapper (Home arrow) */
-.icon-btn button {
-    background: transparent !important;
-    border: 1px solid #2a2a2a !important;
-    color: #999 !important;
-    padding: 0.15rem 0.45rem !important;
-    border-radius: 6px !important;
-    font-size: 1.0rem !important;
-    line-height: 1.1rem !important;
-}
-.icon-btn button:hover {
-    border-color: #d4a843 !important;
-    color: #d4a843 !important;
-}
-</style>
-""", unsafe_allow_html=True)
 
 import base64 as _b64
 _logo_b64 = _b64.b64encode(open("nerdbob.png", "rb").read()).decode()

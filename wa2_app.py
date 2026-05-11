@@ -112,6 +112,29 @@ def dlog(*args):
     if DEBUG:
         print(*args)
 
+def _extract_wallii_rank(page_html):
+    rank_block = re.search(r'>\s*Rank\s*<(.{0,1000})', page_html, re.DOTALL | re.IGNORECASE)
+    if rank_block:
+        span_match = re.search(
+            r'<span[^>]*class="[^"]*\btext-sm\b[^"]*\bfont-semibold\b[^"]*\btext-foreground\b[^"]*"[^>]*>\s*#?\s*([\d,]+)\s*</span>',
+            rank_block.group(1),
+            re.DOTALL | re.IGNORECASE,
+        )
+        if span_match:
+            return int(span_match.group(1).replace(",", ""))
+
+    text = re.sub(r"<[^>]+>", " ", html.unescape(page_html))
+    text = re.sub(r"\s+", " ", text)
+    text_match = re.search(r"\bRank\s+#?\s*([\d,]+)\b", text, re.IGNORECASE)
+    if text_match:
+        return int(text_match.group(1).replace(",", ""))
+
+    old_match = re.search(r'text-2xl text-white">\s*#?\s*([\d,]+)\s*<', page_html)
+    if old_match:
+        return int(old_match.group(1).replace(",", ""))
+
+    return None
+
 def get_threshold(snapshot_time_str, season_start_str=None):
     if season_start_str is None:
         season_start_str = SEASONS[CURRENT_SEASON]["start"]
@@ -954,10 +977,14 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
         raise ValueError(f"No cached data found for season {season}.")
 
     # ── 2. Pågående säsong: försök Supabase-cache först ──────────────────────
+    cached_games = None
+    cached_rank = None
     if SUPABASE_ENABLED:
         cached, _, cached_rank = _sb_get_cached_snapshots(player_name, region, season=season)
         if cached and len(cached) >= 2:
-            return _snapshots_to_games(cached, season_start_str=season_start_str), region, cached_rank
+            cached_games = _snapshots_to_games(cached, season_start_str=season_start_str)
+            if cached_rank is not None:
+                return cached_games, region, cached_rank
 
     # ── 2. Fetch from wallii.gg ───────────────────────────────────────────────
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -974,8 +1001,20 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
         raise ValueError("Player not found - check if correct region.")
     r.raise_for_status()
 
+    current_rank = _extract_wallii_rank(r.text)
+    dlog(
+        "DEBUG current_rank:",
+        current_rank,
+        "| rank snippet:",
+        repr(r.text[r.text.lower().find("rank") : r.text.lower().find("rank") + 500])
+        if "rank" in r.text.lower()
+        else "rank NOT FOUND",
+    )
+
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', r.text, re.DOTALL)
     if not match:
+        if cached_games is not None:
+            return cached_games, region, current_rank
         raise ValueError("Player not found - check spelling and region.")
 
     data_str      = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
@@ -983,10 +1022,6 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
     snapshots_all = [s for s in snapshots_all if s["game_mode"] == "0"]
     available_regions = list({s["region"].upper() for s in snapshots_all})
     snapshots     = [s for s in snapshots_all if s["region"].upper() == region.upper()]
-
-    rank_match   = re.search(r'text-2xl text-white">(\d+)<', r.text)
-    current_rank = int(rank_match.group(1)) if rank_match else None
-    dlog("DEBUG rank_match:", rank_match, "| snippet:", repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND")
 
     if not snapshots and available_regions:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())

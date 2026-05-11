@@ -1142,6 +1142,162 @@ def fetch_top_n_for_scan(region, n=100):
     return names
 
 
+# ── Page styling ──────────────────────────────────────────────────────────────
+
+st.set_page_config(page_title="Placement Stats", layout="centered", page_icon="nerdbob2.png")
+st.logo("nerdbob.png")
+
+st.markdown("""
+<style>
+html, body, [class*="css"] { font-family: 'Georgia', serif; }
+.stApp { background-color: #0e0e0e; color: #ccc; }
+
+.stTextInput input, .stNumberInput input {
+    background-color: #161616 !important;
+    border: 1px solid #2a2a2a !important;
+    color: #eee !important;
+    border-radius: 4px !important;
+}
+.stTextInput input:focus, .stNumberInput input:focus { border-color: #d4a843 !important; }
+.stTextInput label, .stSelectbox label, .stNumberInput label {
+    color: #666 !important; font-size: 0.75rem !important;
+    text-transform: uppercase !important; letter-spacing: 0.07em !important;
+}
+.stSelectbox > div > div {
+    background-color: #161616 !important;
+    border: 1px solid #2a2a2a !important;
+    color: #eee !important;
+    border-radius: 4px !important;
+}
+.stFormSubmitButton button, .stButton button {
+    background-color: #161616 !important;
+    color: #d4a843 !important;
+    border: 1px solid #d4a843 !important;
+    border-radius: 4px !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+}
+.stFormSubmitButton button:hover, .stButton button:hover {
+    background-color: #d4a843 !important;
+    color: #0e0e0e !important;
+}
+.streamlit-expanderHeader {
+    background-color: #161616 !important;
+    border: 1px solid #2a2a2a !important;
+    color: #666 !important; font-size: 0.8rem !important;
+    border-radius: 4px !important;
+}
+.stTable th { color: #555 !important; font-size: 0.75rem !important; text-transform: uppercase !important; }
+.stTable td { color: #bbb !important; }
+hr { border-color: #1e1e1e !important; }
+#MainMenu, footer, header { visibility: hidden; }
+h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !important; }
+
+/* Show-more toggle */
+.lb-show-more button {
+    background: transparent !important;
+    border: none !important;
+    color: #444 !important;
+    font-size: 0.72rem !important;
+    padding: 0.05rem 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.06em !important;
+    font-weight: 600 !important;
+    box-shadow: none !important;
+}
+.lb-show-more button:hover { color: #888 !important; }
+.lb-show-more button:disabled, .lb-show-more button[disabled] { text-decoration: line-through !important; opacity: 1 !important; }
+
+.lb-hover-row {
+    position: relative;
+    overflow: visible !important;
+}
+.lb-hover-card {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    min-width: 220px;
+    max-width: 260px;
+    background: rgba(14, 14, 14, 0.98);
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+    pointer-events: none;
+    z-index: 100;
+}
+.lb-hover-name {
+    position: relative;
+    display: inline-block;
+}
+.lb-hover-name:hover {
+    z-index: 40;
+}
+.lb-hover-name:hover .lb-hover-card {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.lb-hover-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+    color: #eee;
+    font-size: 0.8rem;
+    font-weight: 700;
+    margin-bottom: 0.45rem;
+}
+.lb-hover-meta {
+    color: #777;
+    font-size: 0.72rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.lb-hover-grid {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 0.8rem;
+    row-gap: 0.22rem;
+    align-items: baseline;
+}
+.lb-hover-label {
+    color: #666;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.lb-hover-value {
+    color: #ddd;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: right;
+}
+
+/* Icon button wrapper (Home arrow) */
+.icon-btn button {
+    background: transparent !important;
+    border: 1px solid #2a2a2a !important;
+    color: #999 !important;
+    padding: 0.15rem 0.45rem !important;
+    border-radius: 6px !important;
+    font-size: 1.0rem !important;
+    line-height: 1.1rem !important;
+}
+.icon-btn button:hover {
+    border-color: #d4a843 !important;
+    color: #d4a843 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 import base64 as _b64
 _logo_b64 = _b64.b64encode(open("nerdbob.png", "rb").read()).decode()
 st.markdown(f"""

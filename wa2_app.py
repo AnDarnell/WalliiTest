@@ -955,10 +955,26 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
     available_regions = list({s["region"].upper() for s in snapshots_all})
     snapshots     = [s for s in snapshots_all if s["region"].upper() == region.upper()]
 
-    rank_match   = re.search(r'text-2xl text-white">(\d+)<', r.text)
-    current_rank = int(rank_match.group(1)) if rank_match else None
-    dlog("DEBUG rank_match:", rank_match, "| snippet:", repr(r.text[r.text.find("text-2xl"):r.text.find("text-2xl")+60]) if "text-2xl" in r.text else "text-2xl NOT FOUND")
-
+    current_rank = None
+    if SUPABASE_ENABLED:
+        try:
+            day_start = _latest_day_start(game_mode=0)
+            url_lb = f"{SUPABASE_BASE}/rest/v1/daily_leaderboard_stats"
+            qs = urlencode([
+                ("select",              "rank,players!inner(player_name)"),
+                ("region",              f"eq.{region.upper()}"),
+                ("game_mode",           "eq.0"),
+                ("day_start",           f"eq.{day_start}"),
+                ("players.player_name", f"ilike.{player_name}"),
+                ("limit",               "1"),
+            ])
+            r2 = requests.get(f"{url_lb}?{qs}", headers=_supabase_headers(), timeout=10)
+            rows2 = r2.json()
+            if rows2:
+                current_rank = int(rows2[0]["rank"])
+        except Exception as e:
+            dlog("DEBUG rank lookup failed:", e)
+            
     if not snapshots and available_regions:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
         raise ValueError(f"No data found for {region}. Player appears to be in: {other}.")
@@ -1624,15 +1640,15 @@ with tabs[0]:
                     )
 
                 lists = [
-                    ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Mean placement across all recorded games. Lower is better."),
+                    ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Average placement across recorded games this season. Lower is better."),
                     ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
                     ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])} games",   "Longest consecutive 1st streak of placement."),
                     ("Top 4 %",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
                     ("Roach streak",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])} games", "Longest consecutive streak of Top 4 place finishes."),
                     ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Lower = less affected by tilt.", "Min 30 games with 7th/8th placement"),
                     ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Higher = more affected by tilt.", "Min 30 games with 7th/8th placement"),
-                    ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Aggressive players finish at the extremes more often - more 1st and 7th/8th places - suggesting a high-risk, high-reward approach. Higher = more aggressive."),
-                    ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Defensive players finish in the middle more often - fewer 1st and 7th/8th places - suggesting a consistent, low-risk approach. Lower = more defensive."),
+                    ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Aggressive players finish at the extremes more often; more 1st and 7th/8th places - suggesting a high-risk, high-reward approach. Higher = more aggressive."),
+                    ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Defensive players finish in the middle more often; fewer 1st and 7th/8th places - suggesting a consistent, low-risk approach. Lower = more defensive."),
                     ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f}<span style='color:#555;font-size:0.78em;margin-left:3px;'>avg</span> ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
                     ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve. Requires at least 300 games this season."),
                     ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
@@ -2377,7 +2393,7 @@ with tabs[0]:
                         else "#4a8c5c"
                     )
                     _mean_diff    = sum(_tilt_diffs) / len(_tilt_diffs)
-                    tooltip       = f"Avg placement change in the 3 games after a 7th/8th, compared to the 50-game baseline before it. Mean diff: {_mean_diff:+.2f}. (Lower = better)"
+                    tooltip       = f"How much better or worse a player performs following a bad result, where 1.00 means no change. Mean diff: {_mean_diff:+.2f}. (Lower = better)"
                     trigger_count = sum(1 for p in placements if p >= 7)
                     asterisk      = "*" if trigger_count < 40 else ""
                     asterisk_tip  = f" title='Low sample size: only {trigger_count} games with placement 7-8'" if trigger_count < 40 else ""

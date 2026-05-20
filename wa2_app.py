@@ -53,6 +53,34 @@ def _utc_now_iso_z():
     return _utc_now().isoformat().replace("+00:00", "Z")
 
 
+def _parse_iso_utc(ts):
+    if isinstance(ts, str) and ts.endswith("Z"):
+        ts = ts[:-1] + "+00:00"
+    dt = datetime.fromisoformat(ts)
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def _season_tracking_start(season):
+    season_cfg = SEASONS.get(season, SEASONS[CURRENT_SEASON])
+    return _parse_iso_utc(season_cfg["start"]) + timedelta(days=1)
+
+
+def _mmr_milestones_after_tracking_start(games, season):
+    tracking_start = _season_tracking_start(season)
+    milestones = {}
+    first_10k_date = None
+    for g in games:
+        if _parse_iso_utc(g["time"]) < tracking_start:
+            continue
+        mmr = g["mmr_after"]
+        if first_10k_date is None and mmr >= 10000:
+            first_10k_date = g["time"]
+        for threshold in range(10000, 22000, 1000):
+            if str(threshold) not in milestones and mmr >= threshold:
+                milestones[str(threshold)] = g["time"]
+    return first_10k_date, milestones
+
+
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
 SUPABASE_KEY = (
     st.secrets.get("SUPABASE_KEY")
@@ -190,6 +218,10 @@ def _cache_bust_toplists():
     try:
         _sb_fetch_all.clear()
         _sb_top_n.clear()
+        _lb_metric_rows.clear()
+        _lb_top_mmr_players.clear()
+        _lb_stats_by_player.clear()
+        _lb_milestone_rows.clear()
     except Exception:
         pass
 
@@ -446,6 +478,62 @@ def _sb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
     rows.sort(key=lambda r: (r[metric], r.get("cr") or 0), reverse=higher_is_better)
     return rows[:n]
 
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _lb_top_mmr_players(season, regions_key, n):
+    regions = set(regions_key)
+    rows = [r for r in _sb_fetch_all(season=season) if r.get("region") in regions]
+    rows.sort(key=lambda r: r.get("cr") or 0, reverse=True)
+    top_players = set()
+    for region in regions_key:
+        region_rows = [r for r in rows if r.get("region") == region]
+        top_players.update(r["player"] for r in region_rows[:n] if r.get("player"))
+    return tuple(sorted(top_players))
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _lb_metric_rows(metric, higher_is_better, season, regions_key, top_players_key):
+    regions = set(regions_key)
+    top_players = set(top_players_key or ())
+    rows = []
+    for r in _sb_fetch_all(season=season):
+        value = r.get(metric)
+        if value is None or r.get("region") not in regions:
+            continue
+        if top_players and r.get("player") not in top_players:
+            continue
+        rows.append(r)
+    rows.sort(key=lambda r: (r[metric], r.get("cr") or 0), reverse=higher_is_better)
+    return rows
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _lb_stats_by_player(season):
+    return {r["player"].lower(): r for r in _sb_fetch_all(season=season) if r.get("player")}
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _lb_milestone_rows(season, milestone_thresh, regions_key, top_players_key):
+    regions = set(regions_key)
+    top_players = set(top_players_key or ())
+    rows = []
+    for r in _sb_fetch_all(season=season):
+        if r.get("region") not in regions:
+            continue
+        if top_players and r.get("player") not in top_players:
+            continue
+        ms_raw = r.get("mmr_milestones")
+        if not ms_raw:
+            continue
+        try:
+            milestone_date = json.loads(ms_raw).get(milestone_thresh)
+        except Exception:
+            continue
+        if milestone_date:
+            rows.append({**r, "_mdate": milestone_date})
+    rows.sort(key=lambda r: r["_mdate"])
+    return rows
+
 # ---------- unified API ----------
 
 def lb_upsert_player(region, player_name, record: dict):
@@ -564,15 +652,7 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
         f"({dd_peak_game['time'][:10]} - {dd_trough_game['time'][:10]})"
     )
 
-    first_10k_date = None
-    _mmr_milestones = {}
-    for g in games:
-        mmr = g["mmr_after"]
-        if first_10k_date is None and mmr >= 10000:
-            first_10k_date = g["time"]
-        for _thresh in range(10000, 22000, 1000):
-            if str(_thresh) not in _mmr_milestones and mmr >= _thresh:
-                _mmr_milestones[str(_thresh)] = g["time"]
+    first_10k_date, _mmr_milestones = _mmr_milestones_after_tracking_start(games, season)
 
     if total < 50:
         if first_10k_date is not None:
@@ -1571,24 +1651,19 @@ with tabs[0]:
                     _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
+                _lb_regions_key = tuple(r for r in VALID_REGIONS if r in _lb_regions)
                 if _mmr_filter != "All":
                     _mmr_n = int(_mmr_filter.split()[1])
-                    _all_by_mmr = sorted(_sb_fetch_all(season=_lb_season), key=lambda r: r.get("cr") or 0, reverse=True)
-                    _top_mmr_players = set()
-                    for _rgn in _lb_regions:
-                        _rgn_rows = [r for r in _all_by_mmr if r.get("region") == _rgn]
-                        _top_mmr_players.update(r["player"] for r in _rgn_rows[:_mmr_n])
+                    _top_mmr_players_key = _lb_top_mmr_players(_lb_season, _lb_regions_key, _mmr_n)
                 else:
-                    _top_mmr_players = None
+                    _top_mmr_players_key = ()
 
                 def _lb(metric, higher_is_better=True, n=9999, limit=TOP_N):
-                    rows = lb_top_n(metric, higher_is_better=higher_is_better, n=n, season=_lb_season)
-                    rows = [r for r in rows if r.get("region") in _lb_regions]
-                    if _top_mmr_players is not None:
-                        rows = [r for r in rows if r.get("player") in _top_mmr_players]
+                    rows = _lb_metric_rows(metric, higher_is_better, _lb_season, _lb_regions_key, _top_mmr_players_key)
+                    rows = rows[:n]
                     return rows[:limit] if limit is not None else rows
 
-                _all_stats_by_player = {r["player"].lower(): r for r in _sb_fetch_all(season=_lb_season) if r.get("player")}
+                _all_stats_by_player = _lb_stats_by_player(_lb_season)
                 _hover_bx, _hover_by = _sb_load_regression("ALL")
 
                 def _hover_card_html(player_name, stats_row):
@@ -1829,24 +1904,12 @@ with tabs[0]:
                     key="lb_milestone",
                 )
                 _milestone_thresh = str(int(_milestone_k[:-1]) * 1000)
-                _milestone_rows = []
-                for _r in _sb_fetch_all():
-                    if _r.get("region") not in _lb_regions:
-                        continue
-                    if _top_mmr_players is not None and _r.get("player") not in _top_mmr_players:
-                        continue
-                    _ms_raw = _r.get("mmr_milestones")
-                    if not _ms_raw:
-                        continue
-                    try:
-                        _ms = json.loads(_ms_raw)
-                        _date = _ms.get(_milestone_thresh)
-                        if _date:
-                            _milestone_rows.append({**_r, "_mdate": _date})
-                    except Exception:
-                        continue
-                _milestone_rows.sort(key=lambda r: r["_mdate"])
-                _milestone_rows = _milestone_rows[:TOP_N]
+                _milestone_rows = _lb_milestone_rows(
+                    _lb_season,
+                    _milestone_thresh,
+                    _lb_regions_key,
+                    _top_mmr_players_key,
+                )[:TOP_N]
                 render_list(
                     _final_row[1],
                     f"First to {_milestone_k}",
@@ -2461,9 +2524,7 @@ with tabs[0]:
                     unsafe_allow_html=True
                 )
 
-                first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
-                first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
-                first_10k_date = next((g["time"] for g in games if g["mmr_after"] >= 10000), None)
+                first_10k_date, _mmr_milestones = _mmr_milestones_after_tracking_start(games, current_profile_season)
                 if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0
                     top4_pct  = top4 / total * 100 if total else 0.0
@@ -2487,11 +2548,7 @@ with tabs[0]:
                             "cr":             int(current_mmr),
                             "u_score":        float(u_score_val),
                             "bot2_count":     int(norm[7] + norm[8]),
-                            "mmr_milestones": json.dumps({
-                                str(t): next((g["time"] for g in games if g["mmr_after"] >= t), None)
-                                for t in range(10000, 22000, 1000)
-                                if any(g["mmr_after"] >= t for g in games)
-                            }),
+                            "mmr_milestones": json.dumps(_mmr_milestones),
                             "matchup_scaling": compute_matchup_scaling(games),
                             "updated_at":   _utc_now_iso_z(),
                         }
@@ -2509,11 +2566,7 @@ with tabs[0]:
                             "dd_detail":      dd_tip,
                             "first_10k_date": first_10k_date,
                             "cr":             int(current_mmr),
-                            "mmr_milestones": json.dumps({
-                                str(t): next((g["time"] for g in games if g["mmr_after"] >= t), None)
-                                for t in range(10000, 22000, 1000)
-                                if any(g["mmr_after"] >= t for g in games)
-                            }),
+                            "mmr_milestones": json.dumps(_mmr_milestones),
                             "updated_at":     _utc_now_iso_z(),
                         }
                     )
@@ -2526,11 +2579,7 @@ with tabs[0]:
                             "games":          int(total),
                             "first_10k_date": first_10k_date,
                             "cr":             int(current_mmr),
-                            "mmr_milestones": json.dumps({
-                                str(t): next((g["time"] for g in games if g["mmr_after"] >= t), None)
-                                for t in range(10000, 22000, 1000)
-                                if any(g["mmr_after"] >= t for g in games)
-                            }),
+                            "mmr_milestones": json.dumps(_mmr_milestones),
                             "updated_at":     _utc_now_iso_z(),
                         }
                     )

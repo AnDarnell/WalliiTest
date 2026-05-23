@@ -222,8 +222,14 @@ def _cache_bust_toplists():
         _lb_top_mmr_players.clear()
         _lb_stats_by_player.clear()
         _lb_milestone_rows.clear()
+        _latest_stats_update_label.clear()
     except Exception:
         pass
+
+
+def _toplist_payload_fingerprint(payload):
+    stable_payload = {k: v for k, v in payload.items() if k != "updated_at"}
+    return json.dumps(stable_payload, sort_keys=True, default=str)
 
 def _sb_upsert(region, player_name, record: dict):
     season = record.get("season")
@@ -262,6 +268,11 @@ def _sb_upsert(region, player_name, record: dict):
         "updated_at":        _utc_now_iso_z(),
     }
 
+    upsert_key = f"toplist_upsert:{payload['season']}:{payload['region']}:{payload['player']}"
+    payload_fingerprint = _toplist_payload_fingerprint(payload)
+    if st.session_state.get(upsert_key) == payload_fingerprint:
+        return
+
     if not SUPABASE_ENABLED:
         if DEBUG:
             st.session_state["sb_upsert_status"] = ("DISABLED", "SUPABASE_URL/KEY missing.")
@@ -286,6 +297,7 @@ def _sb_upsert(region, player_name, record: dict):
         dlog("UPSERT RESPONSE:", (r.text or "")[:500])
 
         r.raise_for_status()
+        st.session_state[upsert_key] = payload_fingerprint
         _cache_bust_toplists()
 
     except Exception as e:
@@ -325,8 +337,8 @@ def _country_flag(code):
 
 @st.cache_data(show_spinner=False, ttl=300)
 def _sb_fetch_player_links():
-    """Returns dict {player_name_lower: {twitch_url, youtube_url, nationality}}."""
-    for cols in ("player_name,twitch_url,youtube_url,nationality", "player_name,twitch_url,youtube_url"):
+    """Returns dict {player_name_lower: {twitch_url, youtube_url, nationality, display_name}}."""
+    for cols in ("player_name,display_name,twitch_url,youtube_url,nationality", "player_name,twitch_url,youtube_url,nationality", "player_name,twitch_url,youtube_url"):
         try:
             r = requests.get(
                 f"{SUPABASE_URL}/rest/v1/player_links",
@@ -339,6 +351,74 @@ def _sb_fetch_player_links():
         except Exception:
             continue
     return {}
+
+
+def _split_player_link_names(raw_names):
+    """Parse admin input into unique lowercase player names."""
+    seen = set()
+    names = []
+    for part in re.split(r"[,;\n]+", raw_names or ""):
+        name = part.strip().lower()
+        if name and name not in seen:
+            seen.add(name)
+            names.append(name)
+    return names
+
+
+def _stats_sort_key(stats):
+    return (stats.get("season") or 0, stats.get("cr") or 0)
+
+
+def _latest_stats_by_player():
+    all_stats = []
+    for season in sorted(SEASONS.keys()):
+        all_stats += _sb_fetch_all(season=season)
+    stats_by_player = {}
+    for row in all_stats:
+        player = (row.get("player") or "").lower()
+        if player:
+            stats_by_player[player] = row
+    return stats_by_player
+
+
+def _best_linked_player(players, stats_by_player):
+    if not players:
+        return "", {}
+    best_player = max(players, key=lambda p: _stats_sort_key(stats_by_player.get(p.lower(), {})))
+    return best_player, stats_by_player.get(best_player.lower(), {})
+
+
+def _display_name_for_linked_players(players, links, stats_by_player):
+    stats_player, stats_row = _best_linked_player(players, stats_by_player)
+    for player in players:
+        display_name = _player_link_display_name(player, links)
+        if display_name:
+            return display_name, stats_row
+    return stats_player, stats_row
+
+
+def _player_link_display_name(player, links):
+    player = (player or "").lower()
+    session_display_names = st.session_state.get("player_link_display_names", {})
+    return (
+        (links.get(player, {}).get("display_name") or "").strip().lower()
+        or (session_display_names.get(player) or "").strip().lower()
+    )
+
+
+def _post_player_links(payload):
+    url = f"{SUPABASE_URL}/rest/v1/player_links?on_conflict=player_name"
+    headers = {**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"}
+    try:
+        requests.post(url, headers=headers, json=payload, timeout=10).raise_for_status()
+        return True
+    except Exception as first_error:
+        fallback_payload = [{k: v for k, v in row.items() if k != "display_name"} for row in payload]
+        try:
+            requests.post(url, headers=headers, json=fallback_payload, timeout=10).raise_for_status()
+            return False
+        except Exception:
+            raise first_error
 
 @st.cache_data(show_spinner=False, ttl=120)
 def _twitch_get_token():
@@ -363,26 +443,19 @@ def _twitch_get_live_streams():
     if not token:
         return []
     links = _sb_fetch_player_links()
-    usernames = []
-    player_by_login = {}
+    usernames = set()
+    players_by_login = {}
     for player, row in links.items():
         url = row.get("twitch_url", "")
         if url:
             login = url.rstrip("/").split("/")[-1].lower().strip()
-            usernames.append(login)
-            player_by_login[login] = player
+            usernames.add(login)
+            players_by_login.setdefault(login, []).append(player)
     if not usernames:
         return []
-    # Hämta stats från alla säsonger, prioritera nyaste
-    _all_stats = []
-    for _s in sorted(SEASONS.keys()):
-        _all_stats += _sb_fetch_all(season=_s)
-    stats_by_player = {}
-    for r in _all_stats:
-        if r.get("player"):
-            stats_by_player[r["player"].lower()] = r  # nyaste skriver över äldre
+    stats_by_player = _latest_stats_by_player()
     try:
-        params = [("user_login", u) for u in usernames]
+        params = [("user_login", u) for u in sorted(usernames)]
         r = requests.get(
             "https://api.twitch.tv/helix/streams",
             headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"},
@@ -396,18 +469,26 @@ def _twitch_get_live_streams():
             if "hearthstone" not in s.get("game_name", "").lower():
                 continue
             login = s["user_login"].lower()
-            player = player_by_login.get(login, s["user_name"])
-            pstats = stats_by_player.get(player.lower(), {})
+            linked_players = players_by_login.get(login) or [s["user_name"].lower()]
+            player, pstats = _display_name_for_linked_players(linked_players, links, stats_by_player)
+            link_row = links.get(player.lower(), {})
+            linked_regions = sorted({
+                str(stats_by_player.get(p.lower(), {}).get("region") or "").upper()
+                for p in linked_players
+                if stats_by_player.get(p.lower(), {}).get("region")
+            })
             result.append({
                 "player":       player,
+                "linked_players": linked_players,
+                "regions":      linked_regions,
                 "login":        login,
                 "title":        s["title"],
                 "viewers":      s["viewer_count"],
                 "region":       pstats.get("region", ""),
                 "season":       pstats.get("season") or 0,
                 "cr":           pstats.get("cr") or 0,
-                "nationality":  links.get(player.lower(), {}).get("nationality", ""),
-                "twitch_url":   links.get(player_by_login.get(login, ""), {}).get("twitch_url", f"https://twitch.tv/{login}"),
+                "nationality":  link_row.get("nationality", ""),
+                "twitch_url":   link_row.get("twitch_url", f"https://twitch.tv/{login}"),
             })
         result.sort(key=lambda x: (x["season"], x["cr"]), reverse=True)
         result = result[:10]
@@ -423,7 +504,18 @@ def _yt_fetch_subscribers():
     if not YOUTUBE_API_KEY:
         return []
     links = _sb_fetch_player_links()
-    entries = [(player, row) for player, row in links.items() if row.get("youtube_url")]
+    entries_by_url = {}
+    for player, row in links.items():
+        if row.get("youtube_url"):
+            key = row["youtube_url"].rstrip("/").lower()
+            entries_by_url.setdefault(key, []).append((player, row))
+    stats_by_player = _latest_stats_by_player()
+    entries = []
+    for grouped_entries in entries_by_url.values():
+        players = [player for player, _ in grouped_entries]
+        best_player, _ = _display_name_for_linked_players(players, links, stats_by_player)
+        row = next((r for player, r in grouped_entries if player == best_player), grouped_entries[0][1])
+        entries.append((best_player, row))
     if not entries:
         return []
 
@@ -533,6 +625,41 @@ def _lb_milestone_rows(season, milestone_thresh, regions_key, top_players_key):
             rows.append({**r, "_mdate": milestone_date})
     rows.sort(key=lambda r: r["_mdate"])
     return rows
+
+
+@st.cache_data(show_spinner=False)
+def _read_curve_csv(path_str, mtime_ns):
+    return pd.read_csv(path_str)
+
+
+@st.cache_data(show_spinner=False)
+def _cached_binned_curve(path_str, mtime_ns, x_choice, bin_size, mode_kind, q, min_games):
+    df = _read_curve_csv(path_str, mtime_ns)
+    return binned_weighted_curve(
+        df,
+        x_col=x_choice,
+        y_col="avg_place",
+        w_col="games",
+        bin_size=int(bin_size),
+        mode=mode_kind,
+        q=float(q) if mode_kind == "wquant" else 0.5,
+        min_games=int(min_games),
+    )
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _latest_stats_update_label(season=CURRENT_SEASON):
+    ts_values = [r["updated_at"] for r in _sb_fetch_all(season=season) if r.get("updated_at")]
+    if not ts_values:
+        return None
+    latest_ts = max(ts_values)
+    try:
+        latest_dt = datetime.fromisoformat(latest_ts.replace("Z", "+00:00"))
+        if latest_dt.tzinfo is None:
+            latest_dt = latest_dt.replace(tzinfo=timezone.utc)
+        return latest_dt.astimezone().strftime("%d %b %Y, %H:%M")
+    except Exception:
+        return latest_ts
 
 # ---------- unified API ----------
 
@@ -1739,7 +1866,12 @@ with tabs[0]:
                 render_list(_row0[0], _t0, _it0, _fm0, _tp0, asterisk_tip=_rst0[0] if _rst0 else None)
 
                 # ── Live streams (höger, rad 0) ────────────────────────────────────
-                _live_streams_lb = [s for s in _twitch_get_live_streams() if not _lb_regions or s.get("region", "").upper() in _lb_regions]
+                _live_streams_lb = [
+                    s for s in _twitch_get_live_streams()
+                    if not _lb_regions
+                    or not s.get("regions")
+                    or any(region in _lb_regions for region in s.get("regions", []))
+                ]
                 _live_col = _row0[1]
                 HEADER_COLOR = "#c45151"
                 _total_viewers = sum(s["viewers"] for s in _live_streams_lb)
@@ -1761,12 +1893,35 @@ with tabs[0]:
                 )
                 _empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"
 
+                def _live_display_player(s):
+                    _live_links = _sb_fetch_player_links()
+                    candidates = []
+                    for linked_player in s.get("linked_players", []):
+                        stats_row = _all_stats_by_player.get(linked_player.lower(), {})
+                        if not _lb_regions or stats_row.get("region", "").upper() in _lb_regions:
+                            candidates.append((linked_player, stats_row))
+                    stats_player, stats_row = (
+                        max(candidates, key=lambda item: _stats_sort_key(item[1]))
+                        if candidates
+                        else (s["player"], _all_stats_by_player.get(s["player"].lower(), {}))
+                    )
+                    for linked_player in s.get("linked_players", []):
+                        display_name = _player_link_display_name(linked_player, _live_links)
+                        if display_name:
+                            return display_name, stats_row
+                    return stats_player, stats_row
+
                 def _live_row_html(si, s):
+                    display_player, display_stats = _live_display_player(s)
+                    display_region = display_stats.get("region", s.get("region", ""))
+                    display_cr = display_stats.get("cr", s.get("cr", ""))
+                    display_cr_text = f"{display_cr:,}" if isinstance(display_cr, (int, float)) else str(display_cr)
+                    display_links = _sb_fetch_player_links().get(display_player.lower(), {})
                     s_twitch = html.escape(s["twitch_url"])
                     s_title  = html.escape(s["title"][:50] + ("..." if len(s["title"]) > 50 else ""))
                     s_color  = "#d4a843" if si == 1 else "#bfc4c8" if si == 2 else "#b57a4a" if si == 3 else "#8a8a8a"
-                    s_profile = f"?goto_player={html.escape(s['player'])}&goto_region={html.escape(s.get('region',''))}&goto_season={_lb_season}"
-                    _hover_card = _hover_card_html(s["player"], _all_stats_by_player.get(s["player"].lower()))
+                    s_profile = f"?goto_player={html.escape(display_player)}&goto_region={html.escape(display_region)}&goto_season={_lb_season}"
+                    _hover_card = _hover_card_html(display_player, display_stats)
                     return (
                         f"<div class='lb-hover-row' style='display:flex;justify-content:space-between;"
                         f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
@@ -1775,10 +1930,10 @@ with tabs[0]:
                         f"<span class='lb-hover-name'>"
                         f"<a href='{s_profile}' target='_self' style='color:inherit;text-decoration:none;' "
                         f"onmouseover=\"this.style.textDecoration='underline'\" "
-                        f"onmouseout=\"this.style.textDecoration='none'\">{s['player']}</a>"
+                        f"onmouseout=\"this.style.textDecoration='none'\">{display_player}</a>"
                         f"{_hover_card}</span>"
-                        f"{_country_flag(s.get('nationality',''))}"
-                        f"<span style='color:#666;font-size:0.8rem;font-weight:400;margin-left:0.4rem;'>({s.get('region','').upper()} {s.get('cr',''):,})</span>"
+                        f"{_country_flag(display_links.get('nationality', s.get('nationality','')))}"
+                        f"<span style='color:#666;font-size:0.8rem;font-weight:400;margin-left:0.4rem;'>({str(display_region).upper()} {display_cr_text})</span>"
                         f"<a href='{s_twitch}' target='_blank' title='{s_title}' style='margin-left:5px;'>"
                         f"<svg width='11' height='11' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
                         f"</a>"
@@ -1932,23 +2087,37 @@ with tabs[0]:
                     st.caption("Add or update Twitch/YouTube links for players.")
                     _COUNTRIES = [("","- None -"),("AF","Afghanistan"),("AL","Albania"),("DZ","Algeria"),("AR","Argentina"),("AM","Armenia"),("AU","Australia"),("AT","Austria"),("AZ","Azerbaijan"),("BE","Belgium"),("BR","Brazil"),("BG","Bulgaria"),("BY","Belarus"),("CA","Canada"),("CL","Chile"),("CN","China"),("CO","Colombia"),("HR","Croatia"),("CZ","Czech Republic"),("DK","Denmark"),("EG","Egypt"),("EE","Estonia"),("FI","Finland"),("FR","France"),("GE","Georgia"),("DE","Germany"),("GR","Greece"),("HK","Hong Kong"),("HU","Hungary"),("IN","India"),("ID","Indonesia"),("IE","Ireland"),("IL","Israel"),("IT","Italy"),("JP","Japan"),("KZ","Kazakhstan"),("KR","South Korea"),("LV","Latvia"),("LT","Lithuania"),("LU","Luxembourg"),("MY","Malaysia"),("MX","Mexico"),("NL","Netherlands"),("NZ","New Zealand"),("NO","Norway"),("PH","Philippines"),("PL","Poland"),("PT","Portugal"),("RO","Romania"),("RU","Russia"),("SA","Saudi Arabia"),("RS","Serbia"),("SG","Singapore"),("SK","Slovakia"),("SI","Slovenia"),("ZA","South Africa"),("ES","Spain"),("SE","Sweden"),("CH","Switzerland"),("TW","Taiwan"),("TH","Thailand"),("TR","Turkey"),("UA","Ukraine"),("GB","United Kingdom"),("US","United States"),("UZ","Uzbekistan"),("VN","Vietnam")]
                     _lnk_player  = st.text_input("Player name", key="lnk_player").strip().lower()
+                    _lnk_aliases = st.text_area("Alias/account names", key="lnk_aliases", height=70, placeholder="optional aliases separated by comma/new line").strip().lower()
                     _lnk_twitch  = st.text_input("Twitch URL (leave blank to clear)", value="https://www.twitch.tv/", key="lnk_twitch").strip()
                     _lnk_youtube = st.text_input("YouTube URL (leave blank to clear)", key="lnk_youtube").strip()
                     _nat_options = [f"{code} - {name}" if code else f"- {name} -" for code, name in _COUNTRIES]
                     _nat_sel     = st.selectbox("Nationality", _nat_options, key="lnk_nat_sel")
                     _lnk_nat     = _nat_sel.split(" - ")[0].strip() if " - " in _nat_sel and not _nat_sel.startswith("- ") else ""
                     if st.button("Save link", key="lnk_save", width='stretch'):
-                        if _lnk_player:
+                        _lnk_primary = _lnk_player.strip().lower()
+                        _lnk_players = _split_player_link_names("\n".join([_lnk_primary, _lnk_aliases]))
+                        if _lnk_primary and _lnk_players:
                             try:
-                                requests.post(
-                                    f"{SUPABASE_URL}/rest/v1/player_links?on_conflict=player_name",
-                                    headers={**SUPABASE_HEADERS, "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=minimal"},
-                                    json={k: v for k, v in {"player_name": _lnk_player, "twitch_url": (_lnk_twitch if _lnk_twitch not in ("https://www.twitch.tv/", "") else None), "youtube_url": _lnk_youtube or None, "nationality": _lnk_nat or None}.items() if k == "player_name" or v is not None},
-                                    timeout=10,
-                                ).raise_for_status()
+                                _payload = [
+                                    {k: v for k, v in {
+                                        "player_name": player_name,
+                                        "display_name": _lnk_primary,
+                                        "twitch_url": (_lnk_twitch if _lnk_twitch not in ("https://www.twitch.tv/", "") else None),
+                                        "youtube_url": _lnk_youtube or None,
+                                        "nationality": _lnk_nat or None,
+                                    }.items() if k == "player_name" or v is not None}
+                                    for player_name in _lnk_players
+                                ]
+                                _saved_display_name = _post_player_links(_payload)
+                                st.session_state.setdefault("player_link_display_names", {}).update({
+                                    player_name: _lnk_primary for player_name in _lnk_players
+                                })
                                 _sb_fetch_player_links.clear()
                                 _twitch_get_live_streams.clear()
-                                st.success(f"Saved links for {_lnk_player}.")
+                                _yt_fetch_subscribers.clear()
+                                st.success(f"Saved links for {', '.join(_lnk_players)}.")
+                                if not _saved_display_name:
+                                    st.warning("Saved aliases, but Supabase is missing the optional display_name column. Add it for Twitch/YouTube lists to always prefer the primary name.")
                             except Exception as _le:
                                 st.error(str(_le))
                         else:
@@ -3020,7 +3189,8 @@ with tabs[3]:
         )
         st.stop()
 
-    df = pd.read_csv(csv_path)
+    _csv_mtime_ns = csv_path.stat().st_mtime_ns
+    df = _read_curve_csv(str(csv_path), _csv_mtime_ns)
 
     required = {"lb_mmr", "current_mmr", "avg_place", "games"}
     missing  = [c for c in required if c not in df.columns]
@@ -3052,15 +3222,14 @@ with tabs[3]:
     mode_kind = mode[1]
     q         = mode[2] if mode_kind == "wquant" else 0.5
 
-    bx, by, d = binned_weighted_curve(
-        df,
-        x_col=x_choice,
-        y_col="avg_place",
-        w_col="games",
-        bin_size=int(bin_size),
-        mode=mode_kind,
-        q=float(q) if mode_kind == "wquant" else 0.5,
-        min_games=int(min_games),
+    bx, by, d = _cached_binned_curve(
+        str(csv_path),
+        _csv_mtime_ns,
+        x_choice,
+        int(bin_size),
+        mode_kind,
+        float(q) if mode_kind == "wquant" else 0.5,
+        int(min_games),
     )
 
     if len(bx) < 2:
@@ -3341,17 +3510,8 @@ with tabs[2]:
             st.warning("Please fill in both fields.")
 
 # ── Footer ────────────────────────────────────────────────────────────────────
-_all_rows = _sb_fetch_all()
-_ts_values = [r["updated_at"] for r in _all_rows if r.get("updated_at")]
-if _ts_values:
-    _latest_ts = max(_ts_values)
-    try:
-        _latest_dt = datetime.fromisoformat(_latest_ts.replace("Z", "+00:00"))
-        if _latest_dt.tzinfo is None:
-            _latest_dt = _latest_dt.replace(tzinfo=timezone.utc)
-        _latest_label = _latest_dt.astimezone().strftime("%d %b %Y, %H:%M")
-    except Exception:
-        _latest_label = _latest_ts
+_latest_label = _latest_stats_update_label(CURRENT_SEASON)
+if _latest_label:
     st.markdown(
         "<div style='text-align:center;color:#333;font-size:0.75rem;font-family:sans-serif;'>"
         f"Data last updated {html.escape(_latest_label)} &nbsp;&middot;&nbsp; v{APP_VERSION}"

@@ -370,15 +370,44 @@ def _stats_sort_key(stats):
 
 
 def _latest_stats_by_player():
+    rows_by_player = _stats_rows_by_player()
+    return {
+        player: _best_stats_for_players([player], rows_by_player)
+        for player in rows_by_player
+    }
+
+
+def _stats_rows_by_player():
     all_stats = []
     for season in sorted(SEASONS.keys()):
         all_stats += _sb_fetch_all(season=season)
-    stats_by_player = {}
+    rows_by_player = {}
     for row in all_stats:
         player = (row.get("player") or "").lower()
         if player:
-            stats_by_player[player] = row
-    return stats_by_player
+            rows_by_player.setdefault(player, []).append(row)
+    return rows_by_player
+
+
+def _best_stats_for_players(players, rows_by_player, regions=None):
+    region_set = {r.upper() for r in (regions or [])}
+    candidates = []
+    for player in players:
+        for row in rows_by_player.get((player or "").lower(), []):
+            if not region_set or row.get("region", "").upper() in region_set:
+                candidates.append(row)
+    if not candidates:
+        return {}
+    return max(candidates, key=_stats_sort_key)
+
+
+def _regions_for_players_current_season(players, rows_by_player, season):
+    return sorted({
+        row.get("region", "").upper()
+        for player in players
+        for row in rows_by_player.get((player or "").lower(), [])
+        if row.get("region") and row.get("season") == season
+    })
 
 
 def _best_linked_player(players, stats_by_player):
@@ -453,17 +482,24 @@ def _twitch_get_live_streams():
             players_by_login.setdefault(login, []).append(player)
     if not usernames:
         return []
-    stats_by_player = _latest_stats_by_player()
+    stats_rows_by_player = _stats_rows_by_player()
+    stats_by_player = {
+        player: _best_stats_for_players([player], stats_rows_by_player)
+        for player in stats_rows_by_player
+    }
     try:
-        params = [("user_login", u) for u in sorted(usernames)]
-        r = requests.get(
-            "https://api.twitch.tv/helix/streams",
-            headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"},
-            params=params,
-            timeout=10,
-        )
-        r.raise_for_status()
-        streams = r.json().get("data", [])
+        streams = []
+        username_list = sorted(usernames)
+        for i in range(0, len(username_list), 100):
+            params = [("user_login", u) for u in username_list[i:i + 100]]
+            r = requests.get(
+                "https://api.twitch.tv/helix/streams",
+                headers={"Client-ID": TWITCH_CLIENT_ID, "Authorization": f"Bearer {token}"},
+                params=params,
+                timeout=10,
+            )
+            r.raise_for_status()
+            streams.extend(r.json().get("data", []))
         result = []
         for s in streams:
             if "hearthstone" not in s.get("game_name", "").lower():
@@ -472,15 +508,18 @@ def _twitch_get_live_streams():
             linked_players = players_by_login.get(login) or [s["user_name"].lower()]
             player, pstats = _display_name_for_linked_players(linked_players, links, stats_by_player)
             link_row = links.get(player.lower(), {})
-            linked_regions = sorted({
-                str(stats_by_player.get(p.lower(), {}).get("region") or "").upper()
+            best_season = pstats.get("season") or CURRENT_SEASON
+            linked_regions = _regions_for_players_current_season(linked_players, stats_rows_by_player, best_season)
+            linked_stats_rows = [
+                row
                 for p in linked_players
-                if stats_by_player.get(p.lower(), {}).get("region")
-            })
+                for row in stats_rows_by_player.get(p.lower(), [])
+            ]
             result.append({
                 "player":       player,
                 "linked_players": linked_players,
                 "regions":      linked_regions,
+                "stats_rows":   linked_stats_rows,
                 "login":        login,
                 "title":        s["title"],
                 "viewers":      s["viewer_count"],
@@ -491,9 +530,6 @@ def _twitch_get_live_streams():
                 "twitch_url":   link_row.get("twitch_url", f"https://twitch.tv/{login}"),
             })
         result.sort(key=lambda x: (x["season"], x["cr"]), reverse=True)
-        result = result[:10]
-
-
         return result
     except Exception:
         return []
@@ -1866,12 +1902,7 @@ with tabs[0]:
                 render_list(_row0[0], _t0, _it0, _fm0, _tp0, asterisk_tip=_rst0[0] if _rst0 else None)
 
                 # ── Live streams (höger, rad 0) ────────────────────────────────────
-                _live_streams_lb = [
-                    s for s in _twitch_get_live_streams()
-                    if not _lb_regions
-                    or not s.get("regions")
-                    or any(region in _lb_regions for region in s.get("regions", []))
-                ]
+                _live_streams_lb = _twitch_get_live_streams()
                 _live_col = _row0[1]
                 HEADER_COLOR = "#c45151"
                 _total_viewers = sum(s["viewers"] for s in _live_streams_lb)
@@ -1890,26 +1921,22 @@ with tabs[0]:
                     _live_streams_lb,
                     key=lambda x: x["viewers"] if _live_sort_key == "viewers" else (x.get("season", 0), x.get("cr", 0)),
                     reverse=True,
-                )
+                )[:10]
                 _empty_row = "<div style='display:flex;border:1px solid #1e1e1e;background:#121212;border-radius:4px;padding:0.35rem 0.5rem;margin-bottom:0.25rem;'><span style='color:#1e1e1e;'>—</span></div>"
 
                 def _live_display_player(s):
                     _live_links = _sb_fetch_player_links()
-                    candidates = []
-                    for linked_player in s.get("linked_players", []):
-                        stats_row = _all_stats_by_player.get(linked_player.lower(), {})
-                        if not _lb_regions or stats_row.get("region", "").upper() in _lb_regions:
-                            candidates.append((linked_player, stats_row))
-                    stats_player, stats_row = (
-                        max(candidates, key=lambda item: _stats_sort_key(item[1]))
-                        if candidates
-                        else (s["player"], _all_stats_by_player.get(s["player"].lower(), {}))
+                    stats_candidates = s.get("stats_rows", [])
+                    stats_row = (
+                        max(stats_candidates, key=_stats_sort_key)
+                        if stats_candidates
+                        else _all_stats_by_player.get(s["player"].lower(), {})
                     )
                     for linked_player in s.get("linked_players", []):
                         display_name = _player_link_display_name(linked_player, _live_links)
                         if display_name:
                             return display_name, stats_row
-                    return stats_player, stats_row
+                    return (stats_row.get("player") or s["player"]), stats_row
 
                 def _live_row_html(si, s):
                     display_player, display_stats = _live_display_player(s)

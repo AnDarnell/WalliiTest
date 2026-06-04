@@ -40,6 +40,7 @@ from wa2_config import (
 from wa2_charts import (
     style_dark_axes, normalized_counts, norm_to_pct,
     make_chart, make_neighbor_chart, delta_color, diff_pct_color,
+    summarize_neighbor_differences,
 )
 from wa2_rating import (
     interp_with_extrap, weighted_quantile, binned_weighted_curve, load_rating_curve,
@@ -316,16 +317,34 @@ def _sb_fetch_all(season=CURRENT_SEASON):
         return []
     try:
         url = f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}"
-        r = requests.get(
-            url,
-            headers=SUPABASE_HEADERS,
-            params={"select": _ALL_FIELDS, "season": f"eq.{season}", "limit": "2000"},
-            timeout=10,
-        )
-        if DEBUG:
-            st.session_state["sb_topn_status"] = (str(r.status_code), (r.text or "")[:200])
-        r.raise_for_status()
-        return r.json()
+        rows = []
+        offset = 0
+        page_size = 1000
+
+        while True:
+            r = requests.get(
+                url,
+                headers=SUPABASE_HEADERS,
+                params={
+                    "select": _ALL_FIELDS,
+                    "season": f"eq.{season}",
+                    "limit": str(page_size),
+                    "offset": str(offset),
+                },
+                timeout=10,
+            )
+            if DEBUG:
+                st.session_state["sb_topn_status"] = (str(r.status_code), (r.text or "")[:200])
+            r.raise_for_status()
+            batch = r.json()
+            if not batch:
+                break
+            rows.extend(batch)
+            if len(batch) < page_size:
+                break
+            offset += page_size
+
+        return rows
     except Exception as e:
         if DEBUG:
             st.session_state["sb_topn_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:200])
@@ -1057,7 +1076,9 @@ def _sb_get_cached_snapshots(player_name, region, season=CURRENT_SEASON):
         except Exception:
             return None, None, None
 
-    # Pågående säsong: kolla cache-ålder
+    # Pågående säsong: hämta snapshot-data direkt från Supabase
+    # utan att blockera på player_cache-ålder, så jämförelsen använder
+    # den data som faktiskt finns i Supabase.
     player_name = player_name.lower()
     try:
         cr = requests.get(
@@ -1068,13 +1089,9 @@ def _sb_get_cached_snapshots(player_name, region, season=CURRENT_SEASON):
         )
         cr.raise_for_status()
         cache_rows = cr.json()
-        if not cache_rows:
-            return None, None, None
-        last_fetched = cache_rows[0]["last_fetched"]
-        cached_rank  = cache_rows[0].get("current_rank")
-        age_hours = (datetime.now(timezone.utc) - datetime.fromisoformat(last_fetched.replace("Z", "+00:00"))).total_seconds() / 3600
-        if age_hours >= 2:
-            return None, None, None
+        last_fetched = cache_rows[0].get("last_fetched") if cache_rows else None
+        cached_rank  = cache_rows[0].get("current_rank") if cache_rows else None
+
         rows = _sb_fetch_snapshots_range(player_name, region, date_from, date_to)
         return rows, last_fetched, cached_rank
     except Exception:
@@ -3308,6 +3325,9 @@ with tabs[0]:
                                 player_rank, sp_region
                             )
 
+                        _neighbor_season = st.session_state.get("sp_season", CURRENT_SEASON)
+                        _neighbor_stats = _lb_stats_by_player(_neighbor_season)
+
                         all_names = names_above + names_below
                         all_ranks = ranks_above + ranks_below
 
@@ -3321,13 +3341,13 @@ with tabs[0]:
 
                             for i, (name, rank) in enumerate(zip(all_names, all_ranks)):
                                 status.markdown(
-                                    "<p style='color:#666;font-size:0.8rem;'>Loading cached stats for "
+                                    "<p style='color:#666;font-size:0.8rem;'>Loading stats for "
                                     + name + " (rank " + str(rank) + ")...</p>",
                                     unsafe_allow_html=True
                                 )
                                 try:
-                                    ng, _rank = _sb_get_cached_games(name, sp_region)
-                                    if ng is not None and len(ng) >= MIN_GAMES_NEIGHBOR:
+                                    ng, _rank = _sb_get_cached_games(name, sp_region, season=_neighbor_season)
+                                    if ng is not None and len(ng) >= 1:
                                         all_pcts.append(norm_to_pct(ng))
                                     else:
                                         failed.append(name)
@@ -3339,7 +3359,7 @@ with tabs[0]:
                             status.empty()
 
                             if not all_pcts:
-                                st.session_state["nb_result"] = {"error": f"No cached neighbors had {MIN_GAMES_NEIGHBOR}+ games to compare in Supabase."}
+                                st.session_state["nb_result"] = {"error": "No Supabase neighbor histories could be loaded for comparison."}
                             else:
                                 st.session_state["nb_result"] = {
                                     "pcts":        all_pcts,
@@ -3365,6 +3385,7 @@ with tabs[0]:
 
                         player_pct = norm_to_pct(games)
                         avg_pct    = {p: sum(d[p] for d in nb["pcts"]) / len(nb["pcts"]) for p in range(1, 9)}
+                        st.caption(summarize_neighbor_differences(player_pct, avg_pct, player_name=sp_player))
 
                         cells = ""
                         for p in range(1, 9):

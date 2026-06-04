@@ -185,3 +185,54 @@ def diff_pct_color(diff):
         return "#7ab87a"
     else:
         return "#4a8c5c"
+
+
+def summarize_neighbor_differences(player_pct, avg_pct, player_name="this player"):
+    """Return a short third-person summary of how the player's placements differ from the neighbor average."""
+
+    def ordinal(n):
+        if 10 <= n % 100 <= 20:
+            return f"{n}th"
+        return {1: "1st", 2: "2nd", 3: "3rd"}.get(n % 10, f"{n}th")
+
+    def label(diff):
+        if diff >= 5.0:
+            return "significantly more"
+        if diff >= 2.5:
+            return "noticably more"
+        return "slightly more"
+
+    def label_less(diff):
+        if diff <= -5.0:
+            return "significantly less"
+        if diff <= -2.5:
+            return "noticably less"
+        return "slightly less"
+
+    diffs = [(p, player_pct[p] - avg_pct[p]) for p in range(1, 9)]
+    more = [(p, diff) for p, diff in diffs if diff >= 2.5]
+    less = [(p, diff) for p, diff in diffs if diff <= -2.5]
+
+    if not more and not less:
+        return f"{player_name}'s placements look very similar to this neighbor group, and the rest is fairly consistent."
+
+    def join_items(items):
+        if not items:
+            return ""
+        if len(items) == 1:
+            return items[0]
+        if len(items) == 2:
+            return f"{items[0]} and {items[1]}"
+        return ", ".join(items[:-1]) + f", and {items[-1]}"
+
+    more_phrase = join_items([f"{ordinal(p)}" for p, _ in more[:3]]) + " places"
+    less_phrase = join_items([f"{ordinal(p)}" for p, _ in less[:3]]) + " places"
+
+    if more and less:
+        return (
+            f"{player_name} has {label(more[0][1])} {more_phrase}, and {label_less(less[0][1])} {less_phrase}. "
+            "Everything else is fairly consistent."
+        )
+    if more:
+        return f"{player_name} has {label(more[0][1])} {more_phrase}. Everything else is fairly consistent."
+    return f"{player_name} has {label_less(less[0][1])} {less_phrase}. Everything else is fairly consistent."

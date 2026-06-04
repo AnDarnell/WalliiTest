@@ -1639,15 +1639,6 @@ def _fetch_patch_notes(n=5):
 st.set_page_config(page_title="Placement Stats", layout="wide", page_icon="nerdbob2.png")
 st.logo("nerdbob.png")
 
-with st.sidebar:
-    st.markdown("### 📰 Patch Notes")
-    patches = _fetch_patch_notes(5)
-    if patches:
-        for p in patches:
-            st.markdown(f"[{p['title']}]({p['url']})")
-    else:
-        st.caption("Could not load patch notes.")
-
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-family: 'Georgia', serif; }

@@ -28,6 +28,8 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
 from urllib.parse import urlencode
 import html
+import time
+import threading
 
 from wa2_config import (
     APP_VERSION, DEBUG, SEASONS, CURRENT_SEASON,
@@ -218,8 +220,9 @@ def _cache_bust_toplists():
     try:
         _sb_fetch_all.clear()
         _sb_top_n.clear()
-        _lb_metric_rows.clear()
         _lb_top_mmr_players.clear()
+        _sb_cached_top_rank_players.clear()
+        _lb_metric_rows.clear()
         _lb_stats_by_player.clear()
         _lb_milestone_rows.clear()
         _latest_stats_update_label.clear()
@@ -609,14 +612,54 @@ def _sb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
 
 @st.cache_data(show_spinner=False, ttl=300)
 def _lb_top_mmr_players(season, regions_key, n):
-    regions = set(regions_key)
+    top_keys = set()
+    fallback_regions = set(regions_key)
+
+    if season == CURRENT_SEASON and SUPABASE_ENABLED:
+        for region in regions_key:
+            try:
+                rows = _sb_cached_top_rank_players(region, n)
+                for row in rows:
+                    top_keys.add(_lb_player_key(row.get("region"), row.get("player_name")))
+                if rows:
+                    fallback_regions.discard(region)
+            except Exception as e:
+                dlog("Cached top-rank filter lookup failed:", region, e)
+
+    if not fallback_regions:
+        return tuple(sorted(top_keys))
+
+    regions = set(fallback_regions)
     rows = [r for r in _sb_fetch_all(season=season) if r.get("region") in regions]
     rows.sort(key=lambda r: r.get("cr") or 0, reverse=True)
-    top_players = set()
-    for region in regions_key:
+    for region in fallback_regions:
         region_rows = [r for r in rows if r.get("region") == region]
-        top_players.update(r["player"] for r in region_rows[:n] if r.get("player"))
-    return tuple(sorted(top_players))
+        top_keys.update(_lb_player_key(region, r["player"]) for r in region_rows[:n] if r.get("player"))
+    return tuple(sorted(top_keys))
+
+
+def _lb_player_key(region, player):
+    return f"{(region or '').upper()}::{(player or '').lower()}"
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _sb_cached_top_rank_players(region, n):
+    if not SUPABASE_ENABLED:
+        return []
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/player_cache",
+        headers=SUPABASE_HEADERS,
+        params={
+            "select": "player_name,region,current_rank",
+            "region": f"eq.{region.upper()}",
+            "current_rank": f"lte.{int(n)}",
+            "order": "current_rank.asc",
+            "limit": str(int(n)),
+        },
+        timeout=10,
+    )
+    r.raise_for_status()
+    return [row for row in r.json() if row.get("player_name") and row.get("current_rank") is not None]
 
 
 @st.cache_data(show_spinner=False, ttl=300)
@@ -628,7 +671,7 @@ def _lb_metric_rows(metric, higher_is_better, season, regions_key, top_players_k
         value = r.get(metric)
         if value is None or r.get("region") not in regions:
             continue
-        if top_players and r.get("player") not in top_players:
+        if top_players and _lb_player_key(r.get("region"), r.get("player")) not in top_players:
             continue
         rows.append(r)
     rows.sort(key=lambda r: (r[metric], r.get("cr") or 0), reverse=higher_is_better)
@@ -648,7 +691,7 @@ def _lb_milestone_rows(season, milestone_thresh, regions_key, top_players_key):
     for r in _sb_fetch_all(season=season):
         if r.get("region") not in regions:
             continue
-        if top_players and r.get("player") not in top_players:
+        if top_players and _lb_player_key(r.get("region"), r.get("player")) not in top_players:
             continue
         ms_raw = r.get("mmr_milestones")
         if not ms_raw:
@@ -1377,6 +1420,172 @@ def fetch_neighbor_names(player_rank, region, day_start=None, n=5):
     return names_above[-n:], names_below[:n], ranks_above[-n:], ranks_below[:n]
 
 
+SERVER_TOP10_CACHE_TABLE = "server_top10_cache"
+SERVER_TOP10_CACHE_KEY = "current_top10_eu_na_ap_v2"
+SERVER_TOP10_REGIONS = ("EU", "NA", "AP")
+SERVER_TOP10_REFRESH_HOURS = 12
+SERVER_TOP10_PAYLOAD_FIELDS = (
+    "player",
+    "region",
+    "current_rank",
+    "cr",
+    "avg_place",
+    "first_pct",
+    "top4_pct",
+    "u_score",
+    "matchup_scaling",
+)
+
+
+def _server_top10_cache_age_ok(updated_at):
+    if not updated_at:
+        return False
+    try:
+        return _utc_now() - _parse_iso_utc(updated_at) < timedelta(hours=SERVER_TOP10_REFRESH_HOURS)
+    except Exception:
+        return False
+
+
+def _server_top10_payload_row(row):
+    return {field: row.get(field) for field in SERVER_TOP10_PAYLOAD_FIELDS if row.get(field) is not None}
+
+
+def _sb_load_server_top10_cache_direct(n=10):
+    if not SUPABASE_ENABLED:
+        return None, None, False
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/{SERVER_TOP10_CACHE_TABLE}",
+        headers=SUPABASE_HEADERS,
+        params={
+            "select": "payload_json,updated_at",
+            "cache_key": f"eq.{SERVER_TOP10_CACHE_KEY}_{int(n)}",
+            "limit": "1",
+        },
+        timeout=10,
+    )
+    r.raise_for_status()
+    rows = r.json()
+    if not rows:
+        return None, None, True
+    return rows[0].get("payload_json") or {}, rows[0].get("updated_at"), True
+
+
+@st.cache_data(show_spinner=False, ttl=300)
+def _sb_load_server_top10_cache(n=10):
+    try:
+        return _sb_load_server_top10_cache_direct(n)
+    except Exception as e:
+        dlog("Server top 10 cache load failed:", e)
+        return None, None, False
+
+
+def _sb_save_server_top10_cache(payload, n=10, clear_cached=True):
+    if not SUPABASE_ENABLED:
+        return False
+    try:
+        r = requests.post(
+            f"{SUPABASE_URL}/rest/v1/{SERVER_TOP10_CACHE_TABLE}?on_conflict=cache_key",
+            headers={**SUPABASE_HEADERS, "Prefer": "resolution=merge-duplicates"},
+            json={
+                "cache_key": f"{SERVER_TOP10_CACHE_KEY}_{int(n)}",
+                "payload_json": payload,
+                "updated_at": _utc_now_iso_z(),
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+        if clear_cached:
+            _sb_load_server_top10_cache.clear()
+        return True
+    except Exception as e:
+        dlog("Server top 10 cache save failed:", e)
+        return False
+
+
+def _sb_server_top10_stats_by_key():
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/{PLAYER_STATS_TABLE}",
+        headers=SUPABASE_HEADERS,
+        params={
+            "select": "player,region,avg_place,first_pct,top4_pct,u_score,matchup_scaling",
+            "season": f"eq.{CURRENT_SEASON}",
+            "limit": "2000",
+        },
+        timeout=10,
+    )
+    r.raise_for_status()
+    return {
+        _lb_player_key(row.get("region"), row.get("player")): row
+        for row in r.json()
+        if row.get("player") and row.get("region")
+    }
+
+
+def _wallii_refresh_server_top10_bundle(n=10, wallii_headers=None):
+    """Refresh all server top 10 rows from Wallii's leaderboard backend in one request."""
+    url = f"{SUPABASE_BASE}/rest/v1/daily_leaderboard_stats"
+    qs = urlencode([
+        ("select",    "rank,rating,region,day_start,players!inner(player_name)"),
+        ("region",    f"in.({','.join(SERVER_TOP10_REGIONS)})"),
+        ("game_mode", "eq.0"),
+        ("rank",      f"lte.{int(n)}"),
+        ("order",     "day_start.desc,region.asc,rank.asc"),
+        ("limit",     str(int(n) * len(SERVER_TOP10_REGIONS))),
+    ])
+    r = requests.get(f"{url}?{qs}", headers=wallii_headers or _supabase_headers(), timeout=20)
+    r.raise_for_status()
+    wallii_rows = r.json()
+    if not wallii_rows:
+        return {region: [] for region in SERVER_TOP10_REGIONS}
+
+    latest_day = max(row.get("day_start") or "" for row in wallii_rows)
+    stats_by_key = _sb_server_top10_stats_by_key()
+    bundle = {region: [] for region in SERVER_TOP10_REGIONS}
+    for row in wallii_rows:
+        if row.get("day_start") != latest_day:
+            continue
+        p = row.get("players")
+        name = (p[0].get("player_name") if isinstance(p, list) and p else p.get("player_name") if isinstance(p, dict) else None)
+        if not name:
+            continue
+        region = str(row.get("region", "")).upper()
+        if region not in bundle:
+            continue
+        merged = dict(stats_by_key.get(_lb_player_key(region, name), {}))
+        merged.update({
+            "player": name,
+            "region": region,
+            "current_rank": row.get("rank"),
+            "cr": row.get("rating"),
+        })
+        bundle[region].append(_server_top10_payload_row(merged))
+    return bundle
+
+@st.cache_data(ttl=3600)
+def _fetch_server_top10_cached(n=10):
+    """Cachad i Streamlits minne i 1h — anropar inte Supabase vid varje knapptryckning."""
+    payload, updated_at, cache_available = _sb_load_server_top10_cache(n)
+    if payload and _server_top10_cache_age_ok(updated_at):
+        return payload, "cache hit"
+    if not cache_available:
+        return {}, "cache unavailable"
+    try:
+        fresh_payload = _wallii_refresh_server_top10_bundle(n)
+    except Exception:
+        if payload:
+            return payload, "stale fallback"
+        raise
+    _sb_save_server_top10_cache(fresh_payload, n)
+    return fresh_payload, "refreshed"
+
+
+def fetch_cached_server_top10_bundle(n=10):
+    t0 = time.perf_counter()
+    result, status = _fetch_server_top10_cached(n)
+    st.session_state["server_top10_status"] = f"{status} ({(time.perf_counter() - t0) * 1000:.0f} ms)"
+    return result
+
+
 def fetch_top_n_for_scan(region, n=100):
     """Fetch top N player names for a region from wallii.gg leaderboard."""
     day_start = _latest_day_start(game_mode=0)
@@ -1403,13 +1612,19 @@ def fetch_top_n_for_scan(region, n=100):
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 
-st.set_page_config(page_title="Placement Stats", layout="centered", page_icon="nerdbob2.png")
+st.set_page_config(page_title="Placement Stats", layout="wide", page_icon="nerdbob2.png")
 st.logo("nerdbob.png")
 
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-family: 'Georgia', serif; }
 .stApp { background-color: #0e0e0e; color: #ccc; }
+
+div[data-testid="stMainBlockContainer"] {
+    max-width: 1040px;
+    margin-left: auto;
+    margin-right: auto;
+}
 
 .stTextInput input, .stNumberInput input {
     background-color: #161616 !important;
@@ -1876,6 +2091,37 @@ with tabs[0]:
                         f"<span class='lb-hover-label'>Farmer Factor</span><span class='lb-hover-value' style='color:{_ff_color};'>{_ff_text}</span>"
                         f"</div></div>"
                     )
+
+                if _lb_season == CURRENT_SEASON:
+                    if "lb_show_server_top10" not in st.session_state:
+                        st.session_state["lb_show_server_top10"] = False
+                    _server_toggle_label = (
+                        "Hide server top 10"
+                        if st.session_state["lb_show_server_top10"]
+                        else "Show server top 10 (EU / NA / AP)"
+                    )
+                    if st.button(_server_toggle_label, key="lb_server_top10_toggle"):
+                        st.session_state["lb_show_server_top10"] = not st.session_state["lb_show_server_top10"]
+                        st.rerun(scope="fragment")
+                    if st.session_state["lb_show_server_top10"]:
+                        try:
+                            _server_top10_bundle = fetch_cached_server_top10_bundle(10)
+                        except Exception as e:
+                            dlog("Cached server top 10 bundle failed:", e)
+                            _server_top10_bundle = {}
+                        _server_status = st.session_state.get("server_top10_status")
+                        if _server_status:
+                            st.caption(f"Server top 10: {_server_status}")
+                        _server_cols = st.columns(3)
+                        for _server_col, _server_region in zip(_server_cols, SERVER_TOP10_REGIONS):
+                            _server_rows = _server_top10_bundle.get(_server_region, [])
+                            render_list(
+                                _server_col,
+                                f"{_server_region} Top 10",
+                                _server_rows,
+                                lambda r: f"{int(r['cr']):,}" if r.get("cr") is not None else f"#{int(r['current_rank'])}" if r.get("current_rank") is not None else "-",
+                                "Cached current Wallii server leaderboard. CN is excluded.",
+                            )
 
                 lists = [
                     ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Average placement across recorded games this season. Lower is better."),

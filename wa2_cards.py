@@ -60,6 +60,12 @@ def _associated_races_to_tribes(races: list[str] | None) -> list[str]:
     return tribes or ["neutral"]
 
 
+def _is_duo_card(card: dict) -> bool:
+    """Return True for card variants whose display name explicitly contains 'Duo'."""
+    haystacks = [card.get("display_name", ""), card.get("name", "")]
+    return any("duo" in text.lower() for text in haystacks if text)
+
+
 # ── Data fetching ─────────────────────────────────────────────────────────────
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -276,10 +282,15 @@ def show_card_browser():
     include_duos = st.checkbox("Include Duos?", value=False, key="cb_include_duos")
     filter_col_1, filter_col_2, filter_col_3 = st.columns([2, 2, 1])
 
+    def _apply_duo_filter(cards: list[dict]) -> list[dict]:
+        if include_duos:
+            return cards
+        return [card for card in cards if not _is_duo_card(card)]
+
     # ── Spells ──────────────────────────────────────────────────────────────
     if card_type == "Spells":
         with st.spinner("Loading spells..."):
-            all_spells = _get_all_spell_cards()
+            all_spells = _apply_duo_filter(_get_all_spell_cards())
 
         if not all_spells:
             st.warning("Spell data unavailable. Check your internet connection.")
@@ -337,7 +348,7 @@ def show_card_browser():
     # ── Minions ──────────────────────────────────────────────────────────────
     if card_type == "Minions":
         with st.spinner("Loading minions..."):
-            all_minions = _get_all_minion_cards()
+            all_minions = _apply_duo_filter(_get_all_minion_cards())
 
         if not all_minions:
             st.warning("Minion data unavailable. Check your internet connection.")
@@ -374,7 +385,7 @@ def show_card_browser():
     # ── Trinkets ─────────────────────────────────────────────────────────────
     elif card_type == "Trinkets":
         with st.spinner("Loading trinkets..."):
-            all_trinkets = _get_all_trinket_cards()
+            all_trinkets = _apply_duo_filter(_get_all_trinket_cards())
 
         if not all_trinkets:
             st.warning("Trinket data unavailable. Check your internet connection.")

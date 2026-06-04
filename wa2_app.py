@@ -63,6 +63,15 @@ def _parse_iso_utc(ts):
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
+def _player_cache_fresh(last_fetched):
+    if not last_fetched:
+        return False
+    try:
+        return _utc_now() - _parse_iso_utc(last_fetched) < timedelta(hours=PLAYER_CACHE_TTL_HOURS)
+    except Exception:
+        return False
+
+
 def _season_tracking_start(season):
     season_cfg = SEASONS.get(season, SEASONS[CURRENT_SEASON])
     return _parse_iso_utc(season_cfg["start"]) + timedelta(days=1)
@@ -94,6 +103,7 @@ SUPABASE_KEY = (
 )
 
 SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_KEY)
+PLAYER_CACHE_TTL_HOURS = 2
 
 SUPABASE_HEADERS = {
     "apikey":          SUPABASE_KEY,
@@ -1247,10 +1257,10 @@ def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
                 return _snapshots_to_games(cached, season_start_str=season_start_str), region, None
         raise ValueError(f"No cached data found for season {season}.")
 
-    # ── 2. Pågående säsong: försök Supabase-cache först ──────────────────────
+    # ── 2. Pågående säsong: använd Supabase-cache endast om den är ny nog ───
     if SUPABASE_ENABLED:
-        cached, _, cached_rank = _sb_get_cached_snapshots(player_name, region, season=season)
-        if cached and len(cached) >= 2:
+        cached, last_fetched, cached_rank = _sb_get_cached_snapshots(player_name, region, season=season)
+        if cached and len(cached) >= 2 and _player_cache_fresh(last_fetched):
             return _snapshots_to_games(cached, season_start_str=season_start_str), region, cached_rank
 
     # ── 2. Fetch from wallii.gg ───────────────────────────────────────────────
@@ -2640,7 +2650,7 @@ with tabs[0]:
                                         _sr = requests.get(
                                             f"{SUPABASE_URL}/rest/v1/snapshots",
                                             headers=SUPABASE_HEADERS,
-                                            params={"player_name": f"eq.{_pc['player_name'].lower()}", "region": f"eq.{_pc['region'].upper()}", "game_mode": "eq.0", "snapshot_time": f"gte.{SEASON_START}", "order": "snapshot_time.asc", "limit": "2000", "select": "snapshot_time,rating"},
+                                            params={"player_name": f"eq.{_pc['player_name'].lower()}", "region": f"eq.{_pc['region'].upper()}", "game_mode": "eq.0", "snapshot_time": f"gte.{SEASONS[CURRENT_SEASON]['start']}", "order": "snapshot_time.asc", "limit": "2000", "select": "snapshot_time,rating"},
                                             timeout=15,
                                         )
                                         _sr.raise_for_status()

@@ -38,7 +38,7 @@ def norm_to_pct(games):
     return {p: counts[p] / total * 100 for p in range(1, 9)}
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_resource(show_spinner=False)
 def make_chart(games):
     norm = normalized_counts(games)
     labels = [str(p) for p in range(1, 9)]

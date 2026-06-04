@@ -1609,11 +1609,44 @@ def fetch_top_n_for_scan(region, n=100):
             names.append(name)
     return names
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def _fetch_patch_notes(n=5):
+    try:
+        r = requests.get(
+            "https://hearthstone.blizzard.com/en-us/api/blog/articleList",
+            params={"page": 1, "pageSize": 30, "category": "patchnotes", "locale": "en_US"},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10
+        )
+        r.raise_for_status()
+        articles = r.json()
+        result = []
+        for a in articles:
+            title = a.get("title", "")
+            if re.match(r'^\d{2,}\.\d+', title):
+                result.append({
+                    "title": title,
+                    "url": f"https://hearthstone.blizzard.com/en-us/news/{a['id']}/{a['slug']}"
+                })
+            if len(result) >= n:
+                break
+        return result
+    except Exception:
+        return []
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 
 st.set_page_config(page_title="Placement Stats", layout="wide", page_icon="nerdbob2.png")
 st.logo("nerdbob.png")
+
+with st.sidebar:
+    st.markdown("### 📰 Patch Notes")
+    patches = _fetch_patch_notes(5)
+    if patches:
+        for p in patches:
+            st.markdown(f"[{p['title']}]({p['url']})")
+    else:
+        st.caption("Could not load patch notes.")
 
 st.markdown("""
 <style>
@@ -1655,6 +1688,18 @@ div[data-testid="stMainBlockContainer"] {
 .stFormSubmitButton button:hover, .stButton button:hover {
     background-color: #d4a843 !important;
     color: #0e0e0e !important;
+}
+.stButton button[kind="primary"] {
+    background-color: #d4a843 !important;
+    color: #0e0e0e !important;
+}
+.stButton button[kind="primary"]:hover {
+    background-color: #e8bb55 !important;
+}
+.stButton button[kind="primary"] {
+    background-color: #ff4b4b !important;
+    color: white !important;
+    border: none !important;
 }
 .streamlit-expanderHeader {
     background-color: #161616 !important;
@@ -2098,20 +2143,23 @@ with tabs[0]:
                     _server_toggle_label = (
                         "Hide server top 10"
                         if st.session_state["lb_show_server_top10"]
-                        else "Show server top 10 (EU / NA / AP)"
+                        else "Show Top 10 (EU / NA / AP)"
                     )
-                    if st.button(_server_toggle_label, key="lb_server_top10_toggle"):
-                        st.session_state["lb_show_server_top10"] = not st.session_state["lb_show_server_top10"]
-                        st.rerun(scope="fragment")
+                    _patch_col1, _patch_col2 = st.columns([4, 1])
+                    with _patch_col1:
+                        if st.button(_server_toggle_label, key="lb_server_top10_toggle"):
+                            st.session_state["lb_show_server_top10"] = not st.session_state["lb_show_server_top10"]
+                            st.rerun(scope="fragment")
+                    with _patch_col2:
+                        _latest_patch = _fetch_patch_notes(1)
+                        if _latest_patch:
+                            st.link_button(f"📋 {_latest_patch[0]['title']}", _latest_patch[0]["url"], use_container_width=True)
                     if st.session_state["lb_show_server_top10"]:
                         try:
                             _server_top10_bundle = fetch_cached_server_top10_bundle(10)
                         except Exception as e:
                             dlog("Cached server top 10 bundle failed:", e)
                             _server_top10_bundle = {}
-                        _server_status = st.session_state.get("server_top10_status")
-                        if _server_status:
-                            st.caption(f"Server top 10: {_server_status}")
                         _server_cols = st.columns(3)
                         for _server_col, _server_region in zip(_server_cols, SERVER_TOP10_REGIONS):
                             _server_rows = _server_top10_bundle.get(_server_region, [])
@@ -2229,12 +2277,12 @@ with tabs[0]:
                             _live_col.markdown(_live_row_html(_si, _s), unsafe_allow_html=True)
                     _live_toggle = "▲ Show less" if st.session_state[_live_exp_key] else "▼ Show more"
                     _live_col.markdown("<div class='lb-show-more'>", unsafe_allow_html=True)
-                    _live_btn_cols = _live_col.columns([3, 2])
+                    _live_btn_cols = _live_col.columns([4, 2])
                     if _live_btn_cols[0].button(_live_toggle, key="lb_toggle_live"):
                         st.session_state[_live_exp_key] = not st.session_state[_live_exp_key]
                         st.rerun(scope="fragment")
                     _sort_label = "MMR" if _live_sort_key == "mmr" else "Views"
-                    if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn"):
+                    if _live_btn_cols[1].button(f"Sort: {_sort_label}", key="lb_live_sort_btn", use_container_width=True):
                         st.session_state["lb_live_sort"] = "viewers" if _live_sort_key == "mmr" else "mmr"
                         st.rerun(scope="fragment")
                     _live_col.markdown("</div>", unsafe_allow_html=True)

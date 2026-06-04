@@ -1,7 +1,13 @@
-import requests
-r = requests.get("https://api.hearthstonejson.com/v1/latest/enUS/cards.json")
-cards = r.json()
+import requests, re, json
 
-spell = next(c for c in cards if c.get("name") == "Enchanted Lasso")
-import json
-print(json.dumps(spell, indent=2))
+r = requests.get(
+    "https://hearthstone.blizzard.com/en-us/api/blog/articleList",
+    params={"page": 1, "pageSize": 20, "category": "patchnotes", "locale": "en_US"},
+    headers={"User-Agent": "Mozilla/5.0"}
+)
+articles = r.json()
+for a in articles:
+    title = a.get("title", "")
+    slug = a.get("slug", "")
+    if re.match(r'^\d+\.\d+', title):
+        print(title, "|", f"https://hearthstone.blizzard.com/en-us/news/{a['id']}/{slug}")

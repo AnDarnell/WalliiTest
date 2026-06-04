@@ -332,6 +332,26 @@ def _sb_fetch_all(season=CURRENT_SEASON):
         return []
 
 @st.cache_data(show_spinner=False, ttl=300)
+def _sb_current_rank_map():
+    if not SUPABASE_ENABLED:
+        return {}
+    try:
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/player_cache",
+            headers=SUPABASE_HEADERS,
+            params={"select": "player_name,region,current_rank", "limit": "10000"},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return {
+            (str(row.get("player_name", "")).lower(), str(row.get("region", "")).upper()): int(row["current_rank"])
+            for row in r.json()
+            if row.get("player_name") and row.get("region") is not None and row.get("current_rank") is not None
+        }
+    except Exception:
+        return {}
+
+@st.cache_data(show_spinner=False, ttl=300)
 def _country_flag(code):
     if not code or len(code) != 2:
         return ""
@@ -1771,6 +1791,12 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
     font-weight: 500;
     white-space: nowrap;
 }
+.lb-hover-rank {
+    color: #d4a843;
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-left: 0.35rem;
+}
 .lb-hover-grid {
     display: grid;
     grid-template-columns: auto auto;
@@ -1950,6 +1976,8 @@ with tabs[0]:
                         _region_meta = html.escape(str(region).upper()) if region else ""
                         _cr_meta = r.get("cr")
                         _meta = " ".join(x for x in [_region_meta, f"{int(_cr_meta):,}" if _cr_meta is not None else ""] if x)
+                        _rank = _rank_lookup.get((str(player).lower(), str(region).upper()))
+                        _rank_html = f" <span class='lb-hover-rank'>#{_rank}</span>" if _rank is not None else ""
                         _avg_val = r.get("avg_place")
                         _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
                         _avg_color = "#777"
@@ -1982,7 +2010,7 @@ with tabs[0]:
                         _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
                         _hover_card = (
                             f"<div class='lb-hover-card'>"
-                            f"<div class='lb-hover-title'><span>{html.escape(player)}</span><span class='lb-hover-meta'>{_meta}</span></div>"
+                            f"<div class='lb-hover-title'><span>{html.escape(player)}{_rank_html}</span><span class='lb-hover-meta'>{_meta}</span></div>"
                             f"<div class='lb-hover-grid'>"
                             f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
                             f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"
@@ -2079,6 +2107,7 @@ with tabs[0]:
 
                 _all_stats_by_player = _lb_stats_by_player(_lb_season)
                 _hover_bx, _hover_by = _sb_load_regression("ALL")
+                _rank_lookup = _sb_current_rank_map()
 
                 def _hover_card_html(player_name, stats_row):
                     if not stats_row:
@@ -2086,6 +2115,8 @@ with tabs[0]:
                     _region = html.escape(str(stats_row.get("region", "")).upper()) if stats_row.get("region") else ""
                     _cr = stats_row.get("cr")
                     _meta = " ".join(x for x in [_region, f"{int(_cr):,}" if _cr is not None else ""] if x)
+                    _rank = _rank_lookup.get((str(player_name).lower(), str(stats_row.get("region", "")).upper()))
+                    _rank_html = f" <span class='lb-hover-rank'>#{_rank}</span>" if _rank is not None else ""
                     _avg_val = stats_row.get("avg_place")
                     _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
                     _avg_color = "#777"
@@ -2118,7 +2149,7 @@ with tabs[0]:
                     _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
                     return (
                         f"<div class='lb-hover-card'>"
-                        f"<div class='lb-hover-title'><span>{html.escape(player_name)}</span><span class='lb-hover-meta'>{_meta}</span></div>"
+                        f"<div class='lb-hover-title'><span>{html.escape(player_name)}{_rank_html}</span><span class='lb-hover-meta'>{_meta}</span></div>"
                         f"<div class='lb-hover-grid'>"
                         f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
                         f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"

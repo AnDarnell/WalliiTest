@@ -1,11 +1,6 @@
 """
 wa2_cards.py  –  Battlegrounds Card Library
 
-Fetches live card data from HearthstoneJSON (no local image files needed).
-Card art is served directly from art.hearthstonejson.com via CDN.
-
-Cached for 1 hour with st.cache_data so repeated visits are instant.
-Automatically picks up new/changed cards after each patch with zero maintenance.
 """
 
 import html
@@ -23,7 +18,6 @@ def _card_img_url(card_id: str, golden: bool = False) -> str:
     display_id = card_id if not golden else card_id + "_G"
     return f"https://art.hearthstonejson.com/v1/bgs/latest/enUS/256x/{display_id}.png"
 
-# Map HearthstoneJSON race values → display labels (matches old TRIBE_LABELS)
 RACE_TO_TRIBE = {
     "MURLOC":     "murloc",
     "BEAST":      "beast",
@@ -66,7 +60,7 @@ def _is_duo_card(card: dict) -> bool:
     return any("duo" in text.lower() for text in haystacks if text)
 
 
-# ── Data fetching ─────────────────────────────────────────────────────────────
+# Data fetching 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _fetch_all_cards() -> list[dict]:
@@ -104,7 +98,7 @@ def _get_all_minion_cards() -> list[dict]:
                 "name":         c["id"],
                 "display_name": c["name"],
                 "tier":         int(c["techLevel"]),
-                "tribes":       card_tribes,  # <── Skicka in hela listan med tribes här!
+                "tribes":       card_tribes,
                 "attack":       c.get("attack", 0),
                 "health":       c.get("health", 0),
                 "text":         c.get("text", ""),
@@ -173,7 +167,7 @@ def _get_all_spell_cards() -> list[dict]:
     return result
 
 
-# ── Card grid renderer ────────────────────────────────────────────────────────
+# Card grid renderer
 
 def _render_card_grid(cards: list[dict], cols_per_row: int = 6, golden: bool = False):
     """Render cards at a stable size in a horizontally scrollable row."""
@@ -268,7 +262,7 @@ def _render_card_grid(cards: list[dict], cols_per_row: int = 6, golden: bool = F
     )
 
 
-# ── Public entry point (called from wa2_app.py) ───────────────────────────────
+# Public entry point (called from wa2_app.py)
 
 def show_card_browser():
     st.markdown("## Card Library")
@@ -287,7 +281,7 @@ def show_card_browser():
             return cards
         return [card for card in cards if not _is_duo_card(card)]
 
-    # ── Spells ──────────────────────────────────────────────────────────────
+    # Spells
     if card_type == "Spells":
         with st.spinner("Loading spells..."):
             all_spells = _apply_duo_filter(_get_all_spell_cards())
@@ -332,7 +326,7 @@ def show_card_browser():
             _render_card_grid(tier_cards, cols_per_row=max(4, min(8, len(tier_cards))))
         return
 
-    # ── Shared tribe filter ──────────────────────────────────────────────────
+    # Shared tribe filter
     tribe_options = ["All"] + [TRIBE_LABELS[t] for t in TRIBES]
     default_tribe_idx = tribe_options.index("Beast") if "Beast" in tribe_options else 0
     selected_label = filter_col_1.selectbox(
@@ -345,7 +339,7 @@ def show_card_browser():
     )
     selected_set = set(selected_tribes)
 
-    # ── Minions ──────────────────────────────────────────────────────────────
+    # Minions
     if card_type == "Minions":
         with st.spinner("Loading minions..."):
             all_minions = _apply_duo_filter(_get_all_minion_cards())
@@ -382,7 +376,7 @@ def show_card_browser():
             cols_count = max(4, min(8, len(tier_cards)))
             _render_card_grid(tier_cards, cols_per_row=cols_count, golden=show_golden)
 
-    # ── Trinkets ─────────────────────────────────────────────────────────────
+    # Trinkets
     elif card_type == "Trinkets":
         with st.spinner("Loading trinkets..."):
             all_trinkets = _apply_duo_filter(_get_all_trinket_cards())

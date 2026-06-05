@@ -188,7 +188,6 @@ def diff_pct_color(diff):
 
 
 def summarize_neighbor_differences(player_pct, avg_pct, player_name="this player"):
-    """Return a short third-person summary of how the player's placements differ from the neighbor average."""
 
     def ordinal(n):
         if 10 <= n % 100 <= 20:

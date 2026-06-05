@@ -1,6 +1,6 @@
 APP_VERSION = "1.0.0"
 
-DEBUG = False  # set True if you want debug panels + logs
+DEBUG = False 
 
 SEASONS = {
     12: {"start": "2025-12-01", "end": "2026-04-13"},

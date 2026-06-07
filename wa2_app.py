@@ -2078,7 +2078,7 @@ with tabs[0]:
                 st.markdown(
                     "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
                     "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \
-                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Note: Wallii "Temporary Service Disruption", back June 8 (https://www.wallii.gg/).</strong>" \
+                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Note: Wallii Temporary Service Disruption, back June 8 (https://www.wallii.gg/).</strong>" \
                     "Season 13 is live. You can still view stats from last season by ticking the box below. You can also still search for people's stats from last season." \
                     " The leaderboards might look weird for a while until people get enough games. Some/most metrics have a game-requirement (usually 50). Any suggestions are very appreciated.</div>",
                     unsafe_allow_html=True,

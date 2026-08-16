@@ -310,7 +310,7 @@ def _sb_upsert(region, player_name, record: dict):
 
 _ALL_FIELDS = "player,region,season,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,matchup_scaling,updated_at"
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=10)
 def _sb_fetch_all(season=CURRENT_SEASON):
     if not SUPABASE_ENABLED:
         return []
@@ -349,7 +349,7 @@ def _sb_fetch_all(season=CURRENT_SEASON):
             st.session_state["sb_topn_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:200])
         return []
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=5)
 def _sb_current_rank_map():
     if not SUPABASE_ENABLED:
         return {}
@@ -369,14 +369,14 @@ def _sb_current_rank_map():
     except Exception:
         return {}
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=300)
 def _country_flag(code):
     if not code or len(code) != 2:
         return ""
     c = code.lower()
     return f"<img src='https://flagcdn.com/16x12/{c}.png' alt='{code.upper()}' style='vertical-align:middle;margin-left:4px;border-radius:1px;'>"
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=5)
 def _sb_fetch_player_links():
     """Returns dict {player_name_lower: {twitch_url, youtube_url, nationality, display_name}}."""
     for cols in ("player_name,display_name,twitch_url,youtube_url,nationality", "player_name,twitch_url,youtube_url,nationality", "player_name,twitch_url,youtube_url"):
@@ -490,7 +490,7 @@ def _post_player_links(payload):
         except Exception:
             raise first_error
 
-@st.cache_data(show_spinner=False, ttl=120)
+@st.cache_data(show_spinner=False, ttl=120, max_entries=5)
 def _twitch_get_token():
     """Hämtar ett app access token från Twitch."""
     if not TWITCH_CLIENT_ID or not TWITCH_CLIENT_SECRET:
@@ -506,7 +506,7 @@ def _twitch_get_token():
     except Exception:
         return None
 
-@st.cache_data(show_spinner=False, ttl=120)
+@st.cache_data(show_spinner=False, ttl=120, max_entries=5)
 def _twitch_get_live_streams():
     """Returnerar lista med live-streams för spelare i player_links, sorterade efter viewer-antal."""
     token = _twitch_get_token()
@@ -575,7 +575,7 @@ def _twitch_get_live_streams():
     except Exception:
         return []
 
-@st.cache_data(show_spinner=False, ttl=3600)
+@st.cache_data(show_spinner=False, ttl=3600, max_entries=5)
 def _yt_fetch_subscribers():
     """Returnerar lista med {player, youtube_url, nationality, subscribers} sorterad efter subscribers."""
     if not YOUTUBE_API_KEY:
@@ -641,14 +641,14 @@ def _yt_fetch_subscribers():
     result.sort(key=lambda x: x["subscribers"], reverse=True)
     return result
 
-@st.cache_data(show_spinner=False, ttl=60)
+@st.cache_data(show_spinner=False, ttl=60, max_entries=30)
 def _sb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
     rows = [r for r in _sb_fetch_all(season=season) if r.get(metric) is not None]
     rows.sort(key=lambda r: (r[metric], r.get("cr") or 0), reverse=higher_is_better)
     return rows[:n]
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=30)
 def _lb_top_mmr_players(season, regions_key, n):
     top_keys = set()
     fallback_regions = set(regions_key)
@@ -680,7 +680,7 @@ def _lb_player_key(region, player):
     return f"{(region or '').upper()}::{(player or '').lower()}"
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=30)
 def _sb_cached_top_rank_players(region, n):
     if not SUPABASE_ENABLED:
         return []
@@ -700,7 +700,7 @@ def _sb_cached_top_rank_players(region, n):
     return [row for row in r.json() if row.get("player_name") and row.get("current_rank") is not None]
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=50)
 def _lb_metric_rows(metric, higher_is_better, season, regions_key, top_players_key):
     regions = set(regions_key)
     top_players = set(top_players_key or ())
@@ -716,12 +716,12 @@ def _lb_metric_rows(metric, higher_is_better, season, regions_key, top_players_k
     return rows
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=10)
 def _lb_stats_by_player(season):
     return {r["player"].lower(): r for r in _sb_fetch_all(season=season) if r.get("player")}
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=50)
 def _lb_milestone_rows(season, milestone_thresh, regions_key, top_players_key):
     regions = set(regions_key)
     top_players = set(top_players_key or ())
@@ -744,12 +744,12 @@ def _lb_milestone_rows(season, milestone_thresh, regions_key, top_players_key):
     return rows
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=20)
 def _read_curve_csv(path_str, mtime_ns):
     return pd.read_csv(path_str)
 
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=100)
 def _cached_binned_curve(path_str, mtime_ns, x_choice, bin_size, mode_kind, q, min_games):
     df = _read_curve_csv(path_str, mtime_ns)
     return binned_weighted_curve(
@@ -764,7 +764,7 @@ def _cached_binned_curve(path_str, mtime_ns, x_choice, bin_size, mode_kind, q, m
     )
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=10)
 def _latest_stats_update_label(season=CURRENT_SEASON):
     ts_values = [r["updated_at"] for r in _sb_fetch_all(season=season) if r.get("updated_at")]
     if not ts_values:
@@ -1125,7 +1125,7 @@ def _sb_save_snapshots(player_name, region, snapshots, current_rank=None):
         timeout=10,
     ).raise_for_status()
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=20)
 def _sb_load_regression(region):
     """Load regression curve from Supabase. Returns (bx, by) or (None, None)."""
     try:
@@ -1354,7 +1354,7 @@ def _supabase_headers():
     }
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=10)
 def _latest_day_start(game_mode=0):
     """
     Fetch latest available day_start from Supabase.
@@ -1374,7 +1374,7 @@ def _latest_day_start(game_mode=0):
     return data[0]["day_start"]
 
 
-@st.cache_data(show_spinner=False, ttl=120)
+@st.cache_data(show_spinner=False, ttl=120, max_entries=200)
 def fetch_neighbor_names(player_rank, region, day_start=None, n=5):
     """
     Returns neighbours around a given 1-indexed rank on Wallii leaderboard:
@@ -1506,7 +1506,7 @@ def _sb_load_server_top10_cache_direct(n=10):
     return rows[0].get("payload_json") or {}, rows[0].get("updated_at"), True
 
 
-@st.cache_data(show_spinner=False, ttl=300)
+@st.cache_data(show_spinner=False, ttl=300, max_entries=20)
 def _sb_load_server_top10_cache(n=10):
     try:
         return _sb_load_server_top10_cache_direct(n)
@@ -1597,7 +1597,7 @@ def _wallii_refresh_server_top10_bundle(n=10, wallii_headers=None):
         bundle[region].append(_server_top10_payload_row(merged))
     return bundle
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, max_entries=20)
 def _fetch_server_top10_cached(n=10):
     """Cachad i Streamlits minne i 1h — anropar inte Supabase vid varje knapptryckning."""
     payload, updated_at, cache_available = _sb_load_server_top10_cache(n)
@@ -1645,7 +1645,7 @@ def fetch_top_n_for_scan(region, n=100):
             names.append(name)
     return names
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False, max_entries=20)
 def _fetch_patch_notes(n=5):
     try:
         r = requests.get(
@@ -1876,7 +1876,7 @@ with tabs[0]:
             region = st.selectbox("Region", VALID_REGIONS, index=VALID_REGIONS.index("EU"))
         season_options = sorted(SEASONS.keys(), reverse=True)
         season_labels  = [f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else "") for s in season_options]
-        default_season_index = season_options.index(13) if 13 in season_options else 0
+        default_season_index = season_options.index(CURRENT_SEASON) if CURRENT_SEASON in season_options else 0
         season_choice  = st.selectbox("Season", options=season_options, format_func=lambda s: f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else ""), index=default_season_index)
         submitted = st.form_submit_button("Search", width='stretch')
 
@@ -2074,11 +2074,11 @@ with tabs[0]:
                         container.markdown("</div>", unsafe_allow_html=True)
 
                 _lb_season_options = sorted(SEASONS.keys(), reverse=True)
-                _lb_season_index = _lb_season_options.index(13) if 13 in _lb_season_options else 0
+                _lb_season_index = _lb_season_options.index(CURRENT_SEASON) if CURRENT_SEASON in _lb_season_options else 0
                 st.markdown(
                     "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
                     "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \
-                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Note: </strong> Season 13 is live! You can still view stats from last season by ticking the box below. You can also still search for people's stats from last season." \
+                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Note: </strong> Season 14 is live! You can still view stats from last season by ticking the box below. You can also still search for people's stats from last season." \
                     " The leaderboards might look weird for a while until people get enough games. Some/most metrics have a game-requirement (usually 50). Any suggestions are very appreciated!</div>",
                     unsafe_allow_html=True,
                 )
@@ -2798,13 +2798,14 @@ with tabs[0]:
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 with hT:
+                    recent_seasons = sorted(SEASONS.keys(), reverse=True)[:2]
                     current_profile_season = st.session_state.get("sp_season", CURRENT_SEASON)
-                    if current_profile_season not in (12, 13):
-                        current_profile_season = 13
+                    if current_profile_season not in recent_seasons:
+                        current_profile_season = CURRENT_SEASON
                     season_toggle = st.radio(
                         "",
-                        [12, 13],
-                        index=[12, 13].index(current_profile_season),
+                        recent_seasons,
+                        index=recent_seasons.index(current_profile_season),
                         format_func=lambda s: f"Season {s}",
                         horizontal=True,
                         key="profile_season_toggle",
@@ -3533,6 +3534,7 @@ with tabs[3]:
         _sb_ax.set_ylabel("Avg Place")
         style_dark_axes(_sb_ax)
         st.pyplot(_sb_fig)
+        plt.close(_sb_fig)
 
     st.divider()
 
@@ -3632,6 +3634,7 @@ with tabs[3]:
     ax.set_ylabel("Avg Place")
     style_dark_axes(ax)
     st.pyplot(fig)
+    plt.close(fig)
 
     def _remove_outliers(xs, ys, z_thresh=2.5):
         mask = (np.abs((xs - xs.mean()) / xs.std()) < z_thresh) & (np.abs((ys - ys.mean()) / ys.std()) < z_thresh)
@@ -3658,6 +3661,7 @@ with tabs[3]:
         _ax_m.set_ylabel("Farmer Factor")
         style_dark_axes(_ax_m)
         st.pyplot(_fig_m)
+        plt.close(_fig_m)
         _removed_note = f", {_mmr_removed} outliers removed" if _mmr_removed else ""
         st.caption(f"Pearson correlation: **{_corr_mmr:.3f}** ({len(_cr_vals)} players{_removed_note})")
 
@@ -3682,6 +3686,7 @@ with tabs[3]:
         _ax_c.set_ylabel("Farmer Factor")
         style_dark_axes(_ax_c)
         st.pyplot(_fig_c)
+        plt.close(_fig_c)
         _removed_note = f", {_us_removed} outliers removed" if _us_removed else ""
         st.caption(f"Pearson correlation: **{_corr:.3f}** ({len(_us_vals)} players{_removed_note}")
 
@@ -3706,6 +3711,7 @@ with tabs[3]:
         _ax_t.set_ylabel("Tilt Factor")
         style_dark_axes(_ax_t)
         st.pyplot(_fig_t)
+        plt.close(_fig_t)
         _removed_note = f", {_tilt_removed} outliers removed" if _tilt_removed else ""
         st.caption(f"Pearson correlation: **{_corr_tilt:.3f}** ({len(_us_tilt_vals)} players{_removed_note})")
 
@@ -3880,6 +3886,8 @@ if _latest_label:
         "</div>",
         unsafe_allow_html=True,
     )
+
+plt.close("all")
 
 # streamlit run wa2_app.py
 # streamlit run wa2_app.py --server.runOnSave true (auto-reload on save)

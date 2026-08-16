@@ -1,12 +1,13 @@
 APP_VERSION = "1.0.0"
 
-DEBUG = False 
+DEBUG = False
 
 SEASONS = {
     12: {"start": "2025-12-01", "end": "2026-04-13"},
-    13: {"start": "2026-04-14", "end": None},
+    13: {"start": "2026-04-14", "end": "2026-08-03"},
+    14: {"start": "2026-08-04", "end": None},  # Current season, end date is None
 }
-CURRENT_SEASON = 13
+CURRENT_SEASON = 14
 THRESHOLD_BASE = 9000
 THRESHOLD_INCREASE = 1000
 VALID_REGIONS = ["NA", "EU", "AP", "CN"]

@@ -94,3 +94,14 @@ def load_rating_curve(
         min_games=int(min_games),
     )
     return bx, by
+
+def get_average_mmr(player_id: str, n: int = 100) -> float:
+    response = {
+        supabase.table("snapshots")
+        .select("rating") \
+        .eq("player_id", player_id) \
+        .order("snapshot_time", desc=True) \
+        .limit(n) \
+        .execute()
+    }
+    

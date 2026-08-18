@@ -158,6 +158,31 @@ def go_home():
     st.session_state.pop("h2h_region", None)
     st.session_state.pop("h2h_error", None)
     st.session_state.pop("nb_result", None)
+    st.session_state.pop("sp_profile_cache", None)
+    st.session_state.pop("sp_previous_season", None)
+    st.session_state.pop("sp_season_notice", None)
+
+def _cache_profile_season(season, games, region, rank):
+    """Keep already visited profile seasons in this browser session."""
+    cache = st.session_state.setdefault("sp_profile_cache", {})
+    cache[season] = {"games": games, "region": region, "rank": rank}
+
+def _restore_previous_profile_season(message):
+    """Return to the last working season if the newly selected one has no data."""
+    previous = st.session_state.get("sp_previous_season")
+    cached = st.session_state.get("sp_profile_cache", {}).get(previous)
+    if not cached:
+        return False
+    st.session_state["sp_season"] = previous
+    st.session_state["sp_games"] = cached["games"]
+    st.session_state["sp_region"] = cached["region"]
+    st.session_state["sp_rank"] = cached["rank"]
+    st.session_state["profile_season_toggle"] = previous
+    st.session_state["sp_season_notice"] = (
+        f"No data was found for Season {st.session_state.get('sp_requested_season')}. "
+        f"You're still viewing Season {previous}."
+    )
+    return True
 
 # ── Query-param navigation (from leaderboard name links) ─────────────────────
 _qp = st.query_params
@@ -179,6 +204,9 @@ if "goto_player" in _qp:
     st.session_state.pop("h2h_region", None)
     st.session_state.pop("h2h_error", None)
     st.session_state.pop("nb_result", None)
+    st.session_state.pop("sp_profile_cache", None)
+    st.session_state.pop("sp_previous_season", None)
+    st.session_state.pop("sp_season_notice", None)
     st.query_params.clear()
     st.rerun()
 if "goto_home" in _qp:
@@ -1894,6 +1922,9 @@ with tabs[0]:
             st.session_state["sp_season"] = season_choice
             st.session_state["sp_games"]  = None
             st.session_state["sp_rank"]   = None
+            st.session_state.pop("sp_profile_cache", None)
+            st.session_state.pop("sp_previous_season", None)
+            st.session_state.pop("sp_season_notice", None)
             st.session_state.pop("h2h_games", None)
             st.session_state.pop("h2h_label", None)
             st.session_state.pop("h2h_error", None)
@@ -2671,13 +2702,21 @@ with tabs[0]:
 
     else:
         # ── Spelarsida ────────────────────────────────────────────────────────
+        _sp_season = st.session_state.get("sp_season", CURRENT_SEASON)
+        _cached_profile = st.session_state.get("sp_profile_cache", {}).get(_sp_season)
+        if st.session_state.get("sp_games") is None and _cached_profile:
+            st.session_state["sp_games"] = _cached_profile["games"]
+            st.session_state["sp_region"] = _cached_profile["region"]
+            st.session_state["sp_rank"] = _cached_profile["rank"]
+
         if st.session_state.get("sp_games") is None:
             with st.spinner("Fetching data..."):
                 try:
-                    _sp_season = st.session_state.get("sp_season", CURRENT_SEASON)
                     st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region, season=_sp_season)
                     compute_and_upsert(sp_player, st.session_state["sp_region"], st.session_state["sp_games"], season=_sp_season)
                     _save_opp_buckets(sp_player, st.session_state["sp_region"], st.session_state["sp_games"])
+                    _cache_profile_season(_sp_season, st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"])
+                    st.session_state.pop("sp_season_notice", None)
                 except ValueError as e:
                     msg = str(e)
                     m = re.search(r"appears to be in: ([A-Z,\s]+)", msg)
@@ -2691,21 +2730,34 @@ with tabs[0]:
                                 sp_region = detected
                                 compute_and_upsert(sp_player, st.session_state["sp_region"], st.session_state["sp_games"], season=_sp_season)
                                 _save_opp_buckets(sp_player, detected, st.session_state["sp_games"])
+                                _cache_profile_season(_sp_season, st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"])
+                                st.session_state.pop("sp_season_notice", None)
                             except Exception as e2:
+                                if _restore_previous_profile_season(str(e2)):
+                                    st.rerun()
                                 st.error(str(e2))
                                 st.session_state["sp_games"] = []
                         else:
+                            if _restore_previous_profile_season(msg):
+                                st.rerun()
                             st.error(msg)
                             st.session_state["sp_games"] = []
                     else:
+                        if _restore_previous_profile_season(msg):
+                            st.rerun()
                         st.error(msg)
                         st.session_state["sp_games"] = []
                 except Exception as e:
+                    if _restore_previous_profile_season(str(e)):
+                        st.rerun()
                     st.error(str(e))
                     st.session_state["sp_games"] = []
 
         games = st.session_state.get("sp_games", [])
         sp_region = st.session_state.get("sp_region", sp_region)
+
+        if _season_notice := st.session_state.pop("sp_season_notice", None):
+            st.warning(_season_notice)
 
         if games:
             try:
@@ -2812,9 +2864,24 @@ with tabs[0]:
                         label_visibility="collapsed",
                     )
                     if season_toggle != st.session_state.get("sp_season"):
+                        current_season = st.session_state.get("sp_season", CURRENT_SEASON)
+                        _cache_profile_season(
+                            current_season,
+                            st.session_state.get("sp_games", []),
+                            st.session_state.get("sp_region", sp_region),
+                            st.session_state.get("sp_rank"),
+                        )
+                        st.session_state["sp_previous_season"] = current_season
+                        st.session_state["sp_requested_season"] = season_toggle
                         st.session_state["sp_season"] = season_toggle
-                        st.session_state["sp_games"] = None
-                        st.session_state["sp_rank"] = None
+                        cached_season = st.session_state.get("sp_profile_cache", {}).get(season_toggle)
+                        if cached_season:
+                            st.session_state["sp_games"] = cached_season["games"]
+                            st.session_state["sp_region"] = cached_season["region"]
+                            st.session_state["sp_rank"] = cached_season["rank"]
+                        else:
+                            st.session_state["sp_games"] = None
+                            st.session_state["sp_rank"] = None
                         st.rerun()
 
                 with hR:

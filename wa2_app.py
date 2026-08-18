@@ -2798,7 +2798,7 @@ with tabs[0]:
                     st.markdown("</div>", unsafe_allow_html=True)
 
                 with hT:
-                    recent_seasons = sorted(SEASONS.keys(), reverse=True)[:2]
+                    recent_seasons = sorted(SEASONS.keys(), reverse=True)
                     current_profile_season = st.session_state.get("sp_season", CURRENT_SEASON)
                     if current_profile_season not in recent_seasons:
                         current_profile_season = CURRENT_SEASON

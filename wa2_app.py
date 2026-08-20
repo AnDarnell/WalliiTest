@@ -1700,8 +1700,9 @@ def _fetch_patch_notes(n=5):
 
 # ── Page styling ──────────────────────────────────────────────────────────────
 
-st.set_page_config(page_title="Placement Stats", layout="wide", page_icon="nerdbob2.png")
-st.logo("nerdbob.png")
+_app_dir = Path(__file__).resolve().parent
+st.set_page_config(page_title="Placement Stats", layout="wide", page_icon=str(_app_dir / "nerdbob2.png"))
+st.logo(str(_app_dir / "nerdbob.png"))
 
 st.markdown("""
 <style>
@@ -1879,7 +1880,7 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
 """, unsafe_allow_html=True)
 
 import base64 as _b64
-_logo_b64 = _b64.b64encode(open("nerdbob.png", "rb").read()).decode()
+_logo_b64 = _b64.b64encode((_app_dir / "nerdbob.png").read_bytes()).decode()
 st.markdown(f"""
 <div style='display:flex; align-items:center; gap:1rem; margin-bottom:1.0rem;'>
   <img src='data:image/png;base64,{_logo_b64}' style='height:72px; width:72px; object-fit:cover; border-radius:8px; flex-shrink:0;'>
@@ -3819,8 +3820,17 @@ with tabs[1]:
         else:
             _cert_label, _cert_color = "Very certain", "#81c784"
 
+        _best_pd = _ranked[0][0]
+        _best_index = _placements_full.index(_best_pd)
+        _result_placements = [_best_pd]
+        if _best_index > 0:
+            _result_placements.append(_placements_full[_best_index - 1])
+        if _best_index < len(_placements_full) - 1:
+            _result_placements.append(_placements_full[_best_index + 1])
+
         _rows_html = ""
-        for _i, (_pd, _avg_opp, _) in enumerate(_ranked[:2]):
+        for _i, _pd in enumerate(_result_placements):
+            _avg_opp = _p_to_avg[_pd]
             _is_best = _i == 0
             _row_bg  = f"background:{_cert_color}22;border-color:{_cert_color}66;" if _is_best else "background:#111;border-color:#1e1e1e;"
             _row_col = _cert_color if _is_best else "#8a8a8a"
@@ -3829,7 +3839,7 @@ with tabs[1]:
                 _pd_str = f"{_pd:g}th"
             else:
                 _pd_str = f"{int(_pd)}{_suffixes.get(int(_pd), 'th')}"
-            _prefix  = "Most likely" if _is_best else "Also possible"
+            _prefix = "Most likely" if _is_best else "Also possible"
             _cert_note = f" <span style='font-size:0.78em;font-weight:400;color:{_cert_color};'>({_cert_label.lower()})</span>" if _is_best else ""
             _rows_html += (
                 f"<div style='{_row_bg}border:1px solid;border-radius:4px;"

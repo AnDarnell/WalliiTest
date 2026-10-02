@@ -5,7 +5,7 @@ DEBUG = False
 SEASONS = {
     12: {"start": "2025-12-01", "end": "2026-04-13"},
     13: {"start": "2026-04-14", "end": "2026-08-03"},
-    14: {"start": "2026-08-04", "end": None},  # Current season, end date is None
+    14: {"start": "2026-08-05", "end": None},  # Current season, end date is None
 }
 CURRENT_SEASON = 14
 THRESHOLD_BASE = 9000

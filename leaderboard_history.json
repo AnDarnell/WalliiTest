@@ -1,0 +1,6302 @@
+[
+{
+"region": "EU",
+"season": 2,
+"rank": 1,
+"player": "guddummit",
+"rating": 17628
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 2,
+"player": "xqn",
+"rating": 17016
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 3,
+"player": "seniorheld",
+"rating": 16645
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 4,
+"player": "tume",
+"rating": 16002
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 5,
+"player": "chpatro",
+"rating": 16001
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 6,
+"player": "waterloooooo",
+"rating": 15445
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 7,
+"player": "shadybunny",
+"rating": 15350
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 8,
+"player": "superjj",
+"rating": 15274
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 9,
+"player": "sorren",
+"rating": 15152
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 10,
+"player": "pun",
+"rating": 15133
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 11,
+"player": "ixxdeee",
+"rating": 15116
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 12,
+"player": "geniushs",
+"rating": 15028
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 13,
+"player": "bendrikus",
+"rating": 15014
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 14,
+"player": "",
+"rating": 15005
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 15,
+"player": "yepbenis",
+"rating": 14832
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 16,
+"player": "maks7k",
+"rating": 14774
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 17,
+"player": "twitchchat",
+"rating": 14744
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 18,
+"player": "микри",
+"rating": 14710
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 19,
+"player": "惡魔蘋果",
+"rating": 14654
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 20,
+"player": "zayrox",
+"rating": 14587
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 21,
+"player": "wtybill",
+"rating": 14547
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 22,
+"player": "fritterus",
+"rating": 14523
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 23,
+"player": "tezcat",
+"rating": 14501
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 24,
+"player": "babofat",
+"rating": 14494
+},
+{
+"region": "EU",
+"season": 2,
+"rank": 25,
+"player": "silvername",
+"rating": 14433
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 1,
+"player": "louder",
+"rating": 17527
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 2,
+"player": "huyagaoshou",
+"rating": 17245
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 3,
+"player": "sevel",
+"rating": 16688
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 4,
+"player": "douyumxjf",
+"rating": 16054
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 5,
+"player": "wtybill",
+"rating": 16034
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 6,
+"player": "slyders",
+"rating": 15857
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 7,
+"player": "xqn",
+"rating": 15732
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 8,
+"player": "guddummit",
+"rating": 15561
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 9,
+"player": "shadybunny",
+"rating": 15280
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 10,
+"player": "maks7k",
+"rating": 15247
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 11,
+"player": "tume",
+"rating": 15247
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 12,
+"player": "zorg",
+"rating": 15168
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 13,
+"player": "rogojine",
+"rating": 14821
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 14,
+"player": "superjj",
+"rating": 14667
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 15,
+"player": "rdu",
+"rating": 14621
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 16,
+"player": "naylek",
+"rating": 14533
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 17,
+"player": "леший",
+"rating": 14474
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 18,
+"player": "babofat",
+"rating": 14390
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 19,
+"player": "boardking",
+"rating": 14332
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 20,
+"player": "cytro",
+"rating": 14326
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 21,
+"player": "malisar",
+"rating": 14293
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 22,
+"player": "yepbenis",
+"rating": 14281
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 23,
+"player": "seniorheld",
+"rating": 14278
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 24,
+"player": "jak3enight",
+"rating": 14251
+},
+{
+"region": "EU",
+"season": 3,
+"rank": 25,
+"player": "dontnou",
+"rating": 14185
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 1,
+"player": "louder",
+"rating": 17133
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 2,
+"player": "xqn",
+"rating": 17045
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 3,
+"player": "jeef",
+"rating": 17024
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 4,
+"player": "huyagaoshou",
+"rating": 16190
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 5,
+"player": "cytro",
+"rating": 16038
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 6,
+"player": "lizi",
+"rating": 15507
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 7,
+"player": "tume",
+"rating": 15446
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 8,
+"player": "guddummit",
+"rating": 15391
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 9,
+"player": "agamaggan",
+"rating": 15278
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 10,
+"player": "sevel",
+"rating": 15244
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 11,
+"player": "daisy",
+"rating": 15197
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 12,
+"player": "saflaaa",
+"rating": 15048
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 13,
+"player": "zorg",
+"rating": 15021
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 14,
+"player": "jak3enight",
+"rating": 15010
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 15,
+"player": "bendrikus",
+"rating": 15000
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 16,
+"player": "wtybill",
+"rating": 14991
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 17,
+"player": "babofat",
+"rating": 14850
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 18,
+"player": "shencangblue",
+"rating": 14834
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 19,
+"player": "budilicious",
+"rating": 14645
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 20,
+"player": "boardking",
+"rating": 14638
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 21,
+"player": "e3sura",
+"rating": 14561
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 22,
+"player": "zhongwmwm",
+"rating": 14529
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 23,
+"player": "惡魔蘋果",
+"rating": 14468
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 24,
+"player": "viv86",
+"rating": 14408
+},
+{
+"region": "EU",
+"season": 4,
+"rank": 25,
+"player": "slyders",
+"rating": 14406
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 1,
+"player": "louder",
+"rating": 17112
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 2,
+"player": "jeef",
+"rating": 17022
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 3,
+"player": "tume",
+"rating": 16510
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 4,
+"player": "xqn",
+"rating": 16431
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 5,
+"player": "wszba",
+"rating": 16254
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 6,
+"player": "sola",
+"rating": 16220
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 7,
+"player": "agamaggan",
+"rating": 16212
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 8,
+"player": "huyagaoshou",
+"rating": 16211
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 9,
+"player": "zengka",
+"rating": 15844
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 10,
+"player": "huyavv",
+"rating": 15813
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 11,
+"player": "boardking",
+"rating": 15761
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 12,
+"player": "zorg",
+"rating": 15577
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 13,
+"player": "maverick",
+"rating": 15472
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 14,
+"player": "tezcat",
+"rating": 15452
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 15,
+"player": "xixiha",
+"rating": 15433
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 16,
+"player": "惡魔蘋果",
+"rating": 15254
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 17,
+"player": "spidy",
+"rating": 15171
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 18,
+"player": "lizi",
+"rating": 15142
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 19,
+"player": "slyders",
+"rating": 15136
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 20,
+"player": "guddummit",
+"rating": 15107
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 21,
+"player": "cytro",
+"rating": 15055
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 22,
+"player": "bendrikus",
+"rating": 15033
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 23,
+"player": "dayween",
+"rating": 15014
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 24,
+"player": "zhongwmwm",
+"rating": 15008
+},
+{
+"region": "EU",
+"season": 5,
+"rank": 25,
+"player": "quilboarttv",
+"rating": 14901
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 1,
+"player": "xqn",
+"rating": 19586
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 2,
+"player": "xixiha",
+"rating": 19334
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 3,
+"player": "louder",
+"rating": 19052
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 4,
+"player": "jeef",
+"rating": 19019
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 5,
+"player": "huyagaoshou",
+"rating": 19016
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 6,
+"player": "huyavv",
+"rating": 18245
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 7,
+"player": "tume",
+"rating": 17005
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 8,
+"player": "huyaguo",
+"rating": 16703
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 9,
+"player": "wszba",
+"rating": 16282
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 10,
+"player": "cytro",
+"rating": 16251
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 11,
+"player": "леший",
+"rating": 16222
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 12,
+"player": "zengka",
+"rating": 16101
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 13,
+"player": "petro",
+"rating": 16034
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 14,
+"player": "九條美姬簡薇樂瑤",
+"rating": 16008
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 15,
+"player": "guddummit",
+"rating": 15881
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 16,
+"player": "slyders",
+"rating": 15867
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 17,
+"player": "zorg",
+"rating": 15823
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 18,
+"player": "星期日",
+"rating": 15795
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 19,
+"player": "agamaggan",
+"rating": 15632
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 20,
+"player": "sevel",
+"rating": 15433
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 21,
+"player": "惡魔蘋果",
+"rating": 15363
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 22,
+"player": "莫色詩薇蘇流澈柔",
+"rating": 15311
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 23,
+"player": "bin",
+"rating": 15297
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 24,
+"player": "wabash",
+"rating": 15214
+},
+{
+"region": "EU",
+"season": 6,
+"rank": 25,
+"player": "att",
+"rating": 15158
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 1,
+"player": "beterbabbit",
+"rating": 19005
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 2,
+"player": "xqn",
+"rating": 18695
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 3,
+"player": "advocate",
+"rating": 18671
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 4,
+"player": "huyaguo",
+"rating": 18500
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 5,
+"player": "e3sura",
+"rating": 18039
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 6,
+"player": "sevel",
+"rating": 17715
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 7,
+"player": "huyagaoshou",
+"rating": 17538
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 8,
+"player": "louder",
+"rating": 17510
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 9,
+"player": "tume",
+"rating": 17075
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 10,
+"player": "dayween",
+"rating": 17005
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 11,
+"player": "huyavv",
+"rating": 16892
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 12,
+"player": "bendrikus",
+"rating": 16579
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 13,
+"player": "agamaggan",
+"rating": 16266
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 14,
+"player": "babofat",
+"rating": 15873
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 15,
+"player": "jkirek",
+"rating": 15842
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 16,
+"player": "леший",
+"rating": 15725
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 17,
+"player": "maverick",
+"rating": 15526
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 18,
+"player": "unbelievable",
+"rating": 15447
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 19,
+"player": "不负月烨不负歆",
+"rating": 15435
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 20,
+"player": "petro",
+"rating": 15304
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 21,
+"player": "guddummit",
+"rating": 15293
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 22,
+"player": "zorg",
+"rating": 15261
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 23,
+"player": "星期日",
+"rating": 15246
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 24,
+"player": "slyders",
+"rating": 15229
+},
+{
+"region": "EU",
+"season": 7,
+"rank": 25,
+"player": "flameowl",
+"rating": 15218
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 1,
+"player": "beterbabbit",
+"rating": 18563
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 2,
+"player": "jeef",
+"rating": 18512
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 3,
+"player": "tume",
+"rating": 18121
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 4,
+"player": "sevel",
+"rating": 17894
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 5,
+"player": "slyders",
+"rating": 17802
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 6,
+"player": "hsmt",
+"rating": 17174
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 7,
+"player": "леший",
+"rating": 17068
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 8,
+"player": "kzinnii",
+"rating": 17024
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 9,
+"player": "bendrikus",
+"rating": 17013
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 10,
+"player": "babofat",
+"rating": 16625
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 11,
+"player": "guddummit",
+"rating": 16524
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 12,
+"player": "louder",
+"rating": 16511
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 13,
+"player": "arslanlegend",
+"rating": 16338
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 14,
+"player": "dogbiscuit",
+"rating": 16284
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 15,
+"player": "xqn",
+"rating": 16278
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 16,
+"player": "mario68",
+"rating": 16153
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 17,
+"player": "latzinn",
+"rating": 16035
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 18,
+"player": "doud78",
+"rating": 16023
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 19,
+"player": "maverick",
+"rating": 15896
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 20,
+"player": "cytro",
+"rating": 15878
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 21,
+"player": "bqb",
+"rating": 15721
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 22,
+"player": "casamatta",
+"rating": 15578
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 23,
+"player": "doozkawa",
+"rating": 15481
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 24,
+"player": "matsutake",
+"rating": 15424
+},
+{
+"region": "EU",
+"season": 8,
+"rank": 25,
+"player": "spidy",
+"rating": 15264
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 1,
+"player": "tume",
+"rating": 18194
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 2,
+"player": "hsmt",
+"rating": 18057
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 3,
+"player": "arslanlegend",
+"rating": 17756
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 4,
+"player": "babofat",
+"rating": 17402
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 5,
+"player": "slyders",
+"rating": 17392
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 6,
+"player": "керри",
+"rating": 17067
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 7,
+"player": "стоякбездела",
+"rating": 17017
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 8,
+"player": "xqn",
+"rating": 16972
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 9,
+"player": "sevel",
+"rating": 16843
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 10,
+"player": "guddummit",
+"rating": 16752
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 11,
+"player": "gigardu",
+"rating": 16697
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 12,
+"player": "леший",
+"rating": 16604
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 13,
+"player": "doud78",
+"rating": 16600
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 14,
+"player": "kzinnii",
+"rating": 16559
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 15,
+"player": "arkantos",
+"rating": 16453
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 16,
+"player": "mario68",
+"rating": 16336
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 17,
+"player": "jkirek",
+"rating": 16118
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 18,
+"player": "kekandop",
+"rating": 16050
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 19,
+"player": "gospodar",
+"rating": 16013
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 20,
+"player": "vladelisha",
+"rating": 15926
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 21,
+"player": "filpek",
+"rating": 15902
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 22,
+"player": "cytro",
+"rating": 15891
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 23,
+"player": "beterbabbit",
+"rating": 15815
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 24,
+"player": "kairus",
+"rating": 15769
+},
+{
+"region": "EU",
+"season": 9,
+"rank": 25,
+"player": "huyafritqn",
+"rating": 15629
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 1,
+"player": "hsmt",
+"rating": 18150
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 2,
+"player": "стоякбездела",
+"rating": 18025
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 3,
+"player": "slyders",
+"rating": 17472
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 4,
+"player": "bendrikus",
+"rating": 17126
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 5,
+"player": "huyaguo",
+"rating": 17085
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 6,
+"player": "tume",
+"rating": 17002
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 7,
+"player": "леший",
+"rating": 16985
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 8,
+"player": "mativ",
+"rating": 16582
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 9,
+"player": "sevel",
+"rating": 16388
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 10,
+"player": "saylore",
+"rating": 16061
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 11,
+"player": "wabash",
+"rating": 16029
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 12,
+"player": "arslanlegend",
+"rating": 15902
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 13,
+"player": "guddummit",
+"rating": 15803
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 14,
+"player": "пронзаядушу",
+"rating": 15630
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 15,
+"player": "xqn",
+"rating": 15494
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 16,
+"player": "benice",
+"rating": 15459
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 17,
+"player": "среброкрыл",
+"rating": 15399
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 18,
+"player": "superjj",
+"rating": 15345
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 19,
+"player": "vladelisha",
+"rating": 15328
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 20,
+"player": "zorg",
+"rating": 15264
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 21,
+"player": "fawh",
+"rating": 15210
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 22,
+"player": "calient",
+"rating": 15119
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 23,
+"player": "cuckchromo47",
+"rating": 15034
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 24,
+"player": "felkeine",
+"rating": 15034
+},
+{
+"region": "EU",
+"season": 10,
+"rank": 25,
+"player": "koshchei",
+"rating": 14986
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 1,
+"player": "hsmt",
+"rating": 20001
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 2,
+"player": "стоякбездела",
+"rating": 19022
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 3,
+"player": "xqn",
+"rating": 18877
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 4,
+"player": "zorg",
+"rating": 18743
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 5,
+"player": "slyders",
+"rating": 18560
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 6,
+"player": "mathrais",
+"rating": 17543
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 7,
+"player": "tume",
+"rating": 17302
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 8,
+"player": "mario68",
+"rating": 17020
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 9,
+"player": "felkeine",
+"rating": 16626
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 10,
+"player": "fcpopa",
+"rating": 16624
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 11,
+"player": "safla",
+"rating": 16609
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 12,
+"player": "fawh",
+"rating": 16074
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 13,
+"player": "catlamity",
+"rating": 16055
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 14,
+"player": "aladeer",
+"rating": 16025
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 15,
+"player": "superjj",
+"rating": 16020
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 16,
+"player": "arslanlegend",
+"rating": 15964
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 17,
+"player": "gospodar",
+"rating": 15799
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 18,
+"player": "леший",
+"rating": 15686
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 19,
+"player": "maverick",
+"rating": 15644
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 20,
+"player": "saylore",
+"rating": 15616
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 21,
+"player": "guddummit",
+"rating": 15600
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 22,
+"player": "sevel",
+"rating": 15570
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 23,
+"player": "rdu",
+"rating": 15256
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 24,
+"player": "пронзаядушу",
+"rating": 15240
+},
+{
+"region": "EU",
+"season": 11,
+"rank": 25,
+"player": "dogbiscuit",
+"rating": 15232
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 1,
+"player": "hsmt",
+"rating": 20064
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 2,
+"player": "slyders",
+"rating": 19633
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 3,
+"player": "xqn",
+"rating": 19246
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 4,
+"player": "стоякбездела",
+"rating": 19208
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 5,
+"player": "леший",
+"rating": 18822
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 6,
+"player": "mathrais",
+"rating": 18546
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 7,
+"player": "catlamity",
+"rating": 18026
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 8,
+"player": "guddummit",
+"rating": 18000
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 9,
+"player": "fcpopa",
+"rating": 17326
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 10,
+"player": "mario68",
+"rating": 17189
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 11,
+"player": "vladelisha",
+"rating": 17113
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 12,
+"player": "jkirek",
+"rating": 17033
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 13,
+"player": "ocean",
+"rating": 17032
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 14,
+"player": "mathematics",
+"rating": 17023
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 15,
+"player": "returns",
+"rating": 16919
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 16,
+"player": "oliech",
+"rating": 16898
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 17,
+"player": "goblack",
+"rating": 16733
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 18,
+"player": "benren",
+"rating": 16544
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 19,
+"player": "doud78",
+"rating": 16522
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 20,
+"player": "filpek",
+"rating": 16520
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 21,
+"player": "justmastery",
+"rating": 16246
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 22,
+"player": "ravens52",
+"rating": 16226
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 23,
+"player": "tristrat",
+"rating": 16218
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 24,
+"player": "kekandop",
+"rating": 16213
+},
+{
+"region": "EU",
+"season": 12,
+"rank": 25,
+"player": "kawazaki",
+"rating": 16208
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 1,
+"player": "леший",
+"rating": 19020
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 2,
+"player": "стоякбездела",
+"rating": 19001
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 3,
+"player": "mathrais",
+"rating": 18720
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 4,
+"player": "slyders",
+"rating": 18199
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 5,
+"player": "guddummit",
+"rating": 17587
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 6,
+"player": "benren",
+"rating": 17041
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 7,
+"player": "sevel",
+"rating": 17036
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 8,
+"player": "zorg",
+"rating": 17019
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 9,
+"player": "fawh",
+"rating": 16827
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 10,
+"player": "vladelisha",
+"rating": 16584
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 11,
+"player": "lndeep119110",
+"rating": 16028
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 12,
+"player": "fcpopa",
+"rating": 16014
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 13,
+"player": "thunder",
+"rating": 16006
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 14,
+"player": "much2pro4you",
+"rating": 16005
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 15,
+"player": "kekandop",
+"rating": 15887
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 16,
+"player": "wisx",
+"rating": 15835
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 17,
+"player": "archeron5842",
+"rating": 15828
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 18,
+"player": "mativ",
+"rating": 15793
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 19,
+"player": "kawazaki",
+"rating": 15609
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 20,
+"player": "arkantos",
+"rating": 15571
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 21,
+"player": "jff",
+"rating": 15543
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 22,
+"player": "irossoneri",
+"rating": 15465
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 23,
+"player": "cuckchromo47",
+"rating": 15437
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 24,
+"player": "doud78",
+"rating": 15427
+},
+{
+"region": "EU",
+"season": 13,
+"rank": 25,
+"player": "mega",
+"rating": 15389
+},
+{
+"region": "US",
+"season": 2,
+"rank": 1,
+"player": "あれっくす",
+"rating": 18500
+},
+{
+"region": "US",
+"season": 2,
+"rank": 2,
+"player": "beterbabbit",
+"rating": 18020
+},
+{
+"region": "US",
+"season": 2,
+"rank": 3,
+"player": "moyi",
+"rating": 17725
+},
+{
+"region": "US",
+"season": 2,
+"rank": 4,
+"player": "waterloooooo",
+"rating": 17011
+},
+{
+"region": "US",
+"season": 2,
+"rank": 5,
+"player": "lii",
+"rating": 16372
+},
+{
+"region": "US",
+"season": 2,
+"rank": 6,
+"player": "jeef",
+"rating": 16343
+},
+{
+"region": "US",
+"season": 2,
+"rank": 7,
+"player": "matsuri",
+"rating": 16168
+},
+{
+"region": "US",
+"season": 2,
+"rank": 8,
+"player": "awedragon",
+"rating": 16143
+},
+{
+"region": "US",
+"season": 2,
+"rank": 9,
+"player": "jkirek",
+"rating": 16031
+},
+{
+"region": "US",
+"season": 2,
+"rank": 10,
+"player": "torisan",
+"rating": 16009
+},
+{
+"region": "US",
+"season": 2,
+"rank": 11,
+"player": "dog",
+"rating": 15484
+},
+{
+"region": "US",
+"season": 2,
+"rank": 12,
+"player": "ペンギンさん",
+"rating": 15379
+},
+{
+"region": "US",
+"season": 2,
+"rank": 13,
+"player": "kokkolino",
+"rating": 15308
+},
+{
+"region": "US",
+"season": 2,
+"rank": 14,
+"player": "tume",
+"rating": 15250
+},
+{
+"region": "US",
+"season": 2,
+"rank": 15,
+"player": "alucard",
+"rating": 15148
+},
+{
+"region": "US",
+"season": 2,
+"rank": 16,
+"player": "ko3h",
+"rating": 15125
+},
+{
+"region": "US",
+"season": 2,
+"rank": 17,
+"player": "herusia",
+"rating": 15109
+},
+{
+"region": "US",
+"season": 2,
+"rank": 18,
+"player": "alza",
+"rating": 15064
+},
+{
+"region": "US",
+"season": 2,
+"rank": 19,
+"player": "おく",
+"rating": 15053
+},
+{
+"region": "US",
+"season": 2,
+"rank": 20,
+"player": "nekopara",
+"rating": 15051
+},
+{
+"region": "US",
+"season": 2,
+"rank": 21,
+"player": "tuttu",
+"rating": 15030
+},
+{
+"region": "US",
+"season": 2,
+"rank": 22,
+"player": "kuromatu",
+"rating": 15017
+},
+{
+"region": "US",
+"season": 2,
+"rank": 23,
+"player": "桜羽エマ",
+"rating": 15017
+},
+{
+"region": "US",
+"season": 2,
+"rank": 24,
+"player": "靖炘",
+"rating": 15015
+},
+{
+"region": "US",
+"season": 2,
+"rank": 25,
+"player": "玄之又玄",
+"rating": 15002
+},
+{
+"region": "US",
+"season": 3,
+"rank": 1,
+"player": "あれっくす",
+"rating": 17006
+},
+{
+"region": "US",
+"season": 3,
+"rank": 2,
+"player": "huyagaoshou",
+"rating": 16658
+},
+{
+"region": "US",
+"season": 3,
+"rank": 3,
+"player": "jeef",
+"rating": 16414
+},
+{
+"region": "US",
+"season": 3,
+"rank": 4,
+"player": "moyi",
+"rating": 16042
+},
+{
+"region": "US",
+"season": 3,
+"rank": 5,
+"player": "waterloooooo",
+"rating": 16041
+},
+{
+"region": "US",
+"season": 3,
+"rank": 6,
+"player": "djkcb",
+"rating": 16014
+},
+{
+"region": "US",
+"season": 3,
+"rank": 7,
+"player": "梁瀬",
+"rating": 15786
+},
+{
+"region": "US",
+"season": 3,
+"rank": 8,
+"player": "smartfrog",
+"rating": 15557
+},
+{
+"region": "US",
+"season": 3,
+"rank": 9,
+"player": "douyumxjf",
+"rating": 15535
+},
+{
+"region": "US",
+"season": 3,
+"rank": 10,
+"player": "tetu",
+"rating": 15517
+},
+{
+"region": "US",
+"season": 3,
+"rank": 11,
+"player": "louder",
+"rating": 15254
+},
+{
+"region": "US",
+"season": 3,
+"rank": 12,
+"player": "awedragon",
+"rating": 15175
+},
+{
+"region": "US",
+"season": 3,
+"rank": 13,
+"player": "ペンギンさん",
+"rating": 15147
+},
+{
+"region": "US",
+"season": 3,
+"rank": 14,
+"player": "jkirek",
+"rating": 15030
+},
+{
+"region": "US",
+"season": 3,
+"rank": 15,
+"player": "beterbabbit",
+"rating": 15024
+},
+{
+"region": "US",
+"season": 3,
+"rank": 16,
+"player": "テゼレット",
+"rating": 15011
+},
+{
+"region": "US",
+"season": 3,
+"rank": 17,
+"player": "matsuri",
+"rating": 15005
+},
+{
+"region": "US",
+"season": 3,
+"rank": 18,
+"player": "bofur",
+"rating": 14897
+},
+{
+"region": "US",
+"season": 3,
+"rank": 19,
+"player": "lii",
+"rating": 14884
+},
+{
+"region": "US",
+"season": 3,
+"rank": 20,
+"player": "justfirst",
+"rating": 14882
+},
+{
+"region": "US",
+"season": 3,
+"rank": 21,
+"player": "childrensk",
+"rating": 14844
+},
+{
+"region": "US",
+"season": 3,
+"rank": 22,
+"player": "alucard",
+"rating": 14793
+},
+{
+"region": "US",
+"season": 3,
+"rank": 23,
+"player": "玄之又玄",
+"rating": 14726
+},
+{
+"region": "US",
+"season": 3,
+"rank": 24,
+"player": "xqn",
+"rating": 14724
+},
+{
+"region": "US",
+"season": 3,
+"rank": 25,
+"player": "rldh",
+"rating": 14666
+},
+{
+"region": "US",
+"season": 4,
+"rank": 1,
+"player": "moyi",
+"rating": 18377
+},
+{
+"region": "US",
+"season": 4,
+"rank": 2,
+"player": "huyagaoshou",
+"rating": 18370
+},
+{
+"region": "US",
+"season": 4,
+"rank": 3,
+"player": "huyaguo",
+"rating": 17384
+},
+{
+"region": "US",
+"season": 4,
+"rank": 4,
+"player": "jeef",
+"rating": 17331
+},
+{
+"region": "US",
+"season": 4,
+"rank": 5,
+"player": "yrxiaot",
+"rating": 17035
+},
+{
+"region": "US",
+"season": 4,
+"rank": 6,
+"player": "beterbabbit",
+"rating": 16840
+},
+{
+"region": "US",
+"season": 4,
+"rank": 7,
+"player": "huyasolitary",
+"rating": 16620
+},
+{
+"region": "US",
+"season": 4,
+"rank": 8,
+"player": "waterloooooo",
+"rating": 16388
+},
+{
+"region": "US",
+"season": 4,
+"rank": 9,
+"player": "lii",
+"rating": 16213
+},
+{
+"region": "US",
+"season": 4,
+"rank": 10,
+"player": "あれっくす",
+"rating": 16195
+},
+{
+"region": "US",
+"season": 4,
+"rank": 11,
+"player": "herusia",
+"rating": 16093
+},
+{
+"region": "US",
+"season": 4,
+"rank": 12,
+"player": "桜羽エマ",
+"rating": 16025
+},
+{
+"region": "US",
+"season": 4,
+"rank": 13,
+"player": "matsuri",
+"rating": 15873
+},
+{
+"region": "US",
+"season": 4,
+"rank": 14,
+"player": "awedragon",
+"rating": 15777
+},
+{
+"region": "US",
+"season": 4,
+"rank": 15,
+"player": "梁瀬",
+"rating": 15742
+},
+{
+"region": "US",
+"season": 4,
+"rank": 16,
+"player": "jkirek",
+"rating": 15642
+},
+{
+"region": "US",
+"season": 4,
+"rank": 17,
+"player": "dog",
+"rating": 15620
+},
+{
+"region": "US",
+"season": 4,
+"rank": 18,
+"player": "purring",
+"rating": 15178
+},
+{
+"region": "US",
+"season": 4,
+"rank": 19,
+"player": "huyamonkey",
+"rating": 15154
+},
+{
+"region": "US",
+"season": 4,
+"rank": 20,
+"player": "greed",
+"rating": 15153
+},
+{
+"region": "US",
+"season": 4,
+"rank": 21,
+"player": "bofur",
+"rating": 15097
+},
+{
+"region": "US",
+"season": 4,
+"rank": 22,
+"player": "superstars",
+"rating": 15030
+},
+{
+"region": "US",
+"season": 4,
+"rank": 23,
+"player": "lyme",
+"rating": 14896
+},
+{
+"region": "US",
+"season": 4,
+"rank": 24,
+"player": "lizi",
+"rating": 14759
+},
+{
+"region": "US",
+"season": 4,
+"rank": 25,
+"player": "ciaobychaha",
+"rating": 14701
+},
+{
+"region": "US",
+"season": 5,
+"rank": 1,
+"player": "jeef",
+"rating": 17034
+},
+{
+"region": "US",
+"season": 5,
+"rank": 2,
+"player": "huyaguo",
+"rating": 17030
+},
+{
+"region": "US",
+"season": 5,
+"rank": 3,
+"player": "huyamonkey",
+"rating": 16293
+},
+{
+"region": "US",
+"season": 5,
+"rank": 4,
+"player": "waterloooooo",
+"rating": 16180
+},
+{
+"region": "US",
+"season": 5,
+"rank": 5,
+"player": "yrxiaot",
+"rating": 16062
+},
+{
+"region": "US",
+"season": 5,
+"rank": 6,
+"player": "beterbabbit",
+"rating": 16034
+},
+{
+"region": "US",
+"season": 5,
+"rank": 7,
+"player": "moyi",
+"rating": 16013
+},
+{
+"region": "US",
+"season": 5,
+"rank": 8,
+"player": "hsmt",
+"rating": 16001
+},
+{
+"region": "US",
+"season": 5,
+"rank": 9,
+"player": "dog",
+"rating": 15899
+},
+{
+"region": "US",
+"season": 5,
+"rank": 10,
+"player": "あれっくす",
+"rating": 15736
+},
+{
+"region": "US",
+"season": 5,
+"rank": 11,
+"player": "gtovictor",
+"rating": 15539
+},
+{
+"region": "US",
+"season": 5,
+"rank": 12,
+"player": "supermickey",
+"rating": 15492
+},
+{
+"region": "US",
+"season": 5,
+"rank": 13,
+"player": "herusia",
+"rating": 15386
+},
+{
+"region": "US",
+"season": 5,
+"rank": 14,
+"player": "purring",
+"rating": 15344
+},
+{
+"region": "US",
+"season": 5,
+"rank": 15,
+"player": "saoking",
+"rating": 15194
+},
+{
+"region": "US",
+"season": 5,
+"rank": 16,
+"player": "青锋",
+"rating": 15155
+},
+{
+"region": "US",
+"season": 5,
+"rank": 17,
+"player": "awedragon",
+"rating": 15107
+},
+{
+"region": "US",
+"season": 5,
+"rank": 18,
+"player": "louder",
+"rating": 15024
+},
+{
+"region": "US",
+"season": 5,
+"rank": 19,
+"player": "lizi",
+"rating": 14859
+},
+{
+"region": "US",
+"season": 5,
+"rank": 20,
+"player": "jkirek",
+"rating": 14594
+},
+{
+"region": "US",
+"season": 5,
+"rank": 21,
+"player": "kokkolino",
+"rating": 14458
+},
+{
+"region": "US",
+"season": 5,
+"rank": 22,
+"player": "ko3h",
+"rating": 14358
+},
+{
+"region": "US",
+"season": 5,
+"rank": 23,
+"player": "wzy",
+"rating": 14299
+},
+{
+"region": "US",
+"season": 5,
+"rank": 24,
+"player": "lii",
+"rating": 14201
+},
+{
+"region": "US",
+"season": 5,
+"rank": 25,
+"player": "lamb",
+"rating": 14127
+},
+{
+"region": "US",
+"season": 6,
+"rank": 1,
+"player": "jeef",
+"rating": 19018
+},
+{
+"region": "US",
+"season": 6,
+"rank": 2,
+"player": "huyaguo",
+"rating": 18057
+},
+{
+"region": "US",
+"season": 6,
+"rank": 3,
+"player": "waterloooooo",
+"rating": 18045
+},
+{
+"region": "US",
+"season": 6,
+"rank": 4,
+"player": "beterbabbit",
+"rating": 17004
+},
+{
+"region": "US",
+"season": 6,
+"rank": 5,
+"player": "huyamonkey",
+"rating": 16878
+},
+{
+"region": "US",
+"season": 6,
+"rank": 6,
+"player": "hsmt",
+"rating": 16096
+},
+{
+"region": "US",
+"season": 6,
+"rank": 7,
+"player": "鲨鱼泡泡布鲁布鲁",
+"rating": 16017
+},
+{
+"region": "US",
+"season": 6,
+"rank": 8,
+"player": "herusia",
+"rating": 16009
+},
+{
+"region": "US",
+"season": 6,
+"rank": 9,
+"player": "moyi",
+"rating": 15819
+},
+{
+"region": "US",
+"season": 6,
+"rank": 10,
+"player": "dog",
+"rating": 15762
+},
+{
+"region": "US",
+"season": 6,
+"rank": 11,
+"player": "newhero",
+"rating": 15707
+},
+{
+"region": "US",
+"season": 6,
+"rank": 12,
+"player": "tetu",
+"rating": 15637
+},
+{
+"region": "US",
+"season": 6,
+"rank": 13,
+"player": "yrxiaot",
+"rating": 15588
+},
+{
+"region": "US",
+"season": 6,
+"rank": 14,
+"player": "awedragon",
+"rating": 15571
+},
+{
+"region": "US",
+"season": 6,
+"rank": 15,
+"player": "power8",
+"rating": 15299
+},
+{
+"region": "US",
+"season": 6,
+"rank": 16,
+"player": "lizi",
+"rating": 15244
+},
+{
+"region": "US",
+"season": 6,
+"rank": 17,
+"player": "saya",
+"rating": 15128
+},
+{
+"region": "US",
+"season": 6,
+"rank": 18,
+"player": "lii",
+"rating": 15070
+},
+{
+"region": "US",
+"season": 6,
+"rank": 19,
+"player": "桜羽エマ",
+"rating": 15056
+},
+{
+"region": "US",
+"season": 6,
+"rank": 20,
+"player": "nightwalk",
+"rating": 15047
+},
+{
+"region": "US",
+"season": 6,
+"rank": 21,
+"player": "moyi",
+"rating": 15033
+},
+{
+"region": "US",
+"season": 6,
+"rank": 22,
+"player": "华科丶别来诶院",
+"rating": 15016
+},
+{
+"region": "US",
+"season": 6,
+"rank": 23,
+"player": "bofur",
+"rating": 15011
+},
+{
+"region": "US",
+"season": 6,
+"rank": 24,
+"player": "alucard",
+"rating": 15001
+},
+{
+"region": "US",
+"season": 6,
+"rank": 25,
+"player": "lyme",
+"rating": 14930
+},
+{
+"region": "US",
+"season": 7,
+"rank": 1,
+"player": "beterbabbit",
+"rating": 18374
+},
+{
+"region": "US",
+"season": 7,
+"rank": 2,
+"player": "",
+"rating": 18153
+},
+{
+"region": "US",
+"season": 7,
+"rank": 3,
+"player": "waterloooooo",
+"rating": 18003
+},
+{
+"region": "US",
+"season": 7,
+"rank": 4,
+"player": "huyamonkey",
+"rating": 16800
+},
+{
+"region": "US",
+"season": 7,
+"rank": 5,
+"player": "purring",
+"rating": 16744
+},
+{
+"region": "US",
+"season": 7,
+"rank": 6,
+"player": "jeef",
+"rating": 16596
+},
+{
+"region": "US",
+"season": 7,
+"rank": 7,
+"player": "verspri",
+"rating": 16497
+},
+{
+"region": "US",
+"season": 7,
+"rank": 8,
+"player": "newhero",
+"rating": 16394
+},
+{
+"region": "US",
+"season": 7,
+"rank": 9,
+"player": "moyi",
+"rating": 16346
+},
+{
+"region": "US",
+"season": 7,
+"rank": 10,
+"player": "hsmt",
+"rating": 16266
+},
+{
+"region": "US",
+"season": 7,
+"rank": 11,
+"player": "wzy",
+"rating": 16266
+},
+{
+"region": "US",
+"season": 7,
+"rank": 12,
+"player": "ko3h",
+"rating": 16254
+},
+{
+"region": "US",
+"season": 7,
+"rank": 13,
+"player": "thinkpeach",
+"rating": 16047
+},
+{
+"region": "US",
+"season": 7,
+"rank": 14,
+"player": "dumplingdan",
+"rating": 16033
+},
+{
+"region": "US",
+"season": 7,
+"rank": 15,
+"player": "lyme",
+"rating": 16028
+},
+{
+"region": "US",
+"season": 7,
+"rank": 16,
+"player": "dog",
+"rating": 15730
+},
+{
+"region": "US",
+"season": 7,
+"rank": 17,
+"player": "mmf",
+"rating": 15450
+},
+{
+"region": "US",
+"season": 7,
+"rank": 18,
+"player": "awedragon",
+"rating": 15410
+},
+{
+"region": "US",
+"season": 7,
+"rank": 19,
+"player": "liang",
+"rating": 15393
+},
+{
+"region": "US",
+"season": 7,
+"rank": 20,
+"player": "firmbagels",
+"rating": 15339
+},
+{
+"region": "US",
+"season": 7,
+"rank": 21,
+"player": "franklin",
+"rating": 15314
+},
+{
+"region": "US",
+"season": 7,
+"rank": 22,
+"player": "米柚点甜",
+"rating": 15108
+},
+{
+"region": "US",
+"season": 7,
+"rank": 23,
+"player": "华科丶别来诶院",
+"rating": 15041
+},
+{
+"region": "US",
+"season": 7,
+"rank": 24,
+"player": "benren",
+"rating": 15033
+},
+{
+"region": "US",
+"season": 7,
+"rank": 25,
+"player": "crowgirl",
+"rating": 15032
+},
+{
+"region": "US",
+"season": 8,
+"rank": 1,
+"player": "beterbabbit",
+"rating": 18511
+},
+{
+"region": "US",
+"season": 8,
+"rank": 2,
+"player": "jeef",
+"rating": 18150
+},
+{
+"region": "US",
+"season": 8,
+"rank": 3,
+"player": "herusia",
+"rating": 17179
+},
+{
+"region": "US",
+"season": 8,
+"rank": 4,
+"player": "waterloooooo",
+"rating": 16844
+},
+{
+"region": "US",
+"season": 8,
+"rank": 5,
+"player": "mmf",
+"rating": 16833
+},
+{
+"region": "US",
+"season": 8,
+"rank": 6,
+"player": "tomura",
+"rating": 16821
+},
+{
+"region": "US",
+"season": 8,
+"rank": 7,
+"player": "mmrloophole",
+"rating": 16752
+},
+{
+"region": "US",
+"season": 8,
+"rank": 8,
+"player": "dog",
+"rating": 16230
+},
+{
+"region": "US",
+"season": 8,
+"rank": 9,
+"player": "lyme",
+"rating": 15712
+},
+{
+"region": "US",
+"season": 8,
+"rank": 10,
+"player": "あばれるくん",
+"rating": 15338
+},
+{
+"region": "US",
+"season": 8,
+"rank": 11,
+"player": "kokkolino",
+"rating": 15164
+},
+{
+"region": "US",
+"season": 8,
+"rank": 12,
+"player": "firmbagels",
+"rating": 15147
+},
+{
+"region": "US",
+"season": 8,
+"rank": 13,
+"player": "thra",
+"rating": 15091
+},
+{
+"region": "US",
+"season": 8,
+"rank": 14,
+"player": "e3sura",
+"rating": 15072
+},
+{
+"region": "US",
+"season": 8,
+"rank": 15,
+"player": "lii",
+"rating": 15054
+},
+{
+"region": "US",
+"season": 8,
+"rank": 16,
+"player": "mikoko",
+"rating": 14936
+},
+{
+"region": "US",
+"season": 8,
+"rank": 17,
+"player": "avalope",
+"rating": 14824
+},
+{
+"region": "US",
+"season": 8,
+"rank": 18,
+"player": "awedragon",
+"rating": 14758
+},
+{
+"region": "US",
+"season": 8,
+"rank": 19,
+"player": "asmodai",
+"rating": 14717
+},
+{
+"region": "US",
+"season": 8,
+"rank": 20,
+"player": "リュウ",
+"rating": 14532
+},
+{
+"region": "US",
+"season": 8,
+"rank": 21,
+"player": "lamb",
+"rating": 14376
+},
+{
+"region": "US",
+"season": 8,
+"rank": 22,
+"player": "alucard",
+"rating": 14335
+},
+{
+"region": "US",
+"season": 8,
+"rank": 23,
+"player": "dumplingdan",
+"rating": 14329
+},
+{
+"region": "US",
+"season": 8,
+"rank": 24,
+"player": "sameer",
+"rating": 14222
+},
+{
+"region": "US",
+"season": 8,
+"rank": 25,
+"player": "itim",
+"rating": 14198
+},
+{
+"region": "US",
+"season": 9,
+"rank": 1,
+"player": "jeef",
+"rating": 19090
+},
+{
+"region": "US",
+"season": 9,
+"rank": 2,
+"player": "waterloooooo",
+"rating": 18709
+},
+{
+"region": "US",
+"season": 9,
+"rank": 3,
+"player": "herusia",
+"rating": 17117
+},
+{
+"region": "US",
+"season": 9,
+"rank": 4,
+"player": "hsmt",
+"rating": 16655
+},
+{
+"region": "US",
+"season": 9,
+"rank": 5,
+"player": "awedragon",
+"rating": 16639
+},
+{
+"region": "US",
+"season": 9,
+"rank": 6,
+"player": "beterbabbit",
+"rating": 16155
+},
+{
+"region": "US",
+"season": 9,
+"rank": 7,
+"player": "dog",
+"rating": 16051
+},
+{
+"region": "US",
+"season": 9,
+"rank": 8,
+"player": "lyme",
+"rating": 16039
+},
+{
+"region": "US",
+"season": 9,
+"rank": 9,
+"player": "kokkolino",
+"rating": 16020
+},
+{
+"region": "US",
+"season": 9,
+"rank": 10,
+"player": "あばれるくん",
+"rating": 15669
+},
+{
+"region": "US",
+"season": 9,
+"rank": 11,
+"player": "puloof",
+"rating": 15423
+},
+{
+"region": "US",
+"season": 9,
+"rank": 12,
+"player": "barrette",
+"rating": 15385
+},
+{
+"region": "US",
+"season": 9,
+"rank": 13,
+"player": "mee",
+"rating": 15335
+},
+{
+"region": "US",
+"season": 9,
+"rank": 14,
+"player": "matthew",
+"rating": 15084
+},
+{
+"region": "US",
+"season": 9,
+"rank": 15,
+"player": "beachbrain",
+"rating": 15021
+},
+{
+"region": "US",
+"season": 9,
+"rank": 16,
+"player": "toumakazusa",
+"rating": 15010
+},
+{
+"region": "US",
+"season": 9,
+"rank": 17,
+"player": "zorg",
+"rating": 14962
+},
+{
+"region": "US",
+"season": 9,
+"rank": 18,
+"player": "sun",
+"rating": 14852
+},
+{
+"region": "US",
+"season": 9,
+"rank": 19,
+"player": "lamb",
+"rating": 14777
+},
+{
+"region": "US",
+"season": 9,
+"rank": 20,
+"player": "リュウ",
+"rating": 14770
+},
+{
+"region": "US",
+"season": 9,
+"rank": 21,
+"player": "luckysniper",
+"rating": 14670
+},
+{
+"region": "US",
+"season": 9,
+"rank": 22,
+"player": "zoinhu",
+"rating": 14582
+},
+{
+"region": "US",
+"season": 9,
+"rank": 23,
+"player": "asmodai",
+"rating": 14523
+},
+{
+"region": "US",
+"season": 9,
+"rank": 24,
+"player": "yjames27",
+"rating": 14428
+},
+{
+"region": "US",
+"season": 9,
+"rank": 25,
+"player": "mmf",
+"rating": 14348
+},
+{
+"region": "US",
+"season": 10,
+"rank": 1,
+"player": "jeef",
+"rating": 20027
+},
+{
+"region": "US",
+"season": 10,
+"rank": 2,
+"player": "matthew",
+"rating": 18002
+},
+{
+"region": "US",
+"season": 10,
+"rank": 3,
+"player": "beterbabbit",
+"rating": 17498
+},
+{
+"region": "US",
+"season": 10,
+"rank": 4,
+"player": "dontdcplz",
+"rating": 17061
+},
+{
+"region": "US",
+"season": 10,
+"rank": 5,
+"player": "dreamcreek",
+"rating": 17045
+},
+{
+"region": "US",
+"season": 10,
+"rank": 6,
+"player": "吴伟杰",
+"rating": 17031
+},
+{
+"region": "US",
+"season": 10,
+"rank": 7,
+"player": "waterloooooo",
+"rating": 16403
+},
+{
+"region": "US",
+"season": 10,
+"rank": 8,
+"player": "herusia",
+"rating": 16226
+},
+{
+"region": "US",
+"season": 10,
+"rank": 9,
+"player": "hsmt",
+"rating": 16133
+},
+{
+"region": "US",
+"season": 10,
+"rank": 10,
+"player": "uwantclawsuo",
+"rating": 15694
+},
+{
+"region": "US",
+"season": 10,
+"rank": 11,
+"player": "dog",
+"rating": 15681
+},
+{
+"region": "US",
+"season": 10,
+"rank": 12,
+"player": "vinny",
+"rating": 15536
+},
+{
+"region": "US",
+"season": 10,
+"rank": 13,
+"player": "mikoko",
+"rating": 15493
+},
+{
+"region": "US",
+"season": 10,
+"rank": 14,
+"player": "avalope",
+"rating": 15281
+},
+{
+"region": "US",
+"season": 10,
+"rank": 15,
+"player": "lyme",
+"rating": 15241
+},
+{
+"region": "US",
+"season": 10,
+"rank": 16,
+"player": "あばれるくん",
+"rating": 15005
+},
+{
+"region": "US",
+"season": 10,
+"rank": 17,
+"player": "puloof",
+"rating": 15003
+},
+{
+"region": "US",
+"season": 10,
+"rank": 18,
+"player": "awedragon",
+"rating": 14853
+},
+{
+"region": "US",
+"season": 10,
+"rank": 19,
+"player": "blues",
+"rating": 14324
+},
+{
+"region": "US",
+"season": 10,
+"rank": 20,
+"player": "dibslikesttv",
+"rating": 14266
+},
+{
+"region": "US",
+"season": 10,
+"rank": 21,
+"player": "xoner",
+"rating": 14169
+},
+{
+"region": "US",
+"season": 10,
+"rank": 22,
+"player": "oljackburton",
+"rating": 14163
+},
+{
+"region": "US",
+"season": 10,
+"rank": 23,
+"player": "rechot",
+"rating": 14085
+},
+{
+"region": "US",
+"season": 10,
+"rank": 24,
+"player": "xiaoliaoo",
+"rating": 14053
+},
+{
+"region": "US",
+"season": 10,
+"rank": 25,
+"player": "tianyi",
+"rating": 14038
+},
+{
+"region": "US",
+"season": 11,
+"rank": 1,
+"player": "beterbabbit",
+"rating": 20487
+},
+{
+"region": "US",
+"season": 11,
+"rank": 2,
+"player": "jeef",
+"rating": 20274
+},
+{
+"region": "US",
+"season": 11,
+"rank": 3,
+"player": "waterloooooo",
+"rating": 18146
+},
+{
+"region": "US",
+"season": 11,
+"rank": 4,
+"player": "dontdcplz",
+"rating": 18022
+},
+{
+"region": "US",
+"season": 11,
+"rank": 5,
+"player": "hsmt",
+"rating": 18012
+},
+{
+"region": "US",
+"season": 11,
+"rank": 6,
+"player": "dog",
+"rating": 16850
+},
+{
+"region": "US",
+"season": 11,
+"rank": 7,
+"player": "xiaoliaoo",
+"rating": 16388
+},
+{
+"region": "US",
+"season": 11,
+"rank": 8,
+"player": "herusia",
+"rating": 16358
+},
+{
+"region": "US",
+"season": 11,
+"rank": 9,
+"player": "想舔刻晴的黑丝",
+"rating": 16159
+},
+{
+"region": "US",
+"season": 11,
+"rank": 10,
+"player": "butters",
+"rating": 16049
+},
+{
+"region": "US",
+"season": 11,
+"rank": 11,
+"player": "mikoko",
+"rating": 16041
+},
+{
+"region": "US",
+"season": 11,
+"rank": 12,
+"player": "awedragon",
+"rating": 15771
+},
+{
+"region": "US",
+"season": 11,
+"rank": 13,
+"player": "rogul",
+"rating": 15588
+},
+{
+"region": "US",
+"season": 11,
+"rank": 14,
+"player": "itim",
+"rating": 15533
+},
+{
+"region": "US",
+"season": 11,
+"rank": 15,
+"player": "dumplingdan",
+"rating": 15528
+},
+{
+"region": "US",
+"season": 11,
+"rank": 16,
+"player": "sameer",
+"rating": 15501
+},
+{
+"region": "US",
+"season": 11,
+"rank": 17,
+"player": "wobbleweezy",
+"rating": 15495
+},
+{
+"region": "US",
+"season": 11,
+"rank": 18,
+"player": "",
+"rating": 15487
+},
+{
+"region": "US",
+"season": 11,
+"rank": 19,
+"player": "luckysniper",
+"rating": 15225
+},
+{
+"region": "US",
+"season": 11,
+"rank": 20,
+"player": "桜羽エマ",
+"rating": 15162
+},
+{
+"region": "US",
+"season": 11,
+"rank": 21,
+"player": "tobinnn",
+"rating": 15149
+},
+{
+"region": "US",
+"season": 11,
+"rank": 22,
+"player": "ネゲター",
+"rating": 15131
+},
+{
+"region": "US",
+"season": 11,
+"rank": 23,
+"player": "avalope",
+"rating": 15049
+},
+{
+"region": "US",
+"season": 11,
+"rank": 24,
+"player": "thra",
+"rating": 15038
+},
+{
+"region": "US",
+"season": 11,
+"rank": 25,
+"player": "toumakazusa",
+"rating": 15001
+},
+{
+"region": "US",
+"season": 12,
+"rank": 1,
+"player": "jeef",
+"rating": 20588
+},
+{
+"region": "US",
+"season": 12,
+"rank": 2,
+"player": "hsmt",
+"rating": 20568
+},
+{
+"region": "US",
+"season": 12,
+"rank": 3,
+"player": "beterbabbit",
+"rating": 20084
+},
+{
+"region": "US",
+"season": 12,
+"rank": 4,
+"player": "waterloooooo",
+"rating": 20005
+},
+{
+"region": "US",
+"season": 12,
+"rank": 5,
+"player": "леший",
+"rating": 18269
+},
+{
+"region": "US",
+"season": 12,
+"rank": 6,
+"player": "xiaoliaoo",
+"rating": 18105
+},
+{
+"region": "US",
+"season": 12,
+"rank": 7,
+"player": "swgreentea",
+"rating": 18026
+},
+{
+"region": "US",
+"season": 12,
+"rank": 8,
+"player": "梁瀬",
+"rating": 18007
+},
+{
+"region": "US",
+"season": 12,
+"rank": 9,
+"player": "胖分母先生",
+"rating": 17923
+},
+{
+"region": "US",
+"season": 12,
+"rank": 10,
+"player": "sevel",
+"rating": 17287
+},
+{
+"region": "US",
+"season": 12,
+"rank": 11,
+"player": "herusia",
+"rating": 17117
+},
+{
+"region": "US",
+"season": 12,
+"rank": 12,
+"player": "dachui",
+"rating": 17012
+},
+{
+"region": "US",
+"season": 12,
+"rank": 13,
+"player": "dontdcplz",
+"rating": 16589
+},
+{
+"region": "US",
+"season": 12,
+"rank": 14,
+"player": "dumplingdan",
+"rating": 16584
+},
+{
+"region": "US",
+"season": 12,
+"rank": 15,
+"player": "psychordu",
+"rating": 16492
+},
+{
+"region": "US",
+"season": 12,
+"rank": 16,
+"player": "tianyi",
+"rating": 16311
+},
+{
+"region": "US",
+"season": 12,
+"rank": 17,
+"player": "toumakazusa",
+"rating": 16103
+},
+{
+"region": "US",
+"season": 12,
+"rank": 18,
+"player": "zoinhu",
+"rating": 16089
+},
+{
+"region": "US",
+"season": 12,
+"rank": 19,
+"player": "dog",
+"rating": 15980
+},
+{
+"region": "US",
+"season": 12,
+"rank": 20,
+"player": "awedragon",
+"rating": 15975
+},
+{
+"region": "US",
+"season": 12,
+"rank": 21,
+"player": "rogul",
+"rating": 15413
+},
+{
+"region": "US",
+"season": 12,
+"rank": 22,
+"player": "modulations",
+"rating": 15246
+},
+{
+"region": "US",
+"season": 12,
+"rank": 23,
+"player": "skillstone",
+"rating": 15240
+},
+{
+"region": "US",
+"season": 12,
+"rank": 24,
+"player": "dormiveglia",
+"rating": 15220
+},
+{
+"region": "US",
+"season": 12,
+"rank": 25,
+"player": "edigger",
+"rating": 15213
+},
+{
+"region": "US",
+"season": 13,
+"rank": 1,
+"player": "beterbabbit",
+"rating": 20013
+},
+{
+"region": "US",
+"season": 13,
+"rank": 2,
+"player": "hsmt",
+"rating": 19577
+},
+{
+"region": "US",
+"season": 13,
+"rank": 3,
+"player": "waterloooooo",
+"rating": 18007
+},
+{
+"region": "US",
+"season": 13,
+"rank": 4,
+"player": "xiaoliaoo",
+"rating": 17113
+},
+{
+"region": "US",
+"season": 13,
+"rank": 5,
+"player": "awedragon",
+"rating": 16893
+},
+{
+"region": "US",
+"season": 13,
+"rank": 6,
+"player": "toumakazusa",
+"rating": 16511
+},
+{
+"region": "US",
+"season": 13,
+"rank": 7,
+"player": "wifeleaver",
+"rating": 16154
+},
+{
+"region": "US",
+"season": 13,
+"rank": 8,
+"player": "rechot",
+"rating": 16077
+},
+{
+"region": "US",
+"season": 13,
+"rank": 9,
+"player": "dibslikesttv",
+"rating": 15742
+},
+{
+"region": "US",
+"season": 13,
+"rank": 10,
+"player": "hanliwood",
+"rating": 15734
+},
+{
+"region": "US",
+"season": 13,
+"rank": 11,
+"player": "dog",
+"rating": 15628
+},
+{
+"region": "US",
+"season": 13,
+"rank": 12,
+"player": "lyme",
+"rating": 15613
+},
+{
+"region": "US",
+"season": 13,
+"rank": 13,
+"player": "skillstone",
+"rating": 15583
+},
+{
+"region": "US",
+"season": 13,
+"rank": 14,
+"player": "tobinnn",
+"rating": 15491
+},
+{
+"region": "US",
+"season": 13,
+"rank": 15,
+"player": "rogul",
+"rating": 15318
+},
+{
+"region": "US",
+"season": 13,
+"rank": 16,
+"player": "zoinhu",
+"rating": 15290
+},
+{
+"region": "US",
+"season": 13,
+"rank": 17,
+"player": "yepbenis",
+"rating": 15091
+},
+{
+"region": "US",
+"season": 13,
+"rank": 18,
+"player": "sagepase",
+"rating": 15085
+},
+{
+"region": "US",
+"season": 13,
+"rank": 19,
+"player": "sameer",
+"rating": 15083
+},
+{
+"region": "US",
+"season": 13,
+"rank": 20,
+"player": "zhoucm",
+"rating": 15070
+},
+{
+"region": "US",
+"season": 13,
+"rank": 21,
+"player": "dachui",
+"rating": 15012
+},
+{
+"region": "US",
+"season": 13,
+"rank": 22,
+"player": "halfrican",
+"rating": 14901
+},
+{
+"region": "US",
+"season": 13,
+"rank": 23,
+"player": "much2pro4you",
+"rating": 14807
+},
+{
+"region": "US",
+"season": 13,
+"rank": 24,
+"player": "lmeow",
+"rating": 14732
+},
+{
+"region": "US",
+"season": 13,
+"rank": 25,
+"player": "tillallrone",
+"rating": 14555
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 1,
+"player": "louder",
+"rating": 17020
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 2,
+"player": "huyaguo",
+"rating": 16444
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 3,
+"player": "huyagaoshou",
+"rating": 16190
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 4,
+"player": "huyavigo",
+"rating": 15872
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 5,
+"player": "白うさ",
+"rating": 15565
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 6,
+"player": "작은새",
+"rating": 15479
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 7,
+"player": "satellite",
+"rating": 15426
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 8,
+"player": "seseisei",
+"rating": 15363
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 9,
+"player": "おく",
+"rating": 15321
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 10,
+"player": "テスラ",
+"rating": 15319
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 11,
+"player": "ponpata07",
+"rating": 15226
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 12,
+"player": "sena",
+"rating": 15117
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 13,
+"player": "kuromatu",
+"rating": 15039
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 14,
+"player": "梁瀬",
+"rating": 15026
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 15,
+"player": "嘉神川クロエ",
+"rating": 15000
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 16,
+"player": "実力の比嘉秀仁",
+"rating": 14700
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 17,
+"player": "잔양",
+"rating": 14641
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 18,
+"player": "大頭皮",
+"rating": 14598
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 19,
+"player": "saoking",
+"rating": 14422
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 20,
+"player": "chalmers",
+"rating": 14421
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 21,
+"player": "matsuri",
+"rating": 14324
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 22,
+"player": "alice",
+"rating": 14289
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 23,
+"player": "キジル博士",
+"rating": 14285
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 24,
+"player": "yuukisakuna",
+"rating": 14236
+},
+{
+"region": "AP",
+"season": 2,
+"rank": 25,
+"player": "krop",
+"rating": 14197
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 1,
+"player": "快速的淺褐色駝鹿",
+"rating": 18312
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 2,
+"player": "sola",
+"rating": 16408
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 3,
+"player": "louder",
+"rating": 16157
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 4,
+"player": "huyaguo",
+"rating": 16148
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 5,
+"player": "huyagaoshou",
+"rating": 16031
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 6,
+"player": "熙熙和攘攘",
+"rating": 15839
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 7,
+"player": "huyavigo",
+"rating": 15728
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 8,
+"player": "白うさ",
+"rating": 15635
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 9,
+"player": "alutemu",
+"rating": 15138
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 10,
+"player": "paralmsisooo",
+"rating": 15055
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 11,
+"player": "克尔苏加德的猫",
+"rating": 15039
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 12,
+"player": "seseisei",
+"rating": 15026
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 13,
+"player": "satellite",
+"rating": 15003
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 14,
+"player": "実力の比嘉秀仁",
+"rating": 14867
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 15,
+"player": "テオ",
+"rating": 14750
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 16,
+"player": "showking",
+"rating": 14554
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 17,
+"player": "thyme",
+"rating": 14512
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 18,
+"player": "haguren",
+"rating": 14475
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 19,
+"player": "易如风",
+"rating": 14350
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 20,
+"player": "saoking",
+"rating": 14326
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 21,
+"player": "ciaobychaha",
+"rating": 14299
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 22,
+"player": "テスラ",
+"rating": 14284
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 23,
+"player": "石昊",
+"rating": 14277
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 24,
+"player": "douyuhof",
+"rating": 14251
+},
+{
+"region": "AP",
+"season": 3,
+"rank": 25,
+"player": "daisy",
+"rating": 14246
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 1,
+"player": "七只羊",
+"rating": 15875
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 2,
+"player": "sola",
+"rating": 15653
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 3,
+"player": "alutemu",
+"rating": 15644
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 4,
+"player": "satellite",
+"rating": 15543
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 5,
+"player": "seseisei",
+"rating": 15524
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 6,
+"player": "작은새",
+"rating": 15254
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 7,
+"player": "kei",
+"rating": 15032
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 8,
+"player": "douyuhof",
+"rating": 14984
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 9,
+"player": "sato9kado",
+"rating": 14847
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 10,
+"player": "大頭皮",
+"rating": 14846
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 11,
+"player": "patience",
+"rating": 14827
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 12,
+"player": "テスラ",
+"rating": 14726
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 13,
+"player": "emanon",
+"rating": 14571
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 14,
+"player": "kuromatu",
+"rating": 14547
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 15,
+"player": "nukunukunuko",
+"rating": 14510
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 16,
+"player": "喜欢卡哇伊妹妹",
+"rating": 14183
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 17,
+"player": "テオ",
+"rating": 14177
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 18,
+"player": "戴便戴便戴便",
+"rating": 14027
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 19,
+"player": "aioisp",
+"rating": 14020
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 20,
+"player": "matsuri",
+"rating": 13958
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 21,
+"player": "haguren",
+"rating": 13906
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 22,
+"player": "小狼玩炉石",
+"rating": 13820
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 23,
+"player": "saoking",
+"rating": 13749
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 24,
+"player": "huyaguo",
+"rating": 13749
+},
+{
+"region": "AP",
+"season": 4,
+"rank": 25,
+"player": "엉큼한거북이",
+"rating": 13749
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 1,
+"player": "huyagaoshou",
+"rating": 18002
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 2,
+"player": "patience",
+"rating": 17042
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 3,
+"player": "haguren",
+"rating": 16454
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 4,
+"player": "matsuri",
+"rating": 16057
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 5,
+"player": "大頭皮",
+"rating": 16008
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 6,
+"player": "七只羊",
+"rating": 15751
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 7,
+"player": "alphago",
+"rating": 15691
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 8,
+"player": "ぎゃん",
+"rating": 15502
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 9,
+"player": "bbqgg",
+"rating": 15496
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 10,
+"player": "satellite",
+"rating": 15495
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 11,
+"player": "綜合水果武士",
+"rating": 15325
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 12,
+"player": "sola",
+"rating": 15311
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 13,
+"player": "テオ",
+"rating": 15288
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 14,
+"player": "アリシア",
+"rating": 15262
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 15,
+"player": "ふつーなやつ",
+"rating": 15234
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 16,
+"player": "白うさ",
+"rating": 15181
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 17,
+"player": "작은새",
+"rating": 15055
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 18,
+"player": "sato9kado",
+"rating": 15014
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 19,
+"player": "breakoutlys",
+"rating": 15006
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 20,
+"player": "buhuidatuan",
+"rating": 14838
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 21,
+"player": "実力の比嘉秀仁",
+"rating": 14809
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 22,
+"player": "kuromatu",
+"rating": 14737
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 23,
+"player": "hashirama",
+"rating": 14592
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 24,
+"player": "alutemu",
+"rating": 14482
+},
+{
+"region": "AP",
+"season": 5,
+"rank": 25,
+"player": "ponpata07",
+"rating": 14463
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 1,
+"player": "patience",
+"rating": 18021
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 2,
+"player": "sena",
+"rating": 17416
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 3,
+"player": "kei",
+"rating": 17191
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 4,
+"player": "matsuri",
+"rating": 17048
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 5,
+"player": "大頭皮",
+"rating": 16738
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 6,
+"player": "satellite",
+"rating": 16482
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 7,
+"player": "喜欢卡哇伊妹妹",
+"rating": 16335
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 8,
+"player": "buhuidatuan",
+"rating": 16133
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 9,
+"player": "torisan",
+"rating": 16101
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 10,
+"player": "実力の比嘉秀仁",
+"rating": 16086
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 11,
+"player": "あれっくす",
+"rating": 16040
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 12,
+"player": "あわさき",
+"rating": 16029
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 13,
+"player": "haguren",
+"rating": 16015
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 14,
+"player": "テオ",
+"rating": 15908
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 15,
+"player": "bbqgg",
+"rating": 15854
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 16,
+"player": "戴呆呆",
+"rating": 15678
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 17,
+"player": "hsmt",
+"rating": 15632
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 18,
+"player": "alphago",
+"rating": 15307
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 19,
+"player": "kuromatu",
+"rating": 15165
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 20,
+"player": "nekopara",
+"rating": 15145
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 21,
+"player": "saoking",
+"rating": 15142
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 22,
+"player": "世界",
+"rating": 15125
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 23,
+"player": "sssseee",
+"rating": 15114
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 24,
+"player": "帅哥猛男鸡饲料",
+"rating": 15113
+},
+{
+"region": "AP",
+"season": 6,
+"rank": 25,
+"player": "saberlily",
+"rating": 15068
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 1,
+"player": "satellite",
+"rating": 17667
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 2,
+"player": "喜欢卡哇伊妹妹",
+"rating": 17029
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 3,
+"player": "buhuidatuan",
+"rating": 17021
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 4,
+"player": "sena",
+"rating": 16933
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 5,
+"player": "alutemu",
+"rating": 16912
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 6,
+"player": "matsuri",
+"rating": 16743
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 7,
+"player": "hsmt",
+"rating": 16597
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 8,
+"player": "世界",
+"rating": 16541
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 9,
+"player": "patience",
+"rating": 16422
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 10,
+"player": "bbqgg",
+"rating": 16321
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 11,
+"player": "hodo",
+"rating": 16242
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 12,
+"player": "世界末日",
+"rating": 16166
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 13,
+"player": "テオ",
+"rating": 16119
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 14,
+"player": "yangyang",
+"rating": 16031
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 15,
+"player": "haguren",
+"rating": 16000
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 16,
+"player": "白うさ",
+"rating": 15937
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 17,
+"player": "开飞机的刘小胖",
+"rating": 15774
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 18,
+"player": "mt1",
+"rating": 15567
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 19,
+"player": "あれっくす",
+"rating": 15467
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 20,
+"player": "yjqwerty",
+"rating": 15351
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 21,
+"player": "大頭皮",
+"rating": 15310
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 22,
+"player": "torisan",
+"rating": 15276
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 23,
+"player": "セムベル",
+"rating": 15257
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 24,
+"player": "あわさき",
+"rating": 15216
+},
+{
+"region": "AP",
+"season": 7,
+"rank": 25,
+"player": "sola",
+"rating": 15210
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 1,
+"player": "sena",
+"rating": 18482
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 2,
+"player": "reangle",
+"rating": 18233
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 3,
+"player": "haguren",
+"rating": 17196
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 4,
+"player": "hsmt",
+"rating": 16791
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 5,
+"player": "大頭皮",
+"rating": 16668
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 6,
+"player": "emanon",
+"rating": 16537
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 7,
+"player": "matsuri",
+"rating": 16501
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 8,
+"player": "yoshiyuki",
+"rating": 16448
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 9,
+"player": "ふつーなやつ",
+"rating": 16435
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 10,
+"player": "alutemu",
+"rating": 16337
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 11,
+"player": "torisan",
+"rating": 16263
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 12,
+"player": "kuromatu",
+"rating": 16241
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 13,
+"player": "satellite",
+"rating": 16236
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 14,
+"player": "実力の比嘉秀仁",
+"rating": 16101
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 15,
+"player": "plus",
+"rating": 16004
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 16,
+"player": "嘉神川クロエ",
+"rating": 16002
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 17,
+"player": "aioisp",
+"rating": 15778
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 18,
+"player": "daisy",
+"rating": 15686
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 19,
+"player": "ぎゃん",
+"rating": 15657
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 20,
+"player": "bbqgg",
+"rating": 15615
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 21,
+"player": "seseisei",
+"rating": 15371
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 22,
+"player": "白うさ",
+"rating": 15227
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 23,
+"player": "thundurus",
+"rating": 15218
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 24,
+"player": "sugoidekai",
+"rating": 15201
+},
+{
+"region": "AP",
+"season": 8,
+"rank": 25,
+"player": "kei",
+"rating": 15186
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 1,
+"player": "alutemu",
+"rating": 19320
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 2,
+"player": "sena",
+"rating": 19056
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 3,
+"player": "hsmt",
+"rating": 19029
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 4,
+"player": "yoshiyuki",
+"rating": 18027
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 5,
+"player": "thundurus",
+"rating": 18001
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 6,
+"player": "テオ",
+"rating": 17619
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 7,
+"player": "matsuri",
+"rating": 17091
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 8,
+"player": "seseisei",
+"rating": 17027
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 9,
+"player": "大頭皮",
+"rating": 17012
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 10,
+"player": "haguren",
+"rating": 16786
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 11,
+"player": "tetu",
+"rating": 16607
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 12,
+"player": "torisan",
+"rating": 16122
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 13,
+"player": "キジル博士",
+"rating": 16027
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 14,
+"player": "世界",
+"rating": 15971
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 15,
+"player": "satellite",
+"rating": 15860
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 16,
+"player": "実力の比嘉秀仁",
+"rating": 15840
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 17,
+"player": "抖音小齊",
+"rating": 15778
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 18,
+"player": "sunnyday",
+"rating": 15650
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 19,
+"player": "plus",
+"rating": 15509
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 20,
+"player": "emanon",
+"rating": 15482
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 21,
+"player": "ぎゃん",
+"rating": 15428
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 22,
+"player": "こしーにゃ",
+"rating": 15312
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 23,
+"player": "bbqgg",
+"rating": 15300
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 24,
+"player": "glory",
+"rating": 15277
+},
+{
+"region": "AP",
+"season": 9,
+"rank": 25,
+"player": "pon",
+"rating": 15052
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 1,
+"player": "alutemu",
+"rating": 18119
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 2,
+"player": "テオ",
+"rating": 17601
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 3,
+"player": "梁瀬",
+"rating": 17565
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 4,
+"player": "hsmt",
+"rating": 17050
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 5,
+"player": "satellite",
+"rating": 17006
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 6,
+"player": "yoshiyuki",
+"rating": 16506
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 7,
+"player": "matsuri",
+"rating": 16405
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 8,
+"player": "srkn",
+"rating": 16267
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 9,
+"player": "breakoutlys",
+"rating": 16048
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 10,
+"player": "kiryukazuma",
+"rating": 15643
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 11,
+"player": "sena",
+"rating": 15632
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 12,
+"player": "seseisei",
+"rating": 15473
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 13,
+"player": "duckdragon",
+"rating": 15222
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 14,
+"player": "gaiabot",
+"rating": 15045
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 15,
+"player": "よーし",
+"rating": 15039
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 16,
+"player": "thundurus",
+"rating": 15036
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 17,
+"player": "大頭皮",
+"rating": 15025
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 18,
+"player": "plus",
+"rating": 15023
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 19,
+"player": "pqp",
+"rating": 15013
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 20,
+"player": "cogicorgi",
+"rating": 14928
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 21,
+"player": "たけつ",
+"rating": 14856
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 22,
+"player": "ぎゃん",
+"rating": 14811
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 23,
+"player": "あれっくす",
+"rating": 14799
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 24,
+"player": "코코스",
+"rating": 14763
+},
+{
+"region": "AP",
+"season": 10,
+"rank": 25,
+"player": "barrette",
+"rating": 14682
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 1,
+"player": "alutemu",
+"rating": 18310
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 2,
+"player": "テオ",
+"rating": 18044
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 3,
+"player": "breakoutlys",
+"rating": 18001
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 4,
+"player": "yoshiyuki",
+"rating": 17161
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 5,
+"player": "barrette",
+"rating": 17006
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 6,
+"player": "returns",
+"rating": 17003
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 7,
+"player": "大頭皮",
+"rating": 16781
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 8,
+"player": "matsuri",
+"rating": 16629
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 9,
+"player": "haguren",
+"rating": 16596
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 10,
+"player": "あれっくす",
+"rating": 16405
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 11,
+"player": "seseisei",
+"rating": 16403
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 12,
+"player": "cogicorgi",
+"rating": 16396
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 13,
+"player": "ぎゃん",
+"rating": 16349
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 14,
+"player": "thundurus",
+"rating": 16074
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 15,
+"player": "キジル博士",
+"rating": 16054
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 16,
+"player": "serve",
+"rating": 16047
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 17,
+"player": "wakka53",
+"rating": 16018
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 18,
+"player": "코코스",
+"rating": 16013
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 19,
+"player": "世界",
+"rating": 15794
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 20,
+"player": "hsmt",
+"rating": 15757
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 21,
+"player": "duckdragon",
+"rating": 15614
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 22,
+"player": "integer",
+"rating": 15576
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 23,
+"player": "すいすい",
+"rating": 15191
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 24,
+"player": "あばれるくん",
+"rating": 15101
+},
+{
+"region": "AP",
+"season": 11,
+"rank": 25,
+"player": "gaiabot",
+"rating": 15055
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 1,
+"player": "sena",
+"rating": 20009
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 2,
+"player": "yoshiyuki",
+"rating": 19326
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 3,
+"player": "returns",
+"rating": 19085
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 4,
+"player": "thundurus",
+"rating": 18534
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 5,
+"player": "reangle",
+"rating": 18314
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 6,
+"player": "梁瀬",
+"rating": 18081
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 7,
+"player": "barrette",
+"rating": 18019
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 8,
+"player": "seseisei",
+"rating": 18014
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 9,
+"player": "gaiabot",
+"rating": 18013
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 10,
+"player": "matsuri",
+"rating": 17859
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 11,
+"player": "あれっくす",
+"rating": 17661
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 12,
+"player": "大頭皮",
+"rating": 17539
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 13,
+"player": "ぎゃん",
+"rating": 17417
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 14,
+"player": "alutemu",
+"rating": 17378
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 15,
+"player": "cogicorgi",
+"rating": 17336
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 16,
+"player": "코코스",
+"rating": 17024
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 17,
+"player": "haguren",
+"rating": 16777
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 18,
+"player": "jsumin786h",
+"rating": 16548
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 19,
+"player": "まぶち",
+"rating": 16497
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 20,
+"player": "ethanjp1005",
+"rating": 16317
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 21,
+"player": "breakoutlys",
+"rating": 16224
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 22,
+"player": "実力の比嘉秀仁",
+"rating": 16174
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 23,
+"player": "キジル博士",
+"rating": 16012
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 24,
+"player": "duckdragon",
+"rating": 15790
+},
+{
+"region": "AP",
+"season": 12,
+"rank": 25,
+"player": "岡野佳",
+"rating": 15774
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 1,
+"player": "alutemu",
+"rating": 19310
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 2,
+"player": "hsmt",
+"rating": 18804
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 3,
+"player": "yoshiyuki",
+"rating": 18567
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 4,
+"player": "코코스",
+"rating": 18153
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 5,
+"player": "returns",
+"rating": 17651
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 6,
+"player": "barrette",
+"rating": 17501
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 7,
+"player": "matsuri",
+"rating": 17368
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 8,
+"player": "seseisei",
+"rating": 17026
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 9,
+"player": "gaiabot",
+"rating": 17020
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 10,
+"player": "haguren",
+"rating": 17008
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 11,
+"player": "thundurus",
+"rating": 16741
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 12,
+"player": "大頭皮",
+"rating": 16614
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 13,
+"player": "梁瀬",
+"rating": 16583
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 14,
+"player": "あばれるくん",
+"rating": 16318
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 15,
+"player": "cogicorgi",
+"rating": 16141
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 16,
+"player": "kai",
+"rating": 16104
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 17,
+"player": "世界",
+"rating": 16064
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 18,
+"player": "一个眉笔",
+"rating": 16029
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 19,
+"player": "ぎゃん",
+"rating": 15910
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 20,
+"player": "実力の比嘉秀仁",
+"rating": 15762
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 21,
+"player": "herusia",
+"rating": 15752
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 22,
+"player": "すいすい",
+"rating": 15248
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 23,
+"player": "綜合水果武士",
+"rating": 15179
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 24,
+"player": "あまつか",
+"rating": 15128
+},
+{
+"region": "AP",
+"season": 13,
+"rank": 25,
+"player": "integer",
+"rating": 15105
+}
+]

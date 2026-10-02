@@ -35,51 +35,36 @@ from wa2_rating import (
     interp_with_extrap, weighted_quantile, binned_weighted_curve, load_rating_curve,
 )
 from wa2_cards import show_card_browser
+from wa2_achievements import trophy_html, achievements_html, historical_finish_leaderboard
+
+from domain import stats as dstats
+from wa2_icons import twitch_svg, youtube_svg, twitch_link, youtube_link
 
 
 def _utc_now():
-    return datetime.now(timezone.utc)
+    return dstats.utc_now()
 
 
 def _utc_now_iso_z():
-    return _utc_now().isoformat().replace("+00:00", "Z")
+    return dstats.utc_now_iso_z()
 
 
 def _parse_iso_utc(ts):
-    if isinstance(ts, str) and ts.endswith("Z"):
-        ts = ts[:-1] + "+00:00"
-    dt = datetime.fromisoformat(ts)
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+    return dstats.parse_iso_utc(ts)
 
 
 def _player_cache_fresh(last_fetched):
-    if not last_fetched:
-        return False
-    try:
-        return _utc_now() - _parse_iso_utc(last_fetched) < timedelta(hours=PLAYER_CACHE_TTL_HOURS)
-    except Exception:
-        return False
+    return dstats.is_cache_fresh(last_fetched, PLAYER_CACHE_TTL_HOURS)
 
 
 def _season_tracking_start(season):
     season_cfg = SEASONS.get(season, SEASONS[CURRENT_SEASON])
-    return _parse_iso_utc(season_cfg["start"]) + timedelta(days=1)
+    return dstats.season_tracking_start(season_cfg["start"])
 
 
 def _mmr_milestones_after_tracking_start(games, season):
-    tracking_start = _season_tracking_start(season)
-    milestones = {}
-    first_10k_date = None
-    for g in games:
-        if _parse_iso_utc(g["time"]) < tracking_start:
-            continue
-        mmr = g["mmr_after"]
-        if first_10k_date is None and mmr >= 10000:
-            first_10k_date = g["time"]
-        for threshold in range(10000, 22000, 1000):
-            if str(threshold) not in milestones and mmr >= threshold:
-                milestones[str(threshold)] = g["time"]
-    return first_10k_date, milestones
+    season_cfg = SEASONS.get(season, SEASONS[CURRENT_SEASON])
+    return dstats.mmr_milestones_after_tracking_start(games, season_cfg["start"])
 
 
 SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
@@ -107,7 +92,7 @@ TWITCH_CLIENT_SECRET = st.secrets.get("TWITCH_CLIENT_SECRET", "")
 YOUTUBE_API_KEY      = st.secrets.get("YOUTUBE_API_KEY", "")
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# Helpers 
 
 def dlog(*args):
     if DEBUG:
@@ -116,29 +101,11 @@ def dlog(*args):
 def get_threshold(snapshot_time_str, season_start_str=None):
     if season_start_str is None:
         season_start_str = SEASONS[CURRENT_SEASON]["start"]
-    season_start = datetime.fromisoformat(season_start_str).replace(tzinfo=timezone.utc)
-    game_time    = datetime.fromisoformat(snapshot_time_str)
-    if game_time.tzinfo is None:
-        game_time = game_time.replace(tzinfo=timezone.utc)
-    days_in = max(0, (game_time - season_start).days)
-    return THRESHOLD_BASE + (days_in // 20) * THRESHOLD_INCREASE
+    return dstats.get_threshold(snapshot_time_str, season_start_str, THRESHOLD_BASE, THRESHOLD_INCREASE)
 
 def est_place(mmr, gain, snapshot_time=None, season_start_str=None):
-    mmr  = float(mmr)
-    gain = float(gain)
-    placements = [1, 2, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
-    dex_avg    = mmr if mmr < 8200 else (mmr - 0.85 * (mmr - 8200))
-    threshold  = get_threshold(snapshot_time, season_start_str) if snapshot_time else THRESHOLD_BASE
-    best_placement, best_delta = placements[0], None
-    for p in placements:
-        avg_opp = mmr - 148.1181435 * (100 - ((p - 1) * (200 / 7) + gain))
-        if avg_opp > threshold:
-            continue
-        delta = abs(dex_avg - avg_opp)
-        if best_delta is None or delta < best_delta:
-            best_delta = delta
-            best_placement = p
-    return best_placement
+    threshold = get_threshold(snapshot_time, season_start_str) if snapshot_time else THRESHOLD_BASE
+    return dstats.est_place(mmr, gain, threshold)
 
 def get_csv_for_region(region: str) -> Path:
     base = Path(__file__).parent
@@ -858,71 +825,18 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
             )
         return
 
-    norm  = normalized_counts(games)
-    total = len(games)
-    avg   = sum(g["placement"] for g in games) / total
-    wins  = norm[1]
-    top4  = sum(norm[p] for p in [1, 2, 3, 4])
-    _eps    = 0.5
-    _part1  = np.log((norm[1] + _eps) / (norm[2] + norm[3] + norm[4] + _eps))
-    _part2  = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
-    u_score  = 0.5 * (_part1 + _part2)
-    bot2_count = norm[7] + norm[8]
-    current_mmr = games[-1]["mmr_after"]
+    core = dstats.compute_core_stats(games, normalized_counts)
+    total, avg, current_mmr = core["total"], core["avg"], core["current_mmr"]
 
-    longest_streak, streak = 0, 0
-    for g in games:
-        streak = streak + 1 if round(g["placement"]) == 1 else 0
-        longest_streak = max(longest_streak, streak)
-
-    longest_roach, roach = 0, 0
-    for g in games:
-        roach = roach + 1 if round(g["placement"]) <= 4 else 0
-        longest_roach = max(longest_roach, roach)
-
-    placements = [round(g["placement"]) for g in games]
-    _tilt_diffs = []
-    for i, p in enumerate(placements):
-        if p >= 7:
-            before = placements[max(0, i-50):i]
-            after  = placements[i+1:i+4]
-            if len(before) >= 10 and len(after) >= 1:
-                _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
-
-    tilt_factor_val = None
-    if len(_tilt_diffs) >= 3 and avg > 0:
-        tilt_factor_val = float(1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2)
-
-    form_diff   = None
     form_rating = None
-    if total >= 60:
-        recent_avg = sum(g["placement"] for g in games[-50:]) / 50
-        form_diff  = recent_avg - avg
+    if core["form_diff"] is not None:
+        recent_avg = avg + core["form_diff"]
         try:
             _bx, _by = _sb_load_regression("ALL")
             if _bx is not None and len(_bx) >= 2:
                 form_rating = int(round(float(np.interp(recent_avg, _by[::-1], _bx[::-1]))))
         except Exception:
             pass
-
-    max_dd = 0
-    peak_so_far = games[0]["mmr_after"]
-    peak_so_far_game = games[0]
-    dd_peak_game = games[0]
-    dd_trough_game = games[0]
-    for g in games:
-        if g["mmr_after"] > peak_so_far:
-            peak_so_far = g["mmr_after"]
-            peak_so_far_game = g
-        dd = peak_so_far - g["mmr_after"]
-        if dd > max_dd:
-            max_dd = dd
-            dd_peak_game = peak_so_far_game
-            dd_trough_game = g
-    dd_detail = (
-        f"{dd_peak_game['mmr_after']:,} → {dd_trough_game['mmr_after']:,} "
-        f"({dd_peak_game['time'][:10]} - {dd_trough_game['time'][:10]})"
-    )
 
     first_10k_date, _mmr_milestones = _mmr_milestones_after_tracking_start(games, season)
 
@@ -941,20 +855,20 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
     lb_upsert_player(region, player_name, {
         "season":          season,
         "games":           int(total),
-        "hot_streak":      int(longest_streak),
-        "roach_streak":    int(longest_roach),
-        "first_pct":       float(wins / total * 100),
-        "top4_pct":        float(top4 / total * 100),
-        "tilt_factor":     tilt_factor_val,
+        "hot_streak":      int(core["hot_streak"]),
+        "roach_streak":    int(core["roach_streak"]),
+        "first_pct":       float(core["first_pct"]),
+        "top4_pct":        float(core["top4_pct"]),
+        "tilt_factor":     core["tilt_factor"],
         "avg_place":       float(avg),
-        "form_diff":       float(form_diff) if form_diff is not None else None,
+        "form_diff":       float(core["form_diff"]) if core["form_diff"] is not None else None,
         "form_rating":     form_rating,
-        "max_drawdown":    int(max_dd),
-        "dd_detail":       dd_detail,
+        "max_drawdown":    int(core["max_drawdown"]),
+        "dd_detail":       core["dd_detail"],
         "first_10k_date":  first_10k_date,
         "cr":              int(current_mmr),
-        "u_score":         float(u_score),
-        "bot2_count":      int(bot2_count),
+        "u_score":         float(core["u_score"]),
+        "bot2_count":      int(core["bot2_count"]),
         "mmr_milestones":  json.dumps(_mmr_milestones),
         "matchup_scaling": compute_matchup_scaling(games),
         "updated_at":      _utc_now_iso_z(),
@@ -962,53 +876,12 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
     _save_opp_buckets(player_name, region, games)
 
 def compute_matchup_scaling(games):
-    """Returns matchup scaling score or None if insufficient data."""
-    if len(games) < 300:
-        return None
-    games_10k = [g for g in games if g.get("mmr_before", 0) >= 10000]
-    if len(games_10k) < 300:
-        return None
-    buckets = {}
-    for g in games_10k:
-        gp, gmmr, ggain = g.get("placement"), g.get("mmr_before"), g.get("gain")
-        if gp is None or gmmr is None or ggain is None:
-            continue
-        avg_opp = gmmr - 148.1181435 * (100 - ((gp - 1) * (200 / 7) + ggain))
-        bucket = int(avg_opp // 1000) * 1000
-        if bucket not in buckets:
-            buckets[bucket] = {"placements": [], "expected": []}
-        buckets[bucket]["placements"].append(gp)
-        buckets[bucket]["expected"].append(1 + (7 / 200) * (100 - (gmmr - avg_opp) / 148.1181435))
-    scaling_buckets = [7000, 8000, 9000, 10000]
-    points = []
-    for sbk in scaling_buckets:
-        bv = buckets.get(sbk)
-        if not bv or len(bv["placements"]) < 30 or not bv["expected"]:
-            return None
-        bavg = sum(bv["placements"]) / len(bv["placements"])
-        bexp = sum(bv["expected"]) / len(bv["expected"])
-        points.append((sbk + 500, bexp - bavg))
-    xs = np.array([p[0] for p in points])
-    ys = np.array([p[1] for p in points])
-    ws = np.array([0.5, 1.0, 1.0, 0.5])
-    xs_norm = (xs - xs.mean()) / xs.std()
-    return float(np.polyfit(xs_norm, ys, 1, w=ws)[0])
+    return dstats.compute_matchup_scaling(games)
 
 def _save_opp_buckets(player_name, region, games):
     if not SUPABASE_ENABLED or not games:
         return
-    buckets = {}
-    for g in games:
-        gp = g.get("placement")
-        gmmr = g.get("mmr_before")
-        ggain = g.get("gain")
-        if gp is None or gmmr is None or ggain is None:
-            continue
-        avg_opp = gmmr - 148.1181435 * (100 - ((gp - 1) * (200 / 7) + ggain))
-        bucket = int(avg_opp // 1000) * 1000
-        if bucket not in buckets:
-            buckets[bucket] = []
-        buckets[bucket].append(gp)
+    buckets = dstats.compute_opp_buckets(games)
     payload = [
         {
             "player": player_name.lower(),
@@ -1042,18 +915,9 @@ def lb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
 # ── Single-player fetch & calculate ───────────────────────────────────────────
 
 def _snapshots_to_games(snapshots, season_start_str=None):
-    games = []
-    for i in range(1, len(snapshots)):
-        prev, curr = snapshots[i - 1], snapshots[i]
-        gain = curr["rating"] - prev["rating"]
-        games.append({
-            "mmr_before": prev["rating"],
-            "mmr_after":  curr["rating"],
-            "gain":       gain,
-            "placement":  est_place(prev["rating"], gain, snapshot_time=curr["snapshot_time"], season_start_str=season_start_str),
-            "time":       curr["snapshot_time"],
-        })
-    return games
+    if season_start_str is None:
+        season_start_str = SEASONS[CURRENT_SEASON]["start"]
+    return dstats.snapshots_to_games(snapshots, season_start_str, THRESHOLD_BASE, THRESHOLD_INCREASE)
 
 def _sb_fetch_snapshots_range(player_name, region, date_from, date_to=None):
     """Hämtar snapshots från Supabase för ett givet datumintervall."""
@@ -1192,74 +1056,7 @@ def _sb_save_regression(region, bx, by, n_players):
         pass
 
 def _compute_player_stats(games):
-    """Compute all displayable stats from a games list."""
-    if not games:
-        return None
-    norm        = normalized_counts(games)
-    total       = len(games)
-    avg         = sum(g["placement"] for g in games) / total
-    wins        = norm[1]
-    top4        = sum(norm[p] for p in [1, 2, 3, 4])
-    current_mmr = games[-1]["mmr_after"]
-    peak_mmr    = max(max(g["mmr_before"] for g in games), max(g["mmr_after"] for g in games))
-
-    max_dd, peak_so_far = 0, games[0]["mmr_after"]
-    for g in games:
-        if g["mmr_after"] > peak_so_far:
-            peak_so_far = g["mmr_after"]
-        dd = peak_so_far - g["mmr_after"]
-        if dd > max_dd:
-            max_dd = dd
-
-    longest_streak, streak = 0, 0
-    for g in games:
-        streak = streak + 1 if round(g["placement"]) == 1 else 0
-        longest_streak = max(longest_streak, streak)
-
-    longest_roach, roach = 0, 0
-    for g in games:
-        roach = roach + 1 if round(g["placement"]) <= 4 else 0
-        longest_roach = max(longest_roach, roach)
-
-    form_diff = None
-    if total >= 60:
-        recent_avg = sum(g["placement"] for g in games[-50:]) / 50
-        form_diff  = recent_avg - avg
-
-    placements, _tilt_diffs = [round(g["placement"]) for g in games], []
-    for i, p in enumerate(placements):
-        if p >= 7:
-            before = placements[max(0, i-50):i]
-            after  = placements[i+1:i+4]
-            if len(before) >= 10 and len(after) >= 1:
-                _tilt_diffs.append(sum(after)/len(after) - sum(before)/len(before))
-    tilt_factor = None
-    if len(_tilt_diffs) >= 3 and avg > 0:
-        tilt_factor = float(1 + (sum(_tilt_diffs) / len(_tilt_diffs) / avg) * 2)
-
-    _eps   = 0.5
-    _part1 = np.log((norm[1] + _eps) / (norm[2] + norm[3] + norm[4] + _eps))
-    _part2 = np.log((norm[7] + norm[8] + _eps) / (norm[5] + norm[6] + _eps))
-    u_score = 0.5 * (_part1 + _part2)
-
-    _ms = compute_matchup_scaling(games)
-    farmer_factor = -_ms if _ms is not None else None
-
-    return {
-        "total":         total,
-        "avg":           avg,
-        "first_pct":     wins / total * 100,
-        "top4_pct":      top4 / total * 100,
-        "current_mmr":   current_mmr,
-        "peak_mmr":      peak_mmr,
-        "max_drawdown":  max_dd,
-        "hot_streak":    longest_streak,
-        "roach_streak":  longest_roach,
-        "form_diff":     form_diff,
-        "tilt_factor":   tilt_factor,
-        "u_score":       u_score,
-        "farmer_factor": farmer_factor,
-    }
+    return dstats.compute_player_stats(games, normalized_counts)
 
 def fetch_and_calculate(player_name, region, season=CURRENT_SEASON):
     season_cfg       = SEASONS[season]
@@ -1362,9 +1159,6 @@ def fetch_player_rank(player_name, region):
     return st.session_state.get("sp_rank"), None, None
 
 # ── Wallii leaderboard (Supabase) ──────────────────────────────────────────────
-# Wallii.gg loads leaderboard data via Supabase REST (seen in DevTools Network).
-# Put your key in .streamlit/secrets.toml:
-#   SUPABASE_ANON_KEY = "..."
 SUPABASE_BASE = "https://xtivasurpzvcbomieuba.supabase.co"
 
 
@@ -1991,8 +1785,8 @@ with tabs[0]:
                         return
 
                     _plinks = _sb_fetch_player_links()
-                    _twitch_svg = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-left:4px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
-                    _yt_svg     = "<svg width='12' height='12' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-left:4px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+                    _twitch_svg = twitch_svg(12, "vertical-align:middle;margin-left:4px;")
+                    _yt_svg     = youtube_svg(12, "vertical-align:middle;margin-left:4px;")
                     _live_players = {s["player"].lower(): s["twitch_url"] for s in _twitch_get_live_streams()}
                     _hover_bx, _hover_by = _sb_load_regression("ALL")
 
@@ -2006,7 +1800,24 @@ with tabs[0]:
                             row_color = value_color = "#b57a4a"
                         player = r['player']
                         region = r.get('region', '')
-                        link   = f"?goto_player={html.escape(player)}&goto_region={html.escape(region)}&goto_season={_lb_season}"
+                        link_region = r.get('profile_region', region)
+                        link_season = _lb_season
+                        linkable = True
+                        _profile_stats = {}
+                        if r.get("all_regions"):
+                            _historical_names = {player.lower(), *r.get("linked_players", ())}
+                            _profile_stats_candidates = [
+                                stats_row
+                                for name in _historical_names
+                                for stats_row in _profile_stats_by_player.get(name, [])
+                            ]
+                            if _profile_stats_candidates:
+                                _profile_stats = max(_profile_stats_candidates, key=_stats_sort_key)
+                                link_region = _profile_stats.get("region", link_region)
+                                link_season = _profile_stats.get("season", link_season)
+                            else:
+                                linkable = False
+                        link = f"?goto_player={html.escape(player)}&goto_region={html.escape(str(link_region))}&goto_season={html.escape(str(link_season))}"
                         _pl    = _plinks.get(player.lower(), {})
                         _icons = ""
                         if _pl.get("twitch_url"):
@@ -2021,51 +1832,31 @@ with tabs[0]:
                             f"background:#e53935;border-radius:3px;padding:1px 5px;text-decoration:none;"
                             f"vertical-align:middle;letter-spacing:0.04em;'>LIVE</a>"
                         ) if _live_url else ""
-                        _region_meta = html.escape(str(region).upper()) if region else ""
-                        _cr_meta = r.get("cr")
-                        _meta = " ".join(x for x in [_region_meta, f"{int(_cr_meta):,}" if _cr_meta is not None else ""] if x)
-                        _rank = _rank_lookup.get((str(player).lower(), str(region).upper()))
-                        _rank_html = f" <span class='lb-hover-rank'>#{_rank}</span>" if _rank is not None else ""
-                        _avg_val = r.get("avg_place")
-                        _avg = f"{_avg_val:.2f}" if _avg_val is not None else "—"
-                        _avg_color = "#777"
-                        _hover_cr = r.get("cr")
-                        if _avg_val is not None and _hover_cr is not None and _hover_bx is not None and len(_hover_bx) >= 2:
-                            try:
-                                _expected_avg = interp_with_extrap(_hover_cr, _hover_bx, _hover_by)
-                                _expected_avg = float(np.clip(_expected_avg, 1.0, 8.0))
-                                _avg_color = delta_color(float(_avg_val - _expected_avg))
-                            except Exception:
-                                _avg_color = "#ddd"
-                        _top1 = f"{r['first_pct']:.1f}%" if r.get("first_pct") is not None else "—"
-                        _top4 = f"{r['top4_pct']:.1f}%" if r.get("top4_pct") is not None else "—"
-                        _u_val = r.get("u_score")
-                        _u_color = (
-                            "#b388e8" if _u_val is not None and _u_val >= 0.2
-                            else "#aaa" if _u_val is not None and _u_val >= -0.1
-                            else "#5b8fd4" if _u_val is not None
-                            else "#777"
-                        )
-                        _u_text = f"{_u_val:+.2f}" if _u_val is not None else "—"
-                        _ff_raw = r.get("matchup_scaling")
-                        _ff_val = -_ff_raw if _ff_raw is not None else None
-                        _ff_color = (
-                            "#7ab87a" if _ff_val is not None and _ff_val >= 0.35
-                            else "#d4a843" if _ff_val is not None and _ff_val >= -0.15
-                            else "#c47a75" if _ff_val is not None
-                            else "#777"
-                        )
-                        _ff_text = f"{_ff_val:+.2f}" if _ff_val is not None else "—"
-                        _hover_card = (
-                            f"<div class='lb-hover-card'>"
-                            f"<div class='lb-hover-title'><span>{html.escape(player)}{_rank_html}</span><span class='lb-hover-meta'>{_meta}</span></div>"
-                            f"<div class='lb-hover-grid'>"
-                            f"<span class='lb-hover-label'>Avg</span><span class='lb-hover-value' style='color:{_avg_color};'>{_avg}</span>"
-                            f"<span class='lb-hover-label'>Top 1%</span><span class='lb-hover-value'>{_top1}</span>"
-                            f"<span class='lb-hover-label'>Top 4%</span><span class='lb-hover-value'>{_top4}</span>"
-                            f"<span class='lb-hover-label'>Aggression</span><span class='lb-hover-value' style='color:{_u_color};'>{_u_text}</span>"
-                            f"<span class='lb-hover-label'>Farmer Factor</span><span class='lb-hover-value' style='color:{_ff_color};'>{_ff_text}</span>"
-                            f"</div></div>"
+                        if r.get("all_regions"):
+                            _hover_stats = _profile_stats
+                        else:
+                            _hover_stats = r
+                        _hover_card = _hover_card_html(player, _hover_stats)
+                        _trophy = trophy_html(region, player, _plinks)
+                        if r.get("all_regions"):
+                            _history_metric_label = "Top 1 finishes" if r.get("metric") == "top1" else "Top 25 finishes"
+                            _history_region_counts = " · ".join(
+                                f"{_rgn} {r.get('region_counts', {}).get(_rgn, 0)}"
+                                for _rgn in r.get("selected_regions", ("EU", "NA", "AP"))
+                            )
+                            _history_tooltip = html.escape(
+                                f"{_history_metric_label}: {_history_region_counts}", quote=True
+                            )
+                            region_label = (
+                                f"<span title='{_history_tooltip}' style='cursor:help;'>{html.escape(r.get('region_label', 'All'))}</span>"
+                            )
+                        else:
+                            region_label = html.escape(str(region))
+                        player_label = (
+                            f"<a href='{link}' target='_self' style='color:inherit;text-decoration:none;' "
+                            "onmouseover=\"this.style.textDecoration='underline'\" "
+                            f"onmouseout=\"this.style.textDecoration='none'\">{html.escape(player)}</a>"
+                            if linkable else html.escape(player)
                         )
                         return (
                             "<div class='lb-hover-row' style='display:flex;justify-content:space-between;"
@@ -2073,21 +1864,18 @@ with tabs[0]:
                             "padding:0.35rem 0.5rem;margin-bottom:0.25rem;'>"
                             f"<span style='color:{row_color};font-weight:700'>{i}. "
                             f"<span class='lb-hover-name'>"
-                            f"<a href='{link}' target='_self' style='color:inherit;text-decoration:none;' "
-                            f"onmouseover=\"this.style.textDecoration='underline'\" "
-                            f"onmouseout=\"this.style.textDecoration='none'\">{player}</a>"
+                            f"{player_label}"
+                            f"{_trophy}"
                             f"{_hover_card}</span> "
-                            f"<span style='color:#666'>({region})</span>"
+                            f"<span style='color:#666'>({region_label})</span>"
                             f"{'&nbsp;' + _flag if _flag else ''}{_icons}{_live_badge}</span>"
                             f"<span style='color:{value_color};font-weight:700'>{fmt(r)}</span>"
                             "</div>"
                         )
 
-                    # Topp 5 visas alltid
                     for i, r in enumerate(items[:5], 1):
                         container.markdown(row_html(i, r), unsafe_allow_html=True)
 
-                    # 6–10 som inline-toggle utan expander-box
                     if len(items) > 5:
                         expand_key = f"lb_expanded_{title}"
                         if expand_key not in st.session_state:
@@ -2153,6 +1941,7 @@ with tabs[0]:
                     return rows[:limit] if limit is not None else rows
 
                 _all_stats_by_player = _lb_stats_by_player(_lb_season)
+                _profile_stats_by_player = _stats_rows_by_player()
                 _hover_bx, _hover_by = _sb_load_regression("ALL")
                 _rank_lookup = _sb_current_rank_map()
 
@@ -2246,6 +2035,8 @@ with tabs[0]:
                     ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])} games",   "Longest consecutive 1st streak of placement."),
                     ("Top 4 %",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
                     ("Roach streak",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])} games", "Longest consecutive streak of Top 4 place finishes."),
+                    ("Top 1 finishes",      historical_finish_leaderboard("top1", _sb_fetch_player_links(), _lb_regions_key),  lambda r: f"{int(r['count'])}", "Total historical first-place finishes in the selected regions. Static leaderboard history."),
+                    ("Top 25 finishes",     historical_finish_leaderboard("top25", _sb_fetch_player_links(), _lb_regions_key), lambda r: f"{int(r['count'])}", "Total historical Top 25 finishes in the selected regions. Static leaderboard history."),
                     ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Lower = less affected by tilt.", "Min 30 games with 7th/8th placement"),
                     ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Higher = more affected by tilt.", "Min 30 games with 7th/8th placement"),
                     ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Aggressive players finish at the extremes more often; more 1st and 7th/8th places - suggesting a high-risk, high-reward approach. Higher = more aggressive."),
@@ -2273,7 +2064,7 @@ with tabs[0]:
                 _live_col.markdown(
                     f"<div style='color:{HEADER_COLOR};font-size:0.85rem;text-transform:uppercase;"
                     f"letter-spacing:0.08em;margin:0.25rem 0 0.45rem;font-weight:600;'>"
-                    f"<svg width='10' height='10' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;margin-right:5px;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
+                    f"{twitch_svg(10, 'vertical-align:middle;margin-right:5px;')}"
                     f"Live now{_viewers_str}</div>",
                     unsafe_allow_html=True,
                 )
@@ -2312,6 +2103,7 @@ with tabs[0]:
                     s_color  = "#d4a843" if si == 1 else "#bfc4c8" if si == 2 else "#b57a4a" if si == 3 else "#8a8a8a"
                     s_profile = f"?goto_player={html.escape(display_player)}&goto_region={html.escape(display_region)}&goto_season={_lb_season}"
                     _hover_card = _hover_card_html(display_player, display_stats)
+                    _trophy = trophy_html(display_region, display_player, _sb_fetch_player_links())
                     return (
                         f"<div class='lb-hover-row' style='display:flex;justify-content:space-between;"
                         f"border:1px solid #1e1e1e;background:#121212;border-radius:4px;"
@@ -2321,11 +2113,12 @@ with tabs[0]:
                         f"<a href='{s_profile}' target='_self' style='color:inherit;text-decoration:none;' "
                         f"onmouseover=\"this.style.textDecoration='underline'\" "
                         f"onmouseout=\"this.style.textDecoration='none'\">{display_player}</a>"
+                        f"{_trophy}"
                         f"{_hover_card}</span>"
                         f"{_country_flag(display_links.get('nationality', s.get('nationality','')))}"
                         f"<span style='color:#666;font-size:0.8rem;font-weight:400;margin-left:0.4rem;'>({str(display_region).upper()} {display_cr_text})</span>"
                         f"<a href='{s_twitch}' target='_blank' title='{s_title}' style='margin-left:5px;'>"
-                        f"<svg width='11' height='11' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg>"
+                        f"{twitch_svg(11)}"
                         f"</a>"
                         f"</span>"
                         f"<span style='color:{s_color};font-weight:700'><span style='color:#eb0400;font-size:0.6rem;vertical-align:middle;margin-right:4px;'>&#9679;</span>{s['viewers']:,}</span>"
@@ -2380,7 +2173,7 @@ with tabs[0]:
 
                 # ── YouTube leaderboard ────────────────────────────────────────────
                 _yt_subs = _yt_fetch_subscribers()
-                _yt_svg = "<svg width='11' height='11' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;margin-right:5px;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+                _yt_svg = youtube_svg(11, "vertical-align:middle;margin-right:5px;")
                 _next_col = _final_row[0]
                 _next_col.markdown(
                     f"<div style='color:#8a8a8a;font-size:0.85rem;text-transform:uppercase;"
@@ -2404,7 +2197,7 @@ with tabs[0]:
                         f"onmouseout=\"this.style.textDecoration='none'\">{y['player']}</a>"
                         f"{_country_flag(y.get('nationality',''))}"
                         f"<a href='{y_url}' target='_blank' style='margin-left:5px;'>"
-                        f"<svg width='11' height='11' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg>"
+                        f"{youtube_svg(11)}"
                         f"</a>"
                         f"</span>"
                         f"<span style='color:{y_color};font-weight:700'>{subs_fmt}<span style='color:#555;font-size:0.78em;margin-left:3px;'>subs</span></span>"
@@ -2895,9 +2688,9 @@ with tabs[0]:
                     _pl_flag   = _country_flag(_pl_links.get("nationality", ""))
                     _hdr_icons = ""
                     if _pl_links.get("twitch_url"):
-                        _hdr_icons += f"<a href='{html.escape(_pl_links['twitch_url'])}' target='_blank' title='Twitch' style='margin-left:6px;'><svg width='14' height='14' viewBox='0 0 24 24' fill='#9146FF' style='vertical-align:middle;'><path d='M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z'/></svg></a>"
+                        _hdr_icons += twitch_link(_pl_links["twitch_url"], size=14)
                     if _pl_links.get("youtube_url"):
-                        _hdr_icons += f"<a href='{html.escape(_pl_links['youtube_url'])}' target='_blank' title='YouTube' style='margin-left:6px;'><svg width='14' height='14' viewBox='0 0 24 24' fill='#FF0000' style='vertical-align:middle;'><path d='M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z'/></svg></a>"
+                        _hdr_icons += youtube_link(_pl_links["youtube_url"], size=14)
                     st.markdown(
                         "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
                         + sp_player
@@ -3119,6 +2912,9 @@ with tabs[0]:
                     f"</div>",
                     unsafe_allow_html=True
                 )
+                _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
+                if _achievement_row:
+                    st.markdown(_achievement_row, unsafe_allow_html=True)
 
                 first_10k_date, _mmr_milestones = _mmr_milestones_after_tracking_start(games, current_profile_season)
                 if ENABLE_SESSION_TOPLISTS and total >= 50:

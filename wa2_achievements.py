@@ -150,7 +150,7 @@ def trophy_html(region, player, links=None):
     regional_counts = " · ".join(
         f"{r} {a['by_region'][r]['top1']}" for r in _HISTORY_REGIONS
     )
-    tooltip = html.escape(f"Top 1 ({regional_counts})", quote=True)
+    tooltip = html.escape(f"Top 1 x{a['top1']} ({regional_counts})", quote=True)
     return f" <span title='{tooltip}' style='cursor:help;font-size:0.9em;'>{icon}</span>"
 
 

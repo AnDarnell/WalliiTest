@@ -30,19 +30,22 @@ RACE_TO_TRIBE = {
     "PIRATE":     "pirates",
     "QUILBOAR":   "quilboar",
     "UNDEAD":     "undead",
+    "ABERRATION":  "aberrations",
+    "ABERRATIONS": "aberrations",
     "INVALID":    "neutral",
     "ALL":        "neutral",
 }
 
 TRIBES = [
-    "beast", "demons", "dragons", "elementals", "mechs",
+    "aberrations", "beast", "demons", "dragons", "elementals", "mechs",
     "murloc", "naga", "neutral", "pirates", "quilboar", "undead",
 ]
 TRIBE_LABELS = {t: t.capitalize() for t in TRIBES}
+TRIBE_LABELS["aberrations"] = "Aberrations"
 TRIBE_LABELS["mechs"] = "Mech"
 TRIBE_LABELS["murloc"] = "Murloc"
 
-TIERS = [1, 2, 3, 4, 5, 6]
+TIERS = [1, 2, 3, 4, 5, 6, 7]
 
 
 def _associated_races_to_tribes(races: list[str] | None) -> list[str]:
@@ -127,6 +130,10 @@ def _get_all_trinket_cards() -> list[dict]:
         else:
             continue
         tribes = _associated_races_to_tribes(c.get("battlegroundsAssociatedRaces"))
+        trinket_text = (c.get("text") or "").lower()
+        has_aberration_synergy = "aberration" in trinket_text or "deity" in trinket_text
+        if has_aberration_synergy and "aberrations" not in tribes:
+            tribes.append("aberrations")
         result.append({
             "tribe":        tribes[0],
             "tribes":       tribes,

@@ -1509,6 +1509,25 @@ div[data-testid="stMainBlockContainer"] {
     margin-right: auto;
 }
 
+@media (max-width: 640px) {
+    .st-key-lb_filter_controls [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+    .st-key-lb_filter_controls [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child {
+        flex: 0 0 100% !important;
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    .st-key-lb_filter_controls [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(n+2) {
+        flex: 1 1 calc(25% - 0.375rem) !important;
+        width: calc(25% - 0.375rem) !important;
+        min-width: 0 !important;
+    }
+}
+
 .stTextInput input, .stNumberInput input {
     background-color: #161616 !important;
     border: 1px solid #2a2a2a !important;
@@ -1915,17 +1934,18 @@ with tabs[0]:
                     f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards (Season {_lb_season}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                     unsafe_allow_html=True
                 )
-                _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
-                with _mmr_col:
-                    _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
-                with _eu_col:
-                    _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
-                with _na_col:
-                    _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
-                with _ap_col:
-                    _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
-                with _cn_col:
-                    _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
+                with st.container(key="lb_filter_controls"):
+                    _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
+                    with _mmr_col:
+                        _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
+                    with _eu_col:
+                        _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
+                    with _na_col:
+                        _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
+                    with _ap_col:
+                        _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
+                    with _cn_col:
+                        _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 _lb_regions_key = tuple(r for r in VALID_REGIONS if r in _lb_regions)

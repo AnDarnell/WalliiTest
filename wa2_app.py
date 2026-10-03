@@ -2722,6 +2722,10 @@ with tabs[0]:
                         unsafe_allow_html=True
                     )
 
+                _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
+                if _achievement_row:
+                    st.markdown(_achievement_row, unsafe_allow_html=True)
+
                 c1, c2, c3, c4, c5 = st.columns(5)
                 c1.markdown(stat("Games",     str(total)),                                              unsafe_allow_html=True)
                 c2.markdown(stat("Avg Place", f"{avg:.2f}", value_color=avg_color, label_tip=avg_tip),  unsafe_allow_html=True)
@@ -2932,10 +2936,6 @@ with tabs[0]:
                     f"</div>",
                     unsafe_allow_html=True
                 )
-                _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
-                if _achievement_row:
-                    st.markdown(_achievement_row, unsafe_allow_html=True)
-
                 first_10k_date, _mmr_milestones = _mmr_milestones_after_tracking_start(games, current_profile_season)
                 if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0

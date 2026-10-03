@@ -9,7 +9,7 @@ from functools import lru_cache
 from pathlib import Path
 
 _HISTORY_PATH = Path(__file__).parent / "leaderboard_history.json"
-_HISTORY_REGIONS = {"EU": "EU", "NA": "US", "AP": "AP"}
+_HISTORY_REGIONS = {"EU": "EU", "NA": "US", "AP": "AP", "CN": "CN"}
 
 
 @lru_cache(maxsize=1)

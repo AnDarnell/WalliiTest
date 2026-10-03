@@ -1842,10 +1842,10 @@ with tabs[0]:
                             _history_metric_label = "Top 1 finishes" if r.get("metric") == "top1" else "Top 25 finishes"
                             _history_region_counts = " · ".join(
                                 f"{_rgn} {r.get('region_counts', {}).get(_rgn, 0)}"
-                                for _rgn in r.get("selected_regions", ("EU", "NA", "AP"))
+                                for _rgn in r.get("selected_regions", ("EU", "NA", "AP", "CN"))
                             )
                             _history_tooltip = html.escape(
-                                f"{_history_metric_label}: {_history_region_counts}", quote=True
+                                f"{_history_metric_label} (selected total {r.get('count', 0)}): {_history_region_counts}", quote=True
                             )
                             region_label = (
                                 f"<span title='{_history_tooltip}' style='cursor:help;'>{html.escape(r.get('region_label', 'All'))}</span>"

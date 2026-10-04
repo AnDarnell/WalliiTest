@@ -2696,9 +2696,10 @@ with tabs[0]:
                         + "</p>",
                         unsafe_allow_html=True
                     )
-                    _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
-                    if _achievement_row:
-                        st.markdown(_achievement_row, unsafe_allow_html=True)
+
+                _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
+                if _achievement_row:
+                    st.markdown(_achievement_row, unsafe_allow_html=True)
 
                 c1, c2, c3, c4, c5 = st.columns(5)
                 c1.markdown(stat("Games",     str(total)),                                              unsafe_allow_html=True)

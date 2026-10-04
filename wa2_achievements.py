@@ -167,10 +167,10 @@ def _achievement_counts(a):
             f"{region} {a['by_region'][region][key]}"
             for region in _HISTORY_REGIONS
         )
-        tooltip = html.escape(f"{label} ({regional_counts})", quote=True)
+        tooltip = html.escape(f"{label}: {regional_counts}", quote=True)
         items.append(
             f"<span title='{tooltip}' style='cursor:help;margin-right:0.8rem;'>"
-            f"{label} {emoji} <span style='color:#aaa;'>x{a[key]}</span></span>"
+            f"{label}: {emoji} <span style='color:#aaa;'>x{a[key]}</span></span>"
         )
     return "".join(items)
 

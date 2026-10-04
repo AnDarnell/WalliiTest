@@ -141,6 +141,54 @@ def historical_finish_leaderboard(metric, links=None, regions=None):
     return [dict(row) for row in cached_rows]
 
 
+@lru_cache(maxsize=1)
+def all_time_peak_mmr(regions_key):
+    """Highest recorded leaderboard rating per player and selected region."""
+    selected_regions = {str(region).upper() for region in regions_key}
+    peaks = {}
+    for rows in _load_finishes().values():
+        for row in rows:
+            source_region = str(row.get("region", "")).upper()
+            display_region = "NA" if source_region == "US" else source_region
+            if display_region not in selected_regions:
+                continue
+            key = (display_region, str(row.get("player", "")).lower())
+            if not key[1]:
+                continue
+            peak = peaks.get(key)
+            rating = row.get("rating")
+            if rating is not None and (peak is None or rating > peak["rating"]):
+                peaks[key] = {
+                    "player": row["player"], "region": display_region,
+                    "rating": int(rating), "season": int(row["season"]),
+                }
+    return tuple(tuple((k, v) for k, v in row.items()) for row in peaks.values())
+
+
+def all_time_mmr_leaderboard(regions=None, current_rows=None, limit=10):
+    """Historical peak MMR, updated when a current season rating beats it."""
+    selected_regions = tuple(sorted({str(region).upper() for region in (regions or _HISTORY_REGIONS)}))
+    peaks = {}
+    for packed in all_time_peak_mmr(selected_regions):
+        row = dict(packed)
+        peaks[(row["region"], row["player"].lower())] = row
+    for current in current_rows or ():
+        region = str(current.get("region", "")).upper()
+        player = str(current.get("player", ""))
+        rating = current.get("cr")
+        if region not in selected_regions or not player or rating is None:
+            continue
+        key = (region, player.lower())
+        peak = peaks.get(key)
+        if peak is None or float(rating) > peak["rating"]:
+            peaks[key] = {
+                "player": player, "region": region, "rating": int(round(float(rating))),
+                "season": int(current.get("season") or 0),
+            }
+    rows = sorted(peaks.values(), key=lambda row: (-row["rating"], row["player"].lower()))
+    return rows[:limit]
+
+
 def trophy_html(region, player, links=None):
     """Record-holder crown or a gold trophy, with a regional tooltip."""
     a = achievements_for(region, player, links)

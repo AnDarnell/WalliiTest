@@ -35,7 +35,7 @@ from wa2_rating import (
     interp_with_extrap, weighted_quantile, binned_weighted_curve, load_rating_curve,
 )
 from wa2_cards import show_card_browser
-from wa2_achievements import trophy_html, achievements_html, historical_finish_leaderboard
+from wa2_achievements import trophy_html, achievements_html, historical_finish_leaderboard, all_time_mmr_leaderboard
 
 from domain import stats as dstats
 from wa2_icons import twitch_svg, youtube_svg, twitch_link, youtube_link
@@ -1817,6 +1817,18 @@ with tabs[0]:
                                 link_season = _profile_stats.get("season", link_season)
                             else:
                                 linkable = False
+                        elif r.get("all_time_mmr"):
+                            _profile_stats_candidates = [
+                                stats_row
+                                for stats_row in _profile_stats_by_player.get(player.lower(), [])
+                                if str(stats_row.get("region", "")).upper() == str(region).upper()
+                            ]
+                            if _profile_stats_candidates:
+                                _profile_stats = max(_profile_stats_candidates, key=_stats_sort_key)
+                                link_region = _profile_stats.get("region", region)
+                                link_season = _profile_stats.get("season", link_season)
+                            else:
+                                linkable = False
                         link = f"?goto_player={html.escape(player)}&goto_region={html.escape(str(link_region))}&goto_season={html.escape(str(link_season))}"
                         _pl    = _plinks.get(player.lower(), {})
                         _icons = ""
@@ -1832,7 +1844,7 @@ with tabs[0]:
                             f"background:#e53935;border-radius:3px;padding:1px 5px;text-decoration:none;"
                             f"vertical-align:middle;letter-spacing:0.04em;'>LIVE</a>"
                         ) if _live_url else ""
-                        _hover_stats = _profile_stats if r.get("all_regions") else r
+                        _hover_stats = _profile_stats if r.get("all_regions") or r.get("all_time_mmr") else r
                         _hover_card = _hover_card_html(player, _hover_stats)
                         _trophy = trophy_html(region, player, _plinks)
                         if r.get("all_regions"):
@@ -2025,25 +2037,40 @@ with tabs[0]:
                             )
 
                 lists = [
-                    ("Avg placement",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Average placement across recorded games this season. Lower is better."),
-                    ("Top 1 %",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
-                    ("Hot streak",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])} games",   "Longest consecutive 1st streak of placement."),
-                    ("Top 4 %",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
-                    ("Roach streak",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])} games", "Longest consecutive streak of Top 4 place finishes."),
-                    ("Top 1 finishes",      historical_finish_leaderboard("top1", _sb_fetch_player_links(), _lb_regions_key),  lambda r: f"{int(r['count'])}", "Total historical first-place finishes in the selected regions. Static leaderboard history."),
-                    ("Top 25 finishes",     historical_finish_leaderboard("top25", _sb_fetch_player_links(), _lb_regions_key), lambda r: f"{int(r['count'])}", "Total historical Top 25 finishes in the selected regions. Static leaderboard history."),
-                    ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Lower = less affected by tilt.", "Min 30 games with 7th/8th placement"),
-                    ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Higher = more affected by tilt.", "Min 30 games with 7th/8th placement"),
-                    ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Aggressive players finish at the extremes more often; more 1st and 7th/8th places - suggesting a high-risk, high-reward approach. Higher = more aggressive."),
-                    ("Most defensive",      [r for r in _lb("u_score", higher_is_better=False, limit=None) if (r.get("cr") or 0) >= 10000][:TOP_N],  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Defensive players finish in the middle more often; fewer 1st and 7th/8th places - suggesting a consistent, low-risk approach. Lower = more defensive.", "Min 10,000 MMR"),
-                    ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f}<span style='color:#555;font-size:0.78em;margin-left:3px;'>avg</span> ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
-                    ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve. Requires at least 300 games this season."),
-                    ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
-                    ("# Games",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
-                    ("Farmer factor",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental", "Experimental - min 300 games at 10k+ MMR"),
-                    ("Lowest farmer factor", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental.", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Avg placement🏅",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Average placement across recorded games this season. Lower is better."),
+                    ("Top 1 %📈",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
+                    ("Hot streak🔥",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])} games",   "Longest consecutive 1st streak of placement."),
+                    ("Top 4 %📈",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),
+                    ("Roach streak🪳",        _lb("roach_streak", higher_is_better=True),   lambda r: f"{int(r['roach_streak'])} games", "Longest consecutive streak of Top 4 place finishes."),
+                    ("Top 1 finishes🥇",      historical_finish_leaderboard("top1", _sb_fetch_player_links(), _lb_regions_key),  lambda r: f"{int(r['count'])}", "Total historical first-place finishes in the selected regions. Static leaderboard history."),
+                    ("Top 25 finishes🥈",     historical_finish_leaderboard("top25", _sb_fetch_player_links(), _lb_regions_key), lambda r: f"{int(r['count'])}", "Total historical Top 25 finishes in the selected regions. Static leaderboard history."),
+                    ("Lowest tilt factor😎",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Lower = less affected by tilt.", "Min 30 games with 7th/8th placement"),
+                    ("Highest tilt factor😤", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Higher = more affected by tilt.", "Min 30 games with 7th/8th placement"),
+                    ("Most aggressive👺",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Aggressive players finish at the extremes more often; more 1st and 7th/8th places - suggesting a high-risk, high-reward approach. Higher = more aggressive."),
+                    ("Most defensive🫣",      [r for r in _lb("u_score", higher_is_better=False, limit=None) if (r.get("cr") or 0) >= 10000][:TOP_N],  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Defensive players finish in the middle more often; fewer 1st and 7th/8th places - suggesting a consistent, low-risk approach. Lower = more defensive.", "Min 10,000 MMR"),
+                    ("Best form🏋️‍♂️",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f}<span style='color:#555;font-size:0.78em;margin-left:3px;'>avg</span> ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
+                    ("Best 'form rating🏋️‍♂️'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve. Requires at least 300 games this season."),
+                    ("Largest MMR drop🍂",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
+                    ("# Games🎲",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
+                    ("Farmer factor 🧑‍🌾",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. Experimental", "Experimental - min 300 games at 10k+ MMR"),
+                    ("Lowest farmer factor 🧑‍🌾", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = scales better with competition. Experimental.", "Experimental - min 300 games at 10k+ MMR"),
 
                 ]
+                _all_time_mmr_rows = all_time_mmr_leaderboard(
+                    _lb_regions_key,
+                    current_rows=_sb_fetch_all(season=CURRENT_SEASON),
+                    limit=TOP_N,
+                )
+                for _row in _all_time_mmr_rows:
+                    _row["all_time_mmr"] = True
+                lists.append((
+                    "All-time highest MMR🐐",
+                    _all_time_mmr_rows,
+                    lambda r: f"<span title='Season {r['season']}' style='cursor:help;'>{r['rating']:,}</span>",
+                    "Highest recorded leaderboard rating per player. Hover over a rating to see the season it was reached.",
+                ))
+                lists[2], lists[3] = lists[3], lists[2]
+                lists[13], lists[17] = lists[17], lists[13]
 
                 # ── Rad 0: Avg placement (vänster) + Live Now (höger) ─────────────
                 _row0 = st.columns(2)

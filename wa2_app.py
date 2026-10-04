@@ -1509,25 +1509,6 @@ div[data-testid="stMainBlockContainer"] {
     margin-right: auto;
 }
 
-@media (max-width: 640px) {
-    .st-key-lb_filter_controls [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        gap: 0.5rem !important;
-    }
-    .st-key-lb_filter_controls [data-testid="stHorizontalBlock"] > [data-testid="column"]:first-child {
-        flex: 0 0 100% !important;
-        width: 100% !important;
-        min-width: 0 !important;
-    }
-    .st-key-lb_filter_controls [data-testid="stHorizontalBlock"] > [data-testid="column"]:nth-child(n+2) {
-        flex: 1 1 calc(25% - 0.375rem) !important;
-        width: calc(25% - 0.375rem) !important;
-        min-width: 0 !important;
-    }
-}
-
 .stTextInput input, .stNumberInput input {
     background-color: #161616 !important;
     border: 1px solid #2a2a2a !important;
@@ -1851,10 +1832,7 @@ with tabs[0]:
                             f"background:#e53935;border-radius:3px;padding:1px 5px;text-decoration:none;"
                             f"vertical-align:middle;letter-spacing:0.04em;'>LIVE</a>"
                         ) if _live_url else ""
-                        if r.get("all_regions"):
-                            _hover_stats = _profile_stats
-                        else:
-                            _hover_stats = r
+                        _hover_stats = _profile_stats if r.get("all_regions") else r
                         _hover_card = _hover_card_html(player, _hover_stats)
                         _trophy = trophy_html(region, player, _plinks)
                         if r.get("all_regions"):
@@ -1866,9 +1844,7 @@ with tabs[0]:
                             _history_tooltip = html.escape(
                                 f"{_history_metric_label} (selected total {r.get('count', 0)}): {_history_region_counts}", quote=True
                             )
-                            region_label = (
-                                f"<span title='{_history_tooltip}' style='cursor:help;'>{html.escape(r.get('region_label', 'All'))}</span>"
-                            )
+                            region_label = f"<span title='{_history_tooltip}' style='cursor:help;'>{html.escape(r.get('region_label', 'All'))}</span>"
                         else:
                             region_label = html.escape(str(region))
                         player_label = (
@@ -1934,18 +1910,17 @@ with tabs[0]:
                     f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards (Season {_lb_season}) <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                     unsafe_allow_html=True
                 )
-                with st.container(key="lb_filter_controls"):
-                    _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
-                    with _mmr_col:
-                        _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
-                    with _eu_col:
-                        _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
-                    with _na_col:
-                        _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
-                    with _ap_col:
-                        _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
-                    with _cn_col:
-                        _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
+                _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
+                with _mmr_col:
+                    _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
+                with _eu_col:
+                    _inc_eu = st.checkbox("EU", value=True,  key="lb_inc_eu")
+                with _na_col:
+                    _inc_na = st.checkbox("NA", value=True,  key="lb_inc_na")
+                with _ap_col:
+                    _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
+                with _cn_col:
+                    _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
 
                 _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                 _lb_regions_key = tuple(r for r in VALID_REGIONS if r in _lb_regions)
@@ -2060,7 +2035,7 @@ with tabs[0]:
                     ("Lowest tilt factor",  [r for r in _lb("tilt_factor", higher_is_better=False, limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Lower = less affected by tilt.", "Min 30 games with 7th/8th placement"),
                     ("Highest tilt factor", [r for r in _lb("tilt_factor", higher_is_better=True,  limit=None) if (r.get("bot2_count") or 0) >= 30][:TOP_N], lambda r: f"{r['tilt_factor']:.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>" if r.get("tilt_factor") is not None else "—", "Measures how much a player is affected by a bad placement. The value shows how much worse their avg placement becomes after a 7th/8th compared to their overall avg. Higher = more affected by tilt.", "Min 30 games with 7th/8th placement"),
                     ("Most aggressive",     _lb("u_score",      higher_is_better=True),   lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>u</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Aggressive players finish at the extremes more often; more 1st and 7th/8th places - suggesting a high-risk, high-reward approach. Higher = more aggressive."),
-                    ("Most defensive",      [r for r in _lb("u_score", higher_is_better=False, limit=None) if (r.get("cr") or 0) >= 10000][:TOP_N],  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Defensive players finish in the middle more often; fewer 1st and 7th/8th places - suggesting a consistent, low-risk approach. Lower = more defensive.", "Min 10,000 MMR"),
+                    ("Most defensive",      _lb("u_score",      higher_is_better=False),  lambda r: f"{r['u_score']:+.2f}<span style='color:#555;font-size:0.85em;margin-left:3px;'>&#8745;</span>" if r.get("u_score") is not None else "—", "Measures play style based on placement distribution. Defensive players finish in the middle more often; fewer 1st and 7th/8th places - suggesting a consistent, low-risk approach. Lower = more defensive."),
                     ("Best form",           _lb("form_diff",    higher_is_better=False),  lambda r: f"{(r['avg_place'] + r['form_diff']):.2f}<span style='color:#555;font-size:0.78em;margin-left:3px;'>avg</span> ({r['form_diff']:+.2f})" if r.get("form_diff") is not None and r.get("avg_place") is not None else "—", "Difference between form (last 50) and overall avg place. More negative = better form relative to baseline."),
                     ("Best 'form rating'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve. Requires at least 300 games this season."),
                     ("Largest MMR drop",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
@@ -2711,6 +2686,9 @@ with tabs[0]:
                         _hdr_icons += twitch_link(_pl_links["twitch_url"], size=14)
                     if _pl_links.get("youtube_url"):
                         _hdr_icons += youtube_link(_pl_links["youtube_url"], size=14)
+                    _ach = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
+                    if _ach:
+                        st.markdown(_ach, unsafe_allow_html=True)
                     st.markdown(
                         "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
                         + sp_player
@@ -2721,10 +2699,6 @@ with tabs[0]:
                         + "</p>",
                         unsafe_allow_html=True
                     )
-
-                _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
-                if _achievement_row:
-                    st.markdown(_achievement_row, unsafe_allow_html=True)
 
                 c1, c2, c3, c4, c5 = st.columns(5)
                 c1.markdown(stat("Games",     str(total)),                                              unsafe_allow_html=True)
@@ -2936,6 +2910,7 @@ with tabs[0]:
                     f"</div>",
                     unsafe_allow_html=True
                 )
+
                 first_10k_date, _mmr_milestones = _mmr_milestones_after_tracking_start(games, current_profile_season)
                 if ENABLE_SESSION_TOPLISTS and total >= 50:
                     first_pct = wins / total * 100 if total else 0.0
@@ -3678,7 +3653,10 @@ with tabs[2]:
         "The placements are not publicly available through an API, so they are estimated using a formula. <br>"
         "Players are added to the leaderboards automatically once searched/fetched (and are eligible).<br>"
         "If you notice any issues or wrong calculations, please report them in the form at the bottom. <br><br>"
-        "Created by Darnell/Brugdar.",
+        "Created by Darnell/Brugdar. <br><br>"
+        "Contact: <br>"
+        "Brugdar (Discord)<br>"
+        "Darnell#21191 (Battle.net).",
         unsafe_allow_html=True,
     )
     st.divider()

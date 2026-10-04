@@ -2686,9 +2686,6 @@ with tabs[0]:
                         _hdr_icons += twitch_link(_pl_links["twitch_url"], size=14)
                     if _pl_links.get("youtube_url"):
                         _hdr_icons += youtube_link(_pl_links["youtube_url"], size=14)
-                    _ach = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
-                    if _ach:
-                        st.markdown(_ach, unsafe_allow_html=True)
                     st.markdown(
                         "<p style='color:#eee;font-size:1.1rem;margin:1.2rem 0 0.8rem;'>"
                         + sp_player
@@ -2699,6 +2696,9 @@ with tabs[0]:
                         + "</p>",
                         unsafe_allow_html=True
                     )
+                    _achievement_row = achievements_html(sp_region, sp_player, _sb_fetch_player_links())
+                    if _achievement_row:
+                        st.markdown(_achievement_row, unsafe_allow_html=True)
 
                 c1, c2, c3, c4, c5 = st.columns(5)
                 c1.markdown(stat("Games",     str(total)),                                              unsafe_allow_html=True)

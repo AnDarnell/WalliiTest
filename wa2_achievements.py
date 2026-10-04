@@ -1,7 +1,7 @@
-"""Achievements baserade på tidigare Blizzard-leaderboards (top 25 per säsong).
+"""
+Achievements based on earlier Blizzard-leaderboards (top 25 per season).
 
-Datan ligger i leaderboard_history.json (skapas av scripts/fetch_leaderboard_history.py).
-Nyckel: (REGION, spelarnamn i gemener). Länkade aliaser (player_links) räknas ihop.
+Data in leaderboard_history.json (created by scripts/fetch_leaderboard_history.py).
 """
 import html
 import json
@@ -23,7 +23,7 @@ def _load_finishes():
 
 
 def _alias_names(player, links):
-    """Spelarens eget namn + alla namn som delar samma display_name i player_links."""
+    """Player's own name + all names that share the same display_name in player_links."""
     player = (player or "").lower()
     names = {player}
     display = ((links or {}).get(player, {}).get("display_name") or "").strip().lower()

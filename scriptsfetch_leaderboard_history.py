@@ -1,7 +1,7 @@
-# scripts/fetch_leaderboard_history.py  (kör lokalt, en gång)
+# scripts/fetch_leaderboard_history.py
 #
-#   python fetch_leaderboard_history.py            # hämtar EU/US/AP/CN och skriver om hela filen
-#   python fetch_leaderboard_history.py --cn-only  # hämtar bara CN och slår ihop med befintlig fil
+#   python fetch_leaderboard_history.py          
+#   python fetch_leaderboard_history.py --cn-only
 import argparse, json, os, time, requests
 
 OUT_PATH = "leaderboard_history.json"
@@ -48,12 +48,12 @@ def fetch_cn(season_id):
 
 
 def collect(region, fetch, seen_signatures=None):
-    """Hämtar alla säsonger för en region. fetch(season_id) -> lista med rank/player/rating."""
+    """Fetches all seasons for a region. fetch(season_id) -> list of rank/player/rating."""
     out = []
     for season_id in SEASON_IDS:
         rows = fetch(season_id)
         if not rows:
-            print(f"!! {region} Id={season_id}: inga rader, hoppar över")
+            print(f"!! {region} Id={season_id}: no rows, skipping")
             continue
         if len(rows) < TOP_N:
             print(f"!! {region} Id={season_id}: bara {len(rows)} rader")
@@ -74,7 +74,7 @@ def collect(region, fetch, seen_signatures=None):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cn-only", action="store_true",
-                    help="hämta bara CN och slå ihop med befintlig leaderboard_history.json")
+                    help="fetch only CN and merge with existing leaderboard_history.json")
     args = ap.parse_args()
 
     if args.cn_only:

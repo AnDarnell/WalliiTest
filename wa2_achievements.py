@@ -49,7 +49,9 @@ def achievements_for(region, player, links=None):
             "top1": sum(result["rank"] == 1 for result in rows),
             "top10": sum(result["rank"] <= 10 for result in rows),
             "top25": len(rows),
-            "top1_seasons": sorted(result["season"] for result in rows if result["rank"] == 1),
+            "top1_seasons": sorted({result["season"] for result in rows if result["rank"] == 1}),
+            "top10_seasons": sorted({result["season"] for result in rows if result["rank"] <= 10}),
+            "top25_seasons": sorted({result["season"] for result in rows}),
         }
     top1_total = sum(stats["top1"] for stats in by_region.values())
     is_record_holder = False
@@ -215,7 +217,13 @@ def _achievement_counts(a):
             f"{region} {a['by_region'][region][key]}"
             for region in _HISTORY_REGIONS
         )
-        tooltip = html.escape(f"{label}: {regional_counts}", quote=True)
+        seasons = sorted({
+            season
+            for region in _HISTORY_REGIONS
+            for season in a["by_region"][region][f"{key}_seasons"]
+        })
+        season_line = f"\nSeason {', '.join(str(season) for season in seasons)}" if seasons else ""
+        tooltip = html.escape(f"{label}: {regional_counts}{season_line}", quote=True)
         items.append(
             f"<span title='{tooltip}' style='cursor:help;margin-right:0.8rem;'>"
             f"{label}: {emoji} <span style='color:#aaa;'>x{a[key]}</span></span>"

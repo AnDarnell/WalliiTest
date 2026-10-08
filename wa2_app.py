@@ -2528,6 +2528,24 @@ with tabs[0]:
             st.session_state["sp_rank"] = _cached_profile["rank"]
 
         if st.session_state.get("sp_games") is None:
+            _profile_loading = st.empty()
+            _profile_loading.markdown(
+                """
+                <div aria-label="Loading player profile" style="padding:0.7rem 0 1rem;">
+                  <div style="height:30px;width:42%;margin:0 0 1rem;border-radius:5px;background:#1a1a1a;"></div>
+                  <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0.65rem;margin-bottom:0.8rem;">
+                    <div style="grid-column:span 5;color:#888;font-size:0.95rem;margin-bottom:-0.35rem;">Loading player profile…</div>
+                    <div style="height:70px;border-radius:5px;background:#161616;border:1px solid #222;"></div>
+                    <div style="height:70px;border-radius:5px;background:#161616;border:1px solid #222;"></div>
+                    <div style="height:70px;border-radius:5px;background:#161616;border:1px solid #222;"></div>
+                    <div style="height:70px;border-radius:5px;background:#161616;border:1px solid #222;"></div>
+                    <div style="height:70px;border-radius:5px;background:#161616;border:1px solid #222;"></div>
+                  </div>
+                  <div style="height:260px;border-radius:5px;background:#141414;border:1px solid #222;"></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             with st.spinner("Fetching data..."):
                 try:
                     st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region, season=_sp_season)
@@ -2570,6 +2588,8 @@ with tabs[0]:
                         st.rerun()
                     st.error(str(e))
                     st.session_state["sp_games"] = []
+
+            _profile_loading.empty()
 
         games = st.session_state.get("sp_games", [])
         sp_region = st.session_state.get("sp_region", sp_region)

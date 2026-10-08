@@ -1905,8 +1905,10 @@ with tabs[0]:
                 st.markdown(
                     "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
                     "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \
-                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Note: </strong> Season 14 is live! You can still view stats from last season by ticking the box below. You can also still search for people's stats from last season." \
-                    " The leaderboards might look weird for a while until people get enough games. Some/most metrics have a game-requirement (usually 50). Any suggestions are very appreciated!</div>",
+                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Updates: </strong> Players that have historicaly finished top 1 on any server does now have a '🏆' next to their name. Historical achievments <br> (Top 1/Top 10/Top 25 leaderboard finishes) can now be seen on each player profile. <br>" \
+                    " There is also a leaderboard for most amount of Top 1 finishes as well as Top 25 further down. The player with most Top 1 finishes will also be highlighted with a '👑'. <br>"\
+                    " A leaderboard for highest all time MMR reached has also been added. Note that CN has higher historical MMR numbers due to their (until recently removed) system for seasonal resets. <br><br>"\
+                    " Any ideas or feedback is greatly appreciated! Contact info can be found under the Info/Explanation tab.</div>",
                     unsafe_allow_html=True,
                 )
                 _lb_season = st.radio(

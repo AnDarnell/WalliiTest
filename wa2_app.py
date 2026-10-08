@@ -35,7 +35,10 @@ from wa2_rating import (
     interp_with_extrap, weighted_quantile, binned_weighted_curve, load_rating_curve,
 )
 from wa2_cards import show_card_browser
-from wa2_achievements import trophy_html, achievements_html, historical_finish_leaderboard, all_time_mmr_leaderboard
+from wa2_achievements import (
+    trophy_html, achievements_html, historical_finish_leaderboard,
+    historical_finish_hover_html, all_time_mmr_leaderboard,
+)
 
 from domain import stats as dstats
 from wa2_icons import twitch_svg, youtube_svg, twitch_link, youtube_link
@@ -1656,6 +1659,69 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
     text-align: right;
 }
 
+.profile-achievement-hover {
+    position: relative;
+    display: inline-block;
+    margin-right: 0.8rem;
+    cursor: help;
+    overflow: visible !important;
+}
+.profile-leaderboard-region-hover { margin-right: 0; }
+.profile-achievement-hover:hover { z-index: 1000; }
+.profile-achievement-tooltip {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    min-width: 230px;
+    max-width: 300px;
+    padding: 0.6rem 0.75rem;
+    border: 1px solid #3a3a3a;
+    border-radius: 7px;
+    background: rgba(14, 14, 14, 0.98);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+    color: #ccc;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-3px);
+    transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+    pointer-events: none;
+    z-index: 1001;
+    white-space: normal;
+}
+.profile-achievement-hover:hover .profile-achievement-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+.profile-achievement-tooltip-title {
+    display: block;
+    margin-bottom: 0.3rem;
+    color: #eee;
+    font-weight: 700;
+}
+.profile-achievement-counts {
+    display: block;
+    white-space: nowrap;
+}
+.profile-achievement-total {
+    display: block;
+    margin-top: 0.15rem;
+    color: #777;
+    font-size: 0.7rem;
+}
+.profile-achievement-seasons {
+    display: block;
+    margin-top: 0.25rem;
+}
+.profile-achievement-season {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.8rem;
+    white-space: nowrap;
+}
+
 /* Icon button wrapper (Home arrow) */
 .icon-btn button {
     background: transparent !important;
@@ -1848,15 +1914,7 @@ with tabs[0]:
                         _hover_card = _hover_card_html(player, _hover_stats)
                         _trophy = trophy_html(region, player, _plinks)
                         if r.get("all_regions"):
-                            _history_metric_label = "Top 1 finishes" if r.get("metric") == "top1" else "Top 25 finishes"
-                            _history_region_counts = " · ".join(
-                                f"{_rgn} {r.get('region_counts', {}).get(_rgn, 0)}"
-                                for _rgn in r.get("selected_regions", ("EU", "NA", "AP", "CN"))
-                            )
-                            _history_tooltip = html.escape(
-                                f"{_history_metric_label} (selected total {r.get('count', 0)}): {_history_region_counts}", quote=True
-                            )
-                            region_label = f"<span title='{_history_tooltip}' style='cursor:help;'>{html.escape(r.get('region_label', 'All'))}</span>"
+                            region_label = historical_finish_hover_html(r)
                         else:
                             region_label = html.escape(str(region))
                         player_label = (
@@ -1905,7 +1963,7 @@ with tabs[0]:
                 st.markdown(
                     "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
                     "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \
-                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Updates: </strong> Players that have historicaly finished top 1 on any server does now have a '🏆' next to their name. Historical achievments <br> (Top 1/Top 10/Top 25 leaderboard finishes) can now be seen on each player profile. <br>" \
+                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Updates: </strong> Players that have historicaly finished top 1 on any server does now have a '🏆' next to their name. Historical achievments <br> (Top 1/10/25/50/100 leaderboard finishes) can now be seen on each player profile. <br>" \
                     " There is also a leaderboard for most amount of Top 1 finishes as well as Top 25 further down. The player with most Top 1 finishes will also be highlighted with a '👑'. <br>"\
                     " A leaderboard for highest all time MMR reached has also been added. Note that CN has higher historical MMR numbers due to their (until recently removed) system for seasonal resets. <br><br>"\
                     " Any ideas or feedback is greatly appreciated! Contact info can be found under the Info/Explanation tab.</div>",

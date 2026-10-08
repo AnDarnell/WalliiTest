@@ -10,16 +10,37 @@ from pathlib import Path
 
 _HISTORY_PATH = Path(__file__).parent / "leaderboard_history.json"
 _HISTORY_REGIONS = {"EU": "EU", "NA": "US", "AP": "AP", "CN": "CN"}
+_FINISH_BANDS = {
+    "top1": (1, 1),
+    "top10": (2, 10),
+    "top25": (11, 25),
+    "top50": (26, 50),
+    "top100": (51, 100),
+}
+_REGION_COLORS = {
+    "EU": "#d4af37",  # gold
+    "NA": "#c0c0c0",  # silver
+    "AP": "#cd7f32",  # bronze
+    "CN": "#8ab4f8",  # blue
+}
 
 
-@lru_cache(maxsize=1)
-def _load_finishes():
+@lru_cache(maxsize=2)
+def _load_finishes(mtime_ns=None):
     if not _HISTORY_PATH.exists():
         return {}
     by_key = {}
     for r in json.loads(_HISTORY_PATH.read_text(encoding="utf-8")):
         by_key.setdefault((r["region"].upper(), r["player"].lower()), []).append(r)
     return by_key
+
+
+def _current_finishes():
+    try:
+        mtime_ns = _HISTORY_PATH.stat().st_mtime_ns
+    except OSError:
+        mtime_ns = None
+    return _load_finishes(mtime_ns)
 
 
 def _alias_names(player, links):
@@ -36,7 +57,7 @@ def _alias_names(player, links):
 
 
 def achievements_for(region, player, links=None):
-    finishes = _load_finishes()
+    finishes = _current_finishes()
     names = _alias_names(player, links)
     by_region = {}
     for display_region, history_region in _HISTORY_REGIONS.items():
@@ -45,14 +66,16 @@ def achievements_for(region, player, links=None):
             for name in names
             for result in finishes.get((history_region, name), [])
         ]
-        by_region[display_region] = {
-            "top1": sum(result["rank"] == 1 for result in rows),
-            "top10": sum(result["rank"] <= 10 for result in rows),
-            "top25": len(rows),
-            "top1_seasons": sorted({result["season"] for result in rows if result["rank"] == 1}),
-            "top10_seasons": sorted({result["season"] for result in rows if result["rank"] <= 10}),
-            "top25_seasons": sorted({result["season"] for result in rows}),
-        }
+        by_region[display_region] = {}
+        for key, (rank_min, rank_max) in _FINISH_BANDS.items():
+            qualifying = [
+                result for result in rows
+                if rank_min <= result["rank"] <= rank_max
+            ]
+            by_region[display_region][key] = len(qualifying)
+            by_region[display_region][f"{key}_seasons"] = sorted({
+                result["season"] for result in qualifying
+            })
     top1_total = sum(stats["top1"] for stats in by_region.values())
     is_record_holder = False
     if top1_total:
@@ -67,6 +90,8 @@ def achievements_for(region, player, links=None):
         "top1": top1_total,
         "top10": sum(stats["top10"] for stats in by_region.values()),
         "top25": sum(stats["top25"] for stats in by_region.values()),
+        "top50": sum(stats["top50"] for stats in by_region.values()),
+        "top100": sum(stats["top100"] for stats in by_region.values()),
         "top1_seasons": [
             (region, season)
             for region, stats in by_region.items()
@@ -82,13 +107,14 @@ def _cached_finish_leaderboard(metric, link_signature, selected_regions):
     display_names = dict(link_signature)
     selected_regions = set(selected_regions)
     players = {}
-    for (history_region, player), results in _load_finishes().items():
+    for (history_region, player), results in _current_finishes().items():
         display_name = display_names.get(player, "").strip()
         group_key = display_name.lower() if display_name else player
         entry = players.setdefault(group_key, {
             "player": display_name or player,
             "count": 0,
             "region_counts": {region: 0 for region in _HISTORY_REGIONS},
+            "region_seasons": {region: set() for region in _HISTORY_REGIONS},
             "linked_players": set(),
         })
         entry["linked_players"].add(player)
@@ -98,10 +124,18 @@ def _cached_finish_leaderboard(metric, link_signature, selected_regions):
         )
         if display_region is None or display_region not in selected_regions:
             continue
-        qualifying = [result for result in results if metric == "top25" or result["rank"] == 1]
+        # The historical Top 25 leaderboard stays cumulative, even though
+        # the profile badges above use exclusive rank bands.
+        qualifying = [
+            result for result in results
+            if (result["rank"] == 1 if metric == "top1" else result["rank"] <= 25)
+        ]
         count = len(qualifying)
         entry["count"] += count
         entry["region_counts"][display_region] += count
+        entry["region_seasons"][display_region].update(
+            result["season"] for result in qualifying
+        )
 
     rows = []
     for entry in players.values():
@@ -123,6 +157,10 @@ def _cached_finish_leaderboard(metric, link_signature, selected_regions):
             "selected_regions": label_regions,
             "metric": metric,
             "region_counts": dict(entry["region_counts"]),
+            "region_seasons": {
+                region: tuple(sorted(seasons))
+                for region, seasons in entry["region_seasons"].items()
+            },
             "linked_players": tuple(sorted(entry["linked_players"])),
         })
     rows.sort(key=lambda row: (-row["count"], row["player"].lower()))
@@ -148,7 +186,7 @@ def all_time_peak_mmr(regions_key):
     """Highest recorded leaderboard rating per player and selected region."""
     selected_regions = {str(region).upper() for region in regions_key}
     peaks = {}
-    for rows in _load_finishes().values():
+    for rows in _current_finishes().values():
         for row in rows:
             source_region = str(row.get("region", "")).upper()
             display_region = "NA" if source_region == "US" else source_region
@@ -204,32 +242,78 @@ def trophy_html(region, player, links=None):
     return f" <span title='{tooltip}' style='cursor:help;font-size:0.9em;'>{icon}</span>"
 
 
+def _colored_finish_tooltip(label, emoji, region_counts, region_seasons, regions=None, total=None):
+    regions = tuple(regions or _HISTORY_REGIONS)
+    regional_counts = "<span class='profile-achievement-separator'> - </span>".join(
+        f"<span style='color:{_REGION_COLORS[region]};'>{region} {region_counts.get(region, 0)}</span>"
+        for region in regions
+    )
+    season_lines = []
+    for region in regions:
+        seasons = region_seasons.get(region, ())
+        if not seasons:
+            continue
+        season_list = ", ".join(html.escape(str(season)) for season in seasons)
+        color = _REGION_COLORS[region]
+        season_lines.append(
+            f"<span class='profile-achievement-season' style='color:{color};'>"
+            f"<span>{region}</span><span>Season {season_list}</span></span>"
+        )
+    total_line = (
+        f"<span class='profile-achievement-total'>Selected total: {int(total)}</span>"
+        if total is not None else ""
+    )
+    return (
+        "<span class='profile-achievement-tooltip'>"
+        f"<span class='profile-achievement-tooltip-title'>{html.escape(label)} {emoji}</span>"
+        f"<span class='profile-achievement-counts'>{regional_counts}</span>"
+        f"{total_line}"
+        f"<span class='profile-achievement-seasons'>{''.join(season_lines)}</span>"
+        "</span>"
+    )
+
+
+def historical_finish_hover_html(row):
+    metric = row.get("metric")
+    label, emoji = (
+        ("Top 1", chr(0x1F3C6)) if metric == "top1"
+        else ("Top 25", chr(0x1F949))
+    )
+    tooltip = _colored_finish_tooltip(
+        label,
+        emoji,
+        row.get("region_counts", {}),
+        row.get("region_seasons", {}),
+        regions=row.get("selected_regions") or tuple(_HISTORY_REGIONS),
+        total=row.get("count", 0),
+    )
+    trigger = html.escape(str(row.get("region_label", "All")).strip())
+    return f"<span class='profile-achievement-hover profile-leaderboard-region-hover'>{trigger}{tooltip}</span>"
+
+
 def _achievement_counts(a):
+    badges = (
+        ("top1", "Top 1", chr(0x1F451) if a["is_record_holder"] else chr(0x1F3C6)),
+        ("top10", "Top 10", chr(0x1F948)),
+        ("top25", "Top 25", chr(0x1F949)),
+        ("top50", "Top 50", chr(0x1F31F)),
+        ("top100", "Top 100", chr(0x2B50)),
+    )
     items = []
-    for key, label, emoji in (
-        ("top1", "Top 1", "👑" if a["is_record_holder"] else "🏆"),
-        ("top10", "Top 10", "🥈"),
-        ("top25", "Top 25", "🥉"),
-    ):
+    for key, label, emoji in badges:
         if not a[key]:
             continue
-        regional_counts = " · ".join(
-            f"{region} {a['by_region'][region][key]}"
-            for region in _HISTORY_REGIONS
+        tooltip = _colored_finish_tooltip(
+            label,
+            emoji,
+            {region: a["by_region"][region][key] for region in _HISTORY_REGIONS},
+            {region: a["by_region"][region][f"{key}_seasons"] for region in _HISTORY_REGIONS},
         )
-        seasons = sorted({
-            season
-            for region in _HISTORY_REGIONS
-            for season in a["by_region"][region][f"{key}_seasons"]
-        })
-        season_line = f"\nSeason {', '.join(str(season) for season in seasons)}" if seasons else ""
-        tooltip = html.escape(f"{label}: {regional_counts}{season_line}", quote=True)
         items.append(
-            f"<span title='{tooltip}' style='cursor:help;margin-right:0.8rem;'>"
-            f"{label}: {emoji} <span style='color:#aaa;'>x{a[key]}</span></span>"
+            f"<span class='profile-achievement-hover'>{html.escape(label)}: {emoji} "
+            f"<span style='color:#aaa;'>x{a[key]}</span>{tooltip}</span>"
         )
     return "".join(items)
-
 
 def achievements_html(region, player, links=None):
     """Compact achievement counts for the player profile."""

@@ -2097,7 +2097,7 @@ with tabs[0]:
                             )
 
                 lists = [
-                    ("Avg placement🏅",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}",    "Average placement across recorded games this season. Lower is better."),
+                    ("Avg placement🏅",       _lb("avg_place",    higher_is_better=False),  lambda r: f"{r['avg_place']:.2f}<span style='color:#555;font-size:0.78em;margin-left:3px;'>avg</span>",    "Average placement across recorded games this season. Lower is better."),
                     ("Top 1 %📈",             _lb("first_pct",    higher_is_better=True),   lambda r: f"{r['first_pct']:.1f}%",   "Percentage of games finished in 1st place."),
                     ("Hot streak🔥",          _lb("hot_streak",   higher_is_better=True),   lambda r: f"{int(r['hot_streak'])} games",   "Longest consecutive 1st streak of placement."),
                     ("Top 4 %📈",             _lb("top4_pct",     higher_is_better=True),   lambda r: f"{r['top4_pct']:.1f}%",    "Percentage of games finished in top 4."),

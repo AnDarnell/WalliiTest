@@ -2123,7 +2123,7 @@ if tabs[0].open:
                     _lb_season_options = sorted(SEASONS.keys(), reverse=True)
                     _lb_season_index = _lb_season_options.index(CURRENT_SEASON) if CURRENT_SEASON in _lb_season_options else 0
                     with st.container(key="updates_expander_wrap"):
-                        with st.expander("Latest updates", expanded=False):
+                        with st.expander("Latest updates 🔨", expanded=False):
                             st.markdown(
                                 "- Players that have historically finished top 1 on any server now have a 🏆 next to their name. "
                                 "Historical achievements (top 1/10/25/50/100 leaderboard finishes) can now be seen on each player profile.\n\n"

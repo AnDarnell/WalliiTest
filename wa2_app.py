@@ -2521,6 +2521,8 @@ if tabs[0].open:
 
 
                 _leaderboard_section()
+                st.markdown("<hr class='lb-row-divider lb-row-divider-paired'>", unsafe_allow_html=True)
+                st.markdown("<div style='height:0.5rem;'></div>", unsafe_allow_html=True)
 
                 if st.button("Refresh leaderboards", width='stretch'):
                     _cache_bust_toplists()
@@ -2757,6 +2759,8 @@ if tabs[0].open:
                     elif pwd:
                         st.caption("Wrong password.")
 
+            st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
+
         else:
             # ── Spelarsida ────────────────────────────────────────────────────────
             _sp_season = st.session_state.get("sp_season", CURRENT_SEASON)
@@ -2767,7 +2771,7 @@ if tabs[0].open:
                 st.session_state["sp_rank"] = _cached_profile["rank"]
 
             if st.session_state.get("sp_games") is None:
-                with st.spinner("Building player profile 🤓🔨..."):
+                with st.spinner("Building player profile ☝️🤓..."):
                     try:
                         st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region, season=_sp_season)
                         compute_and_upsert(sp_player, st.session_state["sp_region"], st.session_state["sp_games"], season=_sp_season)

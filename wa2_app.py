@@ -1960,15 +1960,16 @@ with tabs[0]:
 
                 _lb_season_options = sorted(SEASONS.keys(), reverse=True)
                 _lb_season_index = _lb_season_options.index(CURRENT_SEASON) if CURRENT_SEASON in _lb_season_options else 0
-                st.markdown(
-                    "<div style='border:1px solid #4a8c5c; background:#12221b; color:#d4e8d4; " \
-                    "padding:0.75rem 1rem; border-radius:10px; margin-bottom:0.8rem; box-shadow:0 0 0 1px rgba(74,140,92,0.1);'>" \
-                    "<strong style='display:block; color:#b8dfb8; margin-bottom:0.2rem;'>Updates: </strong> Players that have historicaly finished top 1 on any server does now have a '🏆' next to their name. Historical achievments <br> (Top 1/10/25/50/100 leaderboard finishes) can now be seen on each player profile. <br>" \
-                    " There is also a leaderboard for most amount of Top 1 finishes as well as Top 25 further down. The player with most Top 1 finishes will also be highlighted with a '👑'. <br>"\
-                    " A leaderboard for highest all time MMR reached has also been added. Note that CN has higher historical MMR numbers due to their (until recently removed) system for seasonal resets. <br><br>"\
-                    " Any ideas or feedback is greatly appreciated! Contact info can be found under the Info/Explanation tab.</div>",
-                    unsafe_allow_html=True,
-                )
+                with st.expander("Updates", expanded=False):
+                    st.markdown(
+                        "Players that have historically finished top 1 on any server now have a 🏆 next to their name. "
+                        "Historical achievements (top 1/10/25/50/100 leaderboard finishes) can now be seen on each player profile.\n\n"
+                        "There is also a leaderboard for the most top 1 finishes and another for top 25 finishes further down. "
+                        "The player with the most top 1 finishes is highlighted with a 👑.\n\n"
+                        "A leaderboard for the highest all-time MMR reached has also been added. Note that CN has higher historical "
+                        "MMR numbers due to its seasonal reset system, which was removed recently.\n\n"
+                        "Any ideas or feedback are greatly appreciated! Contact info can be found under the Info/Explanation tab."
+                    )
                 _lb_season = st.radio(
                     "Leaderboard season",
                     options=_lb_season_options,
@@ -2126,7 +2127,7 @@ with tabs[0]:
                 lists.append((
                     "All-time highest MMR🐐",
                     _all_time_mmr_rows,
-                    lambda r: f"<span title='Season {r['season']}' style='cursor:help;'>{r['rating']:,}</span>",
+                    lambda r: f"<span title='{html.escape(str(r.get('season_label') or ('Season %s' % r['season'])))}' style='cursor:help;'>{r['rating']:,}</span>",
                     "Highest recorded leaderboard rating per player. Hover over a rating to see the season it was reached.",
                 ))
                 lists[2], lists[3] = lists[3], lists[2]

@@ -25,6 +25,10 @@ _REGION_COLORS = {
 }
 
 
+def _season_label(result):
+    return str(result.get("season_label") or f"S{result['season']}")
+
+
 @lru_cache(maxsize=2)
 def _load_finishes(mtime_ns=None):
     if not _HISTORY_PATH.exists():
@@ -36,11 +40,14 @@ def _load_finishes(mtime_ns=None):
 
 
 def _current_finishes():
+    return _load_finishes(_history_mtime_ns())
+
+
+def _history_mtime_ns():
     try:
-        mtime_ns = _HISTORY_PATH.stat().st_mtime_ns
+        return _HISTORY_PATH.stat().st_mtime_ns
     except OSError:
-        mtime_ns = None
-    return _load_finishes(mtime_ns)
+        return None
 
 
 def _alias_names(player, links):
@@ -74,7 +81,7 @@ def achievements_for(region, player, links=None):
             ]
             by_region[display_region][key] = len(qualifying)
             by_region[display_region][f"{key}_seasons"] = sorted({
-                result["season"] for result in qualifying
+                _season_label(result) for result in qualifying
             })
     top1_total = sum(stats["top1"] for stats in by_region.values())
     is_record_holder = False
@@ -103,11 +110,11 @@ def achievements_for(region, player, links=None):
 
 
 @lru_cache(maxsize=32)
-def _cached_finish_leaderboard(metric, link_signature, selected_regions):
+def _cached_finish_leaderboard(metric, link_signature, selected_regions, history_mtime_ns):
     display_names = dict(link_signature)
     selected_regions = set(selected_regions)
     players = {}
-    for (history_region, player), results in _current_finishes().items():
+    for (history_region, player), results in _load_finishes(history_mtime_ns).items():
         display_name = display_names.get(player, "").strip()
         group_key = display_name.lower() if display_name else player
         entry = players.setdefault(group_key, {
@@ -134,7 +141,7 @@ def _cached_finish_leaderboard(metric, link_signature, selected_regions):
         entry["count"] += count
         entry["region_counts"][display_region] += count
         entry["region_seasons"][display_region].update(
-            result["season"] for result in qualifying
+            _season_label(result) for result in qualifying
         )
 
     rows = []
@@ -177,16 +184,18 @@ def historical_finish_leaderboard(metric, links=None, regions=None):
         (name.lower(), (row.get("display_name") or "").strip())
         for name, row in (links or {}).items()
     ))
-    cached_rows = _cached_finish_leaderboard(metric, link_signature, selected_regions)
+    cached_rows = _cached_finish_leaderboard(
+        metric, link_signature, selected_regions, _history_mtime_ns(),
+    )
     return [dict(row) for row in cached_rows]
 
 
-@lru_cache(maxsize=1)
-def all_time_peak_mmr(regions_key):
+@lru_cache(maxsize=2)
+def all_time_peak_mmr(regions_key, history_mtime_ns=None):
     """Highest recorded leaderboard rating per player and selected region."""
     selected_regions = {str(region).upper() for region in regions_key}
     peaks = {}
-    for rows in _current_finishes().values():
+    for rows in _load_finishes(history_mtime_ns).values():
         for row in rows:
             source_region = str(row.get("region", "")).upper()
             display_region = "NA" if source_region == "US" else source_region
@@ -201,6 +210,7 @@ def all_time_peak_mmr(regions_key):
                 peaks[key] = {
                     "player": row["player"], "region": display_region,
                     "rating": int(rating), "season": int(row["season"]),
+                    "season_label": _season_label(row),
                 }
     return tuple(tuple((k, v) for k, v in row.items()) for row in peaks.values())
 
@@ -209,7 +219,7 @@ def all_time_mmr_leaderboard(regions=None, current_rows=None, limit=10):
     """Historical peak MMR, updated when a current season rating beats it."""
     selected_regions = tuple(sorted({str(region).upper() for region in (regions or _HISTORY_REGIONS)}))
     peaks = {}
-    for packed in all_time_peak_mmr(selected_regions):
+    for packed in all_time_peak_mmr(selected_regions, _history_mtime_ns()):
         row = dict(packed)
         peaks[(row["region"], row["player"].lower())] = row
     for current in current_rows or ():
@@ -224,6 +234,7 @@ def all_time_mmr_leaderboard(regions=None, current_rows=None, limit=10):
             peaks[key] = {
                 "player": player, "region": region, "rating": int(round(float(rating))),
                 "season": int(current.get("season") or 0),
+                "season_label": f"S{int(current.get('season') or 0)}",
             }
     rows = sorted(peaks.values(), key=lambda row: (-row["rating"], row["player"].lower()))
     return rows[:limit]
@@ -257,7 +268,7 @@ def _colored_finish_tooltip(label, emoji, region_counts, region_seasons, regions
         color = _REGION_COLORS[region]
         season_lines.append(
             f"<span class='profile-achievement-season' style='color:{color};'>"
-            f"<span>{region}</span><span>Season {season_list}</span></span>"
+            f"<span>{region}</span><span>{season_list}</span></span>"
         )
     total_line = (
         f"<span class='profile-achievement-total'>Selected total: {int(total)}</span>"

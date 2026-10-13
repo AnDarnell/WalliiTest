@@ -38,9 +38,16 @@ def norm_to_pct(games):
     return {p: counts[p] / total * 100 for p in range(1, 9)}
 
 
-@st.cache_resource(show_spinner=False)
+@st.cache_data(show_spinner=False, max_entries=256)
+def _cached_placement_counts(placements):
+    """Cache immutable chart data; Matplotlib figures stay per-run."""
+    games = ({"placement": placement} for placement in placements)
+    return normalized_counts(games)
+
+
 def make_chart(games):
-    norm = normalized_counts(games)
+    placements = tuple(g["placement"] for g in games)
+    norm = _cached_placement_counts(placements)
     labels = [str(p) for p in range(1, 9)]
     values = [norm[p] for p in range(1, 9)]
     colors = ["#d4a843" if p == 1 else "#4a8c5c" if p <= 4 else "#8c3a2a" for p in range(1, 9)]

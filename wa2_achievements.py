@@ -342,4 +342,4 @@ def achievements_html(region, player, links=None):
     counts = _achievement_counts(a)
     if not counts:
         return ""
-    return f"<div style='font-size:0.85rem;line-height:1.5;color:#777;'>{counts}</div>"
+    return f"<div style='font-size:0.85rem;line-height:1.5;color:#777;margin-bottom:0.35rem;'>{counts}</div>"

@@ -29,6 +29,16 @@ def _season_label(result):
     return str(result.get("season_label") or f"S{result['season']}")
 
 
+def _season_sort_key(label):
+    label = str(label)
+    lower = label.lower()
+    if lower.startswith("bs") and lower[2:].isdigit():
+        return (0, int(lower[2:]))
+    if lower.startswith("s") and lower[1:].isdigit():
+        return (1, int(lower[1:]))
+    return (2, lower)
+
+
 @lru_cache(maxsize=2)
 def _load_finishes(mtime_ns=None):
     if not _HISTORY_PATH.exists():
@@ -82,7 +92,7 @@ def achievements_for(region, player, links=None):
             by_region[display_region][key] = len(qualifying)
             by_region[display_region][f"{key}_seasons"] = sorted({
                 _season_label(result) for result in qualifying
-            })
+            }, key=_season_sort_key)
     top1_total = sum(stats["top1"] for stats in by_region.values())
     is_record_holder = False
     if top1_total:
@@ -165,7 +175,7 @@ def _cached_finish_leaderboard(metric, link_signature, selected_regions, history
             "metric": metric,
             "region_counts": dict(entry["region_counts"]),
             "region_seasons": {
-                region: tuple(sorted(seasons))
+                region: tuple(sorted(seasons, key=_season_sort_key))
                 for region, seasons in entry["region_seasons"].items()
             },
             "linked_players": tuple(sorted(entry["linked_players"])),

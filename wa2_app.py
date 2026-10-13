@@ -17,6 +17,7 @@ from pathlib import Path
 from datetime import datetime, timezone, timedelta, date
 from urllib.parse import urlencode
 import html
+import base64 as _b64
 import time
 import threading
 
@@ -1498,13 +1499,19 @@ def _fetch_patch_notes(n=5):
 # ── Page styling ──────────────────────────────────────────────────────────────
 
 _app_dir = Path(__file__).resolve().parent
-st.set_page_config(page_title="Placement Stats", layout="wide", page_icon=str(_app_dir / "nerdbob2.png"))
+st.set_page_config(page_title="Placement Statistics", layout="wide", page_icon=str(_app_dir / "nerdbob2.png"))
 st.logo(str(_app_dir / "nerdbob.png"))
+_tavern_bg_b64 = _b64.b64encode((_app_dir / "assets" / "tavern.avif").read_bytes()).decode()
 
 st.markdown("""
 <style>
 html, body, [class*="css"] { font-family: 'Georgia', serif; }
-.stApp { background-color: #0e0e0e; color: #ccc; }
+.stApp {
+    background:
+        radial-gradient(ellipse at 50% -12%, rgba(138, 78, 42, 0.22), transparent 58%),
+        #211813;
+    color: #e7d6ba;
+}
 
 div[data-testid="stMainBlockContainer"] {
     max-width: 1040px;
@@ -1513,23 +1520,23 @@ div[data-testid="stMainBlockContainer"] {
 }
 
 .stTextInput input, .stNumberInput input {
-    background-color: #161616 !important;
-    border: 1px solid #2a2a2a !important;
-    color: #eee !important;
+    background-color: #35261e !important;
+    border: 1px solid #5a4432 !important;
+    color: #f2e5cf !important;
     border-radius: 4px !important;
 }
-.stTextInput input:focus, .stNumberInput input:focus { border-color: #d4a843 !important; }
+.stTextInput input:focus, .stNumberInput input:focus { border-color: #d9aa57 !important; }
 .stTextInput label, .stSelectbox label, .stNumberInput label {
-    color: #666 !important; font-size: 0.75rem !important;
+    color: #b69b79 !important; font-size: 0.75rem !important;
     text-transform: uppercase !important; letter-spacing: 0.07em !important;
 }
 .stSelectbox > div > div {
-    background-color: #161616 !important;
-    border: 1px solid #2a2a2a !important;
-    color: #eee !important;
+    background-color: #35261e !important;
+    border: 1px solid #5a4432 !important;
+    color: #f2e5cf !important;
     border-radius: 4px !important;
 }
-.stFormSubmitButton button, .stButton button {
+.stFormSubmitButton button, .stButton button, .stDownloadButton button {
     background-color: #161616 !important;
     color: #d4a843 !important;
     border: 1px solid #d4a843 !important;
@@ -1538,7 +1545,7 @@ div[data-testid="stMainBlockContainer"] {
     letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
 }
-.stFormSubmitButton button:hover, .stButton button:hover {
+.stFormSubmitButton button:hover, .stButton button:hover, .stDownloadButton button:hover {
     background-color: #d4a843 !important;
     color: #0e0e0e !important;
 }
@@ -1555,14 +1562,14 @@ div[data-testid="stMainBlockContainer"] {
     border: none !important;
 }
 .streamlit-expanderHeader {
-    background-color: #161616 !important;
-    border: 1px solid #2a2a2a !important;
-    color: #666 !important; font-size: 0.8rem !important;
+    background-color: #35261e !important;
+    border: 1px solid #5a4432 !important;
+    color: #c4a985 !important; font-size: 0.8rem !important;
     border-radius: 4px !important;
 }
-.stTable th { color: #555 !important; font-size: 0.75rem !important; text-transform: uppercase !important; }
-.stTable td { color: #bbb !important; }
-hr { border-color: #1e1e1e !important; }
+.stTable th { color: #b69b79 !important; font-size: 0.75rem !important; text-transform: uppercase !important; }
+.stTable td { color: #e0cfb3 !important; }
+hr { border-color: #503a2b !important; }
 #MainMenu, footer, header { visibility: hidden; }
 h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !important; }
 
@@ -1736,10 +1743,58 @@ h2 a[data-testid], h1 a[data-testid], h3 a[data-testid] { display: none !importa
     border-color: #d4a843 !important;
     color: #d4a843 !important;
 }
+
+/* Warm up inline-styled leaderboard rows and stat cards as well. */
+[style*="background:#121212"], [style*="background:#111"],
+[style*="background:#161616"] { background-color: #141312 !important; }
+[style*="border:1px solid #1e1e1e"], [style*="border-top:1px solid #1e1e1e"] {
+    border-color: #60462f !important;
+}
+[style*="color:#eee"] { color: #f2e5cf !important; }
+[style*="color:#ccc"], [style*="color:#bbb"], [style*="color:#ddd"] { color: #e0cfb3 !important; }
+[style*="color:#666"], [style*="color:#555"], [style*="color:#444"] { color: #b69b79 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-import base64 as _b64
+st.markdown(f"""
+<style>
+.stApp {{
+    background-image:
+        linear-gradient(
+            90deg,
+            transparent calc(50% - 521px),
+            #191715 calc(50% - 520px),
+            #191715 calc(50% + 520px),
+            transparent calc(50% + 521px)
+        ),
+        linear-gradient(rgba(20, 13, 9, 0.62), rgba(20, 13, 9, 0.68)),
+        url("data:image/avif;base64,{_tavern_bg_b64}");
+    background-size: auto, cover, cover;
+    background-position: center center, center center, center center;
+    background-attachment: fixed, fixed, fixed;
+}}
+[data-testid="stAppViewContainer"], [data-testid="stMain"] {{
+    background: transparent !important;
+}}
+div[data-testid="stMainBlockContainer"] {{
+    box-sizing: border-box;
+    min-height: 100vh;
+    background: transparent;
+}}
+@media (max-width: 1080px) {{
+    .stApp {{
+        background-image:
+            linear-gradient(#191715, #191715),
+            linear-gradient(rgba(20, 13, 9, 0.62), rgba(20, 13, 9, 0.68)),
+            url("data:image/avif;base64,{_tavern_bg_b64}");
+    }}
+    div[data-testid="stMainBlockContainer"] {{
+        background: transparent;
+    }}
+}}
+</style>
+""", unsafe_allow_html=True)
+
 _logo_b64 = _b64.b64encode((_app_dir / "nerdbob.png").read_bytes()).decode()
 st.markdown(f"""
 <div style='display:flex; align-items:center; gap:1rem; margin-bottom:1.0rem;'>
@@ -3476,8 +3531,8 @@ with tabs[3]:
             unsafe_allow_html=True
         )
         _sb_fig, _sb_ax = plt.subplots(figsize=(10, 5))
-        _sb_fig.patch.set_facecolor("#0e0e0e")
-        _sb_ax.set_facecolor("#0e0e0e")
+        _sb_fig.patch.set_facecolor("#191715")
+        _sb_ax.set_facecolor("#191715")
         _sb_ax.plot(_sb_bx, _sb_by, color="#d4a843", linewidth=3)
         _sb_ax.set_xlabel("Current MMR")
         _sb_ax.set_ylabel("Avg Place")
@@ -3576,8 +3631,8 @@ with tabs[3]:
     )
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    fig.patch.set_facecolor("#0e0e0e")
-    ax.set_facecolor("#0e0e0e")
+    fig.patch.set_facecolor("#191715")
+    ax.set_facecolor("#191715")
     ax.plot(bx, by, linewidth=3)
     ax.set_xlabel(x_choice)
     ax.set_ylabel("Avg Place")
@@ -3600,8 +3655,8 @@ with tabs[3]:
         _cr_vals, _ff_mmr_vals, _mmr_removed = _remove_outliers(_cr_vals, _ff_mmr_vals)
         _corr_mmr = float(np.corrcoef(_ff_mmr_vals, _cr_vals)[0, 1])
         _fig_m, _ax_m = plt.subplots(figsize=(8, 5))
-        _fig_m.patch.set_facecolor("#0e0e0e")
-        _ax_m.set_facecolor("#0e0e0e")
+        _fig_m.patch.set_facecolor("#191715")
+        _ax_m.set_facecolor("#191715")
         _ax_m.scatter(_cr_vals, _ff_mmr_vals, color="#9146FF", alpha=0.6, s=30)
         _m_m, _b_m = np.polyfit(_cr_vals, _ff_mmr_vals, 1)
         _xs_line_m = np.linspace(_cr_vals.min(), _cr_vals.max(), 100)
@@ -3625,8 +3680,8 @@ with tabs[3]:
         _us_vals, _ff_vals, _us_removed = _remove_outliers(_us_vals, _ff_vals)
         _corr = float(np.corrcoef(_ff_vals, _us_vals)[0, 1])
         _fig_c, _ax_c = plt.subplots(figsize=(8, 5))
-        _fig_c.patch.set_facecolor("#0e0e0e")
-        _ax_c.set_facecolor("#0e0e0e")
+        _fig_c.patch.set_facecolor("#191715")
+        _ax_c.set_facecolor("#191715")
         _ax_c.scatter(_us_vals, _ff_vals, color="#9146FF", alpha=0.6, s=30)
         _m, _b = np.polyfit(_us_vals, _ff_vals, 1)
         _xs_line = np.linspace(_us_vals.min(), _us_vals.max(), 100)
@@ -3650,8 +3705,8 @@ with tabs[3]:
         _us_tilt_vals, _tf_vals, _tilt_removed = _remove_outliers(_us_tilt_vals, _tf_vals)
         _corr_tilt = float(np.corrcoef(_us_tilt_vals, _tf_vals)[0, 1])
         _fig_t, _ax_t = plt.subplots(figsize=(8, 5))
-        _fig_t.patch.set_facecolor("#0e0e0e")
-        _ax_t.set_facecolor("#0e0e0e")
+        _fig_t.patch.set_facecolor("#191715")
+        _ax_t.set_facecolor("#191715")
         _ax_t.scatter(_us_tilt_vals, _tf_vals, color="#9146FF", alpha=0.6, s=30)
         _m_t, _b_t = np.polyfit(_us_tilt_vals, _tf_vals, 1)
         _xs_line_t = np.linspace(_us_tilt_vals.min(), _us_tilt_vals.max(), 100)

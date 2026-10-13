@@ -47,8 +47,8 @@ def make_chart(games):
     total = len(games)
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    fig.patch.set_facecolor("#0e0e0e")
-    ax.set_facecolor("#0e0e0e")
+    fig.patch.set_facecolor("#191715")
+    ax.set_facecolor("#191715")
 
     bars = ax.bar(labels, values, color=colors, edgecolor="#222", linewidth=0.8, width=0.55)
 
@@ -89,7 +89,7 @@ def make_chart(games):
             mpatches.Patch(color="#4a8c5c", label="Top 4"),
             mpatches.Patch(color="#8c3a2a", label="Bot 4"),
         ],
-        facecolor="#161616",
+        facecolor="#35261e",
         labelcolor="#aaa",
         fontsize=11,
         edgecolor="#555",
@@ -108,8 +108,8 @@ def make_neighbor_chart(all_pcts, names, ranks, player_name, player_rank):
     colors = ["#d4a843" if p == 1 else "#4a8c5c" if p <= 4 else "#8c3a2a" for p in range(1, 9)]
 
     fig, ax = plt.subplots(figsize=(10, 5))
-    fig.patch.set_facecolor("#0e0e0e")
-    ax.set_facecolor("#0e0e0e")
+    fig.patch.set_facecolor("#191715")
+    ax.set_facecolor("#191715")
 
     bars = ax.bar(labels, values, color=colors, edgecolor="#222", linewidth=0.8, width=0.55)
 
@@ -147,7 +147,7 @@ def make_neighbor_chart(all_pcts, names, ranks, player_name, player_rank):
             mpatches.Patch(color="#4a8c5c", label="Top 4"),
             mpatches.Patch(color="#8c3a2a", label="Bot 4"),
         ],
-        facecolor="#161616",
+        facecolor="#35261e",
         labelcolor="#aaa",
         fontsize=11,
         edgecolor="#555",

@@ -1556,6 +1556,13 @@ div[data-testid="stMainBlockContainer"] {
     color: #b69b79 !important; font-size: 0.75rem !important;
     text-transform: uppercase !important; letter-spacing: 0.07em !important;
 }
+.st-key-lb_inc_eu,
+.st-key-lb_inc_na,
+.st-key-lb_inc_ap,
+.st-key-lb_inc_cn {
+    position: relative !important;
+    left: 1.4rem !important;
+}
 .stSelectbox > div > div {
     background-color: #35261e !important;
     border: 1px solid #5a4432 !important;
@@ -2146,7 +2153,7 @@ if tabs[0].open:
                         f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards: Season {_lb_season} <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
                         unsafe_allow_html=True
                     )
-                    _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 1, 1, 1, 1])
+                    _mmr_col, _eu_col, _na_col, _ap_col, _cn_col = st.columns([4, 0.5, 0.5, 0.5, 0.7])
                     with _mmr_col:
                         _mmr_filter = st.radio("MMR filter", ["All", "Top 25", "Top 50"], index=0, horizontal=True, key="lb_mmr_filter", label_visibility="collapsed")
                     with _eu_col:
@@ -2156,7 +2163,7 @@ if tabs[0].open:
                     with _ap_col:
                         _inc_ap = st.checkbox("AP", value=True,  key="lb_inc_ap")
                     with _cn_col:
-                        _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent MMR updates, which means estimated placements may be slightly misleading in some cases.")
+                        _inc_cn = st.checkbox("CN", value=False, key="lb_inc_cn", help="CN sends inconsistent (hourly) MMR updates, which means estimated placements often are slightly misleading.")
 
                     _lb_regions = {r for r, v in [("EU", _inc_eu), ("NA", _inc_na), ("AP", _inc_ap), ("CN", _inc_cn)] if v}
                     _lb_regions_key = tuple(r for r in VALID_REGIONS if r in _lb_regions)
@@ -2277,8 +2284,8 @@ if tabs[0].open:
                         ("Best 'form rating🏋️‍♂️'",    [r for r in _lb("form_rating", higher_is_better=True, limit=None) if r.get("form_rating") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{r['form_rating']:,}<span style='color:#555;font-size:0.78em;margin-left:3px;'>mmr</span>", "Estimated MMR based on last 50 games avg placement on the regression curve. Requires at least 300 games this season."),
                         ("Largest MMR drop🍂",    _lb("max_drawdown", higher_is_better=True),   lambda r: f"<span title='{html.escape(r['dd_detail'])}' style='cursor:help;'>-{int(r['max_drawdown']):,} MMR</span>" if r.get("dd_detail") else (f"-{int(r['max_drawdown']):,} MMR" if r.get("max_drawdown") is not None else "—"), "Largest MMR drop from a peak to a subsequent low."),
                         ("# Games🎲",             _lb("games",        higher_is_better=True),   lambda r: f"{int(r['games'])} games",  "Total number of games played this season while on the leaderboard."),
-                        ("Farmer factor 🧑‍🌾",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. (Experimental)", "Min 300 games at 10k+ MMR"),
-                        ("Lowest farmer factor 🧑‍🌾", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = better in higher mmr lobbies. (Experimental)", "Min 300 games at 10k+ MMR"),
+                        ("Farmer factor 🧑‍🌾",       [r for r in _lb("matchup_scaling", higher_is_better=False, limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>", "Measures how much better a player performs against weaker opponents relative to stronger ones. Higher = more dominant vs weaker lobbies. (Experimental)", "Min 300 games at 10k+ MMR"),
+                        ("Lowest farmer factor 🧑‍🌾", [r for r in _lb("matchup_scaling", higher_is_better=True,  limit=None) if r.get("matchup_scaling") is not None and (r.get("games") or 0) >= 300][:TOP_N], lambda r: f"{-r['matchup_scaling']:+.2f}<span style='color:#555;font-size:0.78em;margin-left:2px;'>x</span>", "Measures how much better a player performs against stronger opponents relative to weaker ones. Lower farmer factor = better in higher mmr lobbies. (Experimental)", "Min 300 games at 10k+ MMR"),
 
                     ]
                     _all_time_mmr_rows = all_time_mmr_leaderboard(

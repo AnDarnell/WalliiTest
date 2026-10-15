@@ -2778,7 +2778,7 @@ if tabs[0].open:
                 st.session_state["sp_rank"] = _cached_profile["rank"]
 
             if st.session_state.get("sp_games") is None:
-                with st.spinner("Building player profile ☝️🤓..."):
+                with st.spinner("Loading player profile..."):
                     try:
                         st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"] = fetch_and_calculate(sp_player, sp_region, season=_sp_season)
                         compute_and_upsert(sp_player, st.session_state["sp_region"], st.session_state["sp_games"], season=_sp_season)

@@ -264,6 +264,7 @@ def _sb_upsert(region, player_name, record: dict):
         "dd_detail":      record.get("dd_detail"),
         "first_10k_date": record.get("first_10k_date"),
         "cr":             record.get("cr"),
+        **({"peak_mmr": record["peak_mmr"]} if record.get("peak_mmr") is not None else {}),
         "u_score":        record.get("u_score"),
         "bot2_count":       record.get("bot2_count"),
         "mmr_milestones":    record.get("mmr_milestones"),
@@ -308,7 +309,7 @@ def _sb_upsert(region, player_name, record: dict):
             st.session_state["sb_upsert_status"] = ("ERROR", f"{type(e).__name__}: {e}"[:300])
         dlog("UPSERT ERROR:", e)
 
-_ALL_FIELDS = "player,region,season,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,u_score,bot2_count,mmr_milestones,matchup_scaling,updated_at"
+_ALL_FIELDS = "player,region,season,games,first_pct,top4_pct,hot_streak,roach_streak,tilt_factor,avg_place,form_diff,form_rating,max_drawdown,dd_detail,first_10k_date,cr,peak_mmr,u_score,bot2_count,mmr_milestones,matchup_scaling,updated_at"
 
 @st.cache_data(show_spinner=False, ttl=300, max_entries=10)
 def _sb_fetch_all(season=CURRENT_SEASON):
@@ -857,6 +858,10 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
 
     core = dstats.compute_core_stats(games, normalized_counts)
     total, avg, current_mmr = core["total"], core["avg"], core["current_mmr"]
+    _peak_mmr = max(
+        max(g["mmr_before"] for g in games),
+        max(g["mmr_after"] for g in games),
+    )
 
     form_rating = None
     if core["form_diff"] is not None:
@@ -878,6 +883,7 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
                 "games":          int(total),
                 "first_10k_date": first_10k_date,
                 "cr":             int(current_mmr),
+                "peak_mmr":       int(_peak_mmr),
                 "mmr_milestones": json.dumps(_mmr_milestones),
                 "updated_at":     _utc_now_iso_z(),
             })
@@ -898,6 +904,7 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
         "dd_detail":       core["dd_detail"],
         "first_10k_date":  first_10k_date,
         "cr":              int(current_mmr),
+        "peak_mmr":        int(_peak_mmr),
         "u_score":         float(core["u_score"]),
         "bot2_count":      int(core["bot2_count"]),
         "mmr_milestones":  json.dumps(_mmr_milestones),
@@ -2298,7 +2305,7 @@ if tabs[0].open:
                     lists.append((
                         "All-time highest MMR🐐",
                         _all_time_mmr_rows,
-                        lambda r: f"<span title='{html.escape('bS1 rating; a bug allowed unusually high ratings. Shown for historical interest.' if r.get('season_label') == 'bS1' else str(r.get('season_label') or ('Season %s' % r['season'])))}' style='cursor:help;'>{r['rating']:,}{'*' if r.get('season_label') == 'bS1' else ''}</span>",
+                        lambda r: f"<span title='{html.escape('bS1 rating; an exploit allowed unusually high external MMRs this season.' if r.get('season_label') == 'bS1' else str(r.get('season_label') or ('Season %s' % r['season'])))}' style='cursor:help;'>{r['rating']:,}{'*' if r.get('season_label') == 'bS1' else ''}</span>",
                         "Highest recorded leaderboard rating per player. Hover over a rating to see the season it was reached.",
                     ))
                     lists[2], lists[3] = lists[3], lists[2]
@@ -3234,6 +3241,7 @@ if tabs[0].open:
                                 "dd_detail":      dd_tip,
                                 "first_10k_date": first_10k_date,
                                 "cr":             int(current_mmr),
+                                "peak_mmr":       int(peak_mmr),
                                 "mmr_milestones": json.dumps(_mmr_milestones),
                                 "updated_at":     _utc_now_iso_z(),
                             }
@@ -3247,6 +3255,7 @@ if tabs[0].open:
                                 "games":          int(total),
                                 "first_10k_date": first_10k_date,
                                 "cr":             int(current_mmr),
+                                "peak_mmr":       int(peak_mmr),
                                 "mmr_milestones": json.dumps(_mmr_milestones),
                                 "updated_at":     _utc_now_iso_z(),
                             }

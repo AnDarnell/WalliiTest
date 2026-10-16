@@ -235,12 +235,13 @@ def all_time_mmr_leaderboard(regions=None, current_rows=None, limit=10):
     for current in current_rows or ():
         region = str(current.get("region", "")).upper()
         player = str(current.get("player", ""))
-        rating = current.get("cr")
-        if region not in selected_regions or not player or rating is None:
+        candidates = [v for v in (current.get("cr"), current.get("peak_mmr")) if v is not None]
+        if region not in selected_regions or not player or not candidates:
             continue
+        rating = max(candidates)
         key = (region, player.lower())
         peak = peaks.get(key)
-        if peak is None or float(rating) > peak["rating"]:
+        if peak is None or float(rating) >= peak["rating"]:
             peaks[key] = {
                 "player": player, "region": region, "rating": int(round(float(rating))),
                 "season": int(current.get("season") or 0),

@@ -3221,6 +3221,7 @@ if tabs[0].open:
                                 "dd_detail":      dd_tip,
                                 "first_10k_date": first_10k_date,
                                 "cr":             int(current_mmr),
+                                "peak_mmr":       int(peak_mmr),
                                 "u_score":        float(u_score_val),
                                 "bot2_count":     int(norm[7] + norm[8]),
                                 "mmr_milestones": json.dumps(_mmr_milestones),

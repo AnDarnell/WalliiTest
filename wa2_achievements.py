@@ -1,8 +1,3 @@
-"""
-Achievements based on earlier Blizzard-leaderboards (top 25 per season).
-
-Data in leaderboard_history.json (created by scripts/fetch_leaderboard_history.py).
-"""
 import html
 import json
 from functools import lru_cache

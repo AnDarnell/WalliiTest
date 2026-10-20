@@ -1,5 +1,4 @@
-# scripts/fetch_leaderboard_history.py
-#
+#   scripts/fetch_leaderboard_history.py
 #   python fetch_leaderboard_history.py          
 #   python fetch_leaderboard_history.py --cn-only
 import argparse, json, os, time, requests

@@ -1,5 +1,3 @@
-"""Small inline social media icons used in player and leaderboard views."""
-
 import html
 
 

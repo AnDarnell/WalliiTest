@@ -1,4 +1,4 @@
-"""Profile workflow and rendering."""
+"""Profile workflow + rendering."""
 
 import html
 import json

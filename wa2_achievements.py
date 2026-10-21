@@ -19,10 +19,8 @@ _REGION_COLORS = {
     "CN": "#8ab4f8",  # blue
 }
 
-
 def _season_label(result):
     return str(result.get("season_label") or f"S{result['season']}")
-
 
 def _season_sort_key(label):
     label = str(label)
@@ -33,7 +31,6 @@ def _season_sort_key(label):
         return (1, int(lower[1:]))
     return (2, lower)
 
-
 @lru_cache(maxsize=2)
 def _load_finishes(mtime_ns=None):
     if not _HISTORY_PATH.exists():
@@ -43,17 +40,14 @@ def _load_finishes(mtime_ns=None):
         by_key.setdefault((r["region"].upper(), r["player"].lower()), []).append(r)
     return by_key
 
-
 def _current_finishes():
     return _load_finishes(_history_mtime_ns())
-
 
 def _history_mtime_ns():
     try:
         return _HISTORY_PATH.stat().st_mtime_ns
     except OSError:
         return None
-
 
 def _alias_names(player, links):
     """Player's own name + all names that share the same display_name in player_links."""
@@ -66,7 +60,6 @@ def _alias_names(player, links):
             if (row.get("display_name") or "").strip().lower() == display:
                 names.add(name.lower())
     return names
-
 
 def achievements_for(region, player, links=None):
     finishes = _current_finishes()
@@ -112,7 +105,6 @@ def achievements_for(region, player, links=None):
         "by_region": by_region,
         "is_record_holder": is_record_holder,
     }
-
 
 @lru_cache(maxsize=32)
 def _cached_finish_leaderboard(metric, link_signature, selected_regions, history_mtime_ns):
@@ -178,7 +170,6 @@ def _cached_finish_leaderboard(metric, link_signature, selected_regions, history
     rows.sort(key=lambda row: (-row["count"], row["player"].lower()))
     return tuple(tuple(row.items()) for row in rows)
 
-
 def historical_finish_leaderboard(metric, links=None, regions=None):
     """Return cached Top 1 or Top 25 totals for the selected historical regions."""
     if metric not in {"top1", "top25"}:
@@ -193,7 +184,6 @@ def historical_finish_leaderboard(metric, links=None, regions=None):
         metric, link_signature, selected_regions, _history_mtime_ns(),
     )
     return [dict(row) for row in cached_rows]
-
 
 @lru_cache(maxsize=2)
 def all_time_peak_mmr(regions_key, history_mtime_ns=None):
@@ -219,7 +209,6 @@ def all_time_peak_mmr(regions_key, history_mtime_ns=None):
                 }
     return tuple(tuple((k, v) for k, v in row.items()) for row in peaks.values())
 
-
 def all_time_mmr_leaderboard(regions=None, current_rows=None, limit=10):
     """Historical peak MMR, updated when a current season rating beats it."""
     selected_regions = tuple(sorted({str(region).upper() for region in (regions or _HISTORY_REGIONS)}))
@@ -244,7 +233,6 @@ def all_time_mmr_leaderboard(regions=None, current_rows=None, limit=10):
             }
     rows = sorted(peaks.values(), key=lambda row: (-row["rating"], row["player"].lower()))
     return rows[:limit]
-
 
 def trophy_html(region, player, links=None):
     """Record-holder crown or a gold trophy, with a regional tooltip."""
@@ -289,7 +277,6 @@ def _colored_finish_tooltip(label, emoji, region_counts, region_seasons, regions
         "</span>"
     )
 
-
 def historical_finish_hover_html(row):
     metric = row.get("metric")
     label, emoji = (
@@ -306,7 +293,6 @@ def historical_finish_hover_html(row):
     )
     trigger = html.escape(str(row.get("region_label", "All")).strip())
     return f"<span class='profile-achievement-hover profile-leaderboard-region-hover'>{trigger}{tooltip}</span>"
-
 
 def _achievement_counts(a):
     badges = (

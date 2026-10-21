@@ -1,4 +1,4 @@
-"""External Twitch, YouTube, and patch-note integrations."""
+"""External Twitch, YouTube, and patch notes integrations."""
 
 import re
 from dataclasses import dataclass

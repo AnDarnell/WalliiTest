@@ -1,4 +1,4 @@
-"""Administrative tools"""
+"""Admin tools"""
 
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -33,7 +33,6 @@ class AdminServices:
     compute_matchup_scaling: Callable[..., Any]
     fetch_and_calculate: Callable[..., Any]
     fetch_top_n_for_scan: Callable[..., Any]
-
 
 def render_admin_panel(services: AdminServices):
     SUPABASE_HEADERS = services.supabase_headers

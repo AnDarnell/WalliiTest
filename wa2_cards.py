@@ -1,10 +1,6 @@
-"""
-wa2_cards.py  –  Battlegrounds Card Library
-
-"""
+"""wa2_cards.py  –  Battlegrounds Card Library"""
 
 import html
-
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
@@ -13,7 +9,6 @@ import streamlit.components.v1 as components
 
 HSJSON_URL = "https://api.hearthstonejson.com/v1/latest/enUS/cards.json"
 
-# BG card image CDN  –  256x is fast; swap to 512x for higher res
 def _card_img_url(card_id: str, golden: bool = False) -> str:
     display_id = card_id if not golden else card_id + "_G"
     return f"https://art.hearthstonejson.com/v1/bgs/latest/enUS/256x/{display_id}.png"
@@ -47,7 +42,6 @@ TRIBE_LABELS["murloc"] = "Murloc"
 
 TIERS = [1, 2, 3, 4, 5, 6, 7]
 
-
 def _associated_races_to_tribes(races: list[str] | None) -> list[str]:
     tribes = []
     for race in races or []:
@@ -56,12 +50,10 @@ def _associated_races_to_tribes(races: list[str] | None) -> list[str]:
             tribes.append(tribe)
     return tribes or ["neutral"]
 
-
 def _is_duo_card(card: dict) -> bool:
     """Return True for card variants whose display name explicitly contains 'Duo'."""
     haystacks = [card.get("display_name", ""), card.get("name", "")]
     return any("duo" in text.lower() for text in haystacks if text)
-
 
 # Data fetching 
 
@@ -75,7 +67,6 @@ def _fetch_all_cards() -> list[dict]:
     except Exception as e:
         st.error(f"Could not fetch card data from HearthstoneJSON: {e}")
         return []
-
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _get_all_minion_cards() -> list[dict]:
@@ -112,7 +103,6 @@ def _get_all_minion_cards() -> list[dict]:
     result.sort(key=lambda x: (x["tier"], x["display_name"]))
     return result
 
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def _get_all_trinket_cards() -> list[dict]:
     raw = _fetch_all_cards()
@@ -148,7 +138,6 @@ def _get_all_trinket_cards() -> list[dict]:
     result.sort(key=lambda x: (x["cost"], x["display_name"]))
     return result
 
-
 @st.cache_data(ttl=3600, show_spinner=False)
 def _get_all_spell_cards() -> list[dict]:
     raw = _fetch_all_cards()
@@ -172,7 +161,6 @@ def _get_all_spell_cards() -> list[dict]:
             })
     result.sort(key=lambda x: (x["tier"], x["cost"], x["display_name"]))
     return result
-
 
 # Card grid renderer
 
@@ -267,7 +255,6 @@ def _render_card_grid(cards: list[dict], cols_per_row: int = 6, golden: bool = F
         height=286,
         scrolling=True,
     )
-
 
 # Public entry point (called from wa2_app.py)
 

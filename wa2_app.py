@@ -2,7 +2,6 @@
 """Requires:
   pip install streamlit requests matplotlib numpy pandas"""
 
-
 import json
 import re
 import requests
@@ -105,13 +104,7 @@ def _mmr_milestones_after_tracking_start(games, season):
     season_cfg = SEASONS.get(season, SEASONS[CURRENT_SEASON])
     return dstats.mmr_milestones_after_tracking_start(games, season_cfg["start"])
 
-
-
 PLAYER_CACHE_TTL_HOURS = 2
-
-
-
-
 
 # Helpers
 
@@ -150,8 +143,6 @@ def go_home():
     st.session_state.pop("sp_previous_season", None)
     st.session_state.pop("sp_season_notice", None)
 
-
-
 # ── Query-param navigation (from leaderboard name links) ─────────────────────
 _qp = st.query_params
 if "goto_player" in _qp:
@@ -182,69 +173,9 @@ if "goto_home" in _qp:
     st.query_params.clear()
     st.rerun()
 
-
-# ── Toplists — session or Supabase ────────────────────────────────────────────
-
-
-
-# ---------- session backend ----------
-
-
-
-# ---------- Supabase backend ----------
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @st.cache_data(show_spinner=False, max_entries=20)
 def _read_curve_csv(path_str, mtime_ns):
     return pd.read_csv(path_str)
-
 
 @st.cache_data(show_spinner=False, max_entries=100)
 def _cached_binned_curve(path_str, mtime_ns, x_choice, bin_size, mode_kind, q, min_games):
@@ -259,10 +190,6 @@ def _cached_binned_curve(path_str, mtime_ns, x_choice, bin_size, mode_kind, q, m
         q=float(q) if mode_kind == "wquant" else 0.5,
         min_games=int(min_games),
     )
-
-
-
-# ---------- unified API ----------
 
 def lb_upsert_player(region, player_name, record: dict):
     if TOPLIST_BACKEND == "supabase":
@@ -381,58 +308,14 @@ def lb_top_n(metric, n=TOP_N, higher_is_better=True, season=CURRENT_SEASON):
         return _session_top_n(metric, n, higher_is_better)
 
 
-# ── Single-player fetch & calculate ───────────────────────────────────────────
-
 def _snapshots_to_games(snapshots, season_start_str=None):
     if season_start_str is None:
         season_start_str = SEASONS[CURRENT_SEASON]["start"]
     return dstats.snapshots_to_games(snapshots, season_start_str, THRESHOLD_BASE, THRESHOLD_INCREASE)
 
-
-
-
-
-
-
-
-
-
-
-# ── Leaderboard neighbor lookup ───────────────────────────────────────────────
-
 def fetch_player_rank(player_name, region):
     # Ranken skrapas redan i fetch_and_calculate från wallii.gg — används därifrån
     return st.session_state.get("sp_rank"), None, None
-
-# ── Wallii leaderboard (Supabase) ──────────────────────────────────────────────
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 _INTEGRATION_SERVICES = IntegrationServices(
     fetch_player_links=_sb_fetch_player_links,
@@ -513,7 +396,6 @@ _PROFILE_SERVICES = ProfileServices(
 
 tabs = st.tabs(["Single player", "Calculator", "Info/Explanations", "TestingStuff", "Card Library"], on_change="rerun")
 
-
 # ── Single player tab ─────────────────────────────────────────────────────────
 
 if tabs[0].open:
@@ -555,9 +437,6 @@ if tabs[0].open:
 
         if submitted and not player:
             st.warning("Enter a player name.")
-
-
-        # ── Visa antingen topplistor ELLER spelarsida ─────────────────────────────
 
         sp_player = st.session_state.get("sp_player")
         sp_region = st.session_state.get("sp_region")
@@ -616,7 +495,6 @@ if tabs[0].open:
     # ── RatingAvg tab (CSV) ───────────────────────────────────────────────────────
 
 render_testing_views(tabs, _TESTING_VIEW_SERVICES)
-
 
 if tabs[4].open:
     with tabs[4]:

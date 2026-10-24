@@ -35,6 +35,7 @@ SERVER_TOP10_CACHE_TABLE = "server_top10_cache"
 SERVER_TOP10_CACHE_KEY = "current_top10_eu_na_ap_v2"
 SERVER_TOP10_REGIONS = ("EU", "NA", "AP")
 SERVER_TOP10_REFRESH_HOURS = 12
+SINGLE_GAME_MMR_DROPS_TABLE = "single_game_mmr_drops"
 SERVER_TOP10_PAYLOAD_FIELDS = (
     "player",
     "region",
@@ -98,6 +99,7 @@ def _session_top_n(metric, n=TOP_N, higher_is_better=True):
 def _cache_bust_toplists():
     try:
         _sb_fetch_all.clear()
+        _sb_fetch_single_game_mmr_drops.clear()
         _sb_top_n.clear()
         _lb_top_mmr_players.clear()
         _sb_cached_top_rank_players.clear()
@@ -108,6 +110,95 @@ def _cache_bust_toplists():
         _latest_stats_update_label.clear()
     except Exception:
         pass
+
+
+@st.cache_data(show_spinner=False, ttl=300, max_entries=1)
+def _sb_fetch_single_game_mmr_drops():
+    if not SUPABASE_ENABLED:
+        return []
+    url = f"{SUPABASE_URL}/rest/v1/{SINGLE_GAME_MMR_DROPS_TABLE}"
+    rows = []
+    offset = 0
+    page_size = 1000
+    while True:
+        response = requests.get(
+            url,
+            headers=SUPABASE_HEADERS,
+            params={
+                "select": (
+                    "season,region,player_name,mmr_drop,mmr_before,mmr_after,"
+                    "game_time,previous_time,opponent_mmr"
+                ),
+                "order": "mmr_drop.desc",
+                "limit": str(page_size),
+                "offset": str(offset),
+            },
+            timeout=15,
+        )
+        response.raise_for_status()
+        batch = response.json()
+        rows.extend(batch)
+        if len(batch) < page_size:
+            return rows
+        offset += page_size
+
+
+def _sb_save_single_game_mmr_drops(player_name, region, season, games):
+    region = (region or "").upper()
+    if region == "CN" or not games:
+        return 0
+    if region not in {"EU", "NA", "AP"}:
+        raise ValueError(f"Unsupported region for single-game MMR drops: {region}")
+
+    payload = []
+    for game in games:
+        mmr_before = int(game["mmr_before"])
+        mmr_after = int(game["mmr_after"])
+        mmr_drop = mmr_before - mmr_after
+        if not 1 <= mmr_drop <= 185 or mmr_before < 16000:
+            continue
+        gain = mmr_after - mmr_before
+        opponent_mmr = mmr_before - 148.1181435 * (
+            100 - ((8 - 1) * (200 / 7) + gain)
+        )
+        if opponent_mmr < 6000:
+            continue
+        payload.append({
+            "season": int(season),
+            "region": region,
+            "player_name": (player_name or "").lower(),
+            "mmr_drop": mmr_drop,
+            "mmr_before": mmr_before,
+            "mmr_after": mmr_after,
+            "game_time": game["time"],
+            "previous_time": game.get("previous_time", game["time"]),
+            "opponent_mmr": round(opponent_mmr, 2),
+        })
+
+    if not payload:
+        return 0
+    if not SUPABASE_ENABLED:
+        raise RuntimeError("Supabase must be enabled to save single-game MMR drops.")
+
+    url = (
+        f"{SUPABASE_URL}/rest/v1/{SINGLE_GAME_MMR_DROPS_TABLE}"
+        "?on_conflict=player_name,region,game_time"
+    )
+    headers = {
+        **SUPABASE_HEADERS,
+        "Content-Type": "application/json",
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+    }
+    for index in range(0, len(payload), 100):
+        response = requests.post(
+            url,
+            headers=headers,
+            json=payload[index:index + 100],
+            timeout=20,
+        )
+        response.raise_for_status()
+    _sb_fetch_single_game_mmr_drops.clear()
+    return len(payload)
 
 def _toplist_payload_fingerprint(payload):
     stable_payload = {k: v for k, v in payload.items() if k != "updated_at"}

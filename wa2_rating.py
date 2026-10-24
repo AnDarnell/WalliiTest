@@ -2,8 +2,24 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+USE_LINEAR_BREAKEVEN = True   # False = tillbaka till datakurvan (bx, by)
+
+KNEE_MMR = 8200
+BREAKEVEN_BASE = 4.5
+BREAKEVEN_SLOPE = 0.035 * 0.85 / 148.1181435  # ≈ 0.000200853
+
+
+def breakeven_linear(mmr):
+    return BREAKEVEN_BASE - BREAKEVEN_SLOPE * max(0.0, float(mmr) - KNEE_MMR)
+
 
 def interp_with_extrap(x, xs, ys):
+    if USE_LINEAR_BREAKEVEN:
+        return breakeven_linear(x)
+    return _interp_curve(x, xs, ys)
+
+
+def _interp_curve(x, xs, ys):
     xs = np.asarray(xs, float)
     ys = np.asarray(ys, float)
     if len(xs) < 2:
@@ -104,4 +120,3 @@ def get_average_mmr(player_id: str, n: int = 100) -> float:
         .limit(n) \
         .execute()
     }
-    

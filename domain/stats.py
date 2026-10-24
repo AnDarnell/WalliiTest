@@ -81,6 +81,7 @@ def snapshots_to_games(snapshots, season_start_str, threshold_base, threshold_in
             "mmr_after": current["rating"],
             "gain": gain,
             "placement": est_place(previous["rating"], gain, threshold),
+            "previous_time": previous["snapshot_time"],
             "time": current["snapshot_time"],
         })
     return games

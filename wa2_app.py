@@ -1,6 +1,5 @@
 
-"""Requires:
-  pip install streamlit requests matplotlib numpy pandas"""
+"""Requires: pip install streamlit requests matplotlib numpy pandas"""
 
 import json
 import re
@@ -63,6 +62,7 @@ from wa2_toplist_data import (
     _sb_cached_top_rank_players, _sb_current_rank_map, _sb_fetch_all,
     _sb_fetch_player_links, _sb_load_regression, _sb_load_server_top10_cache,
     _sb_load_server_top10_cache_direct, _sb_save_regression,
+    _sb_fetch_single_game_mmr_drops, _sb_save_single_game_mmr_drops,
     _sb_save_server_top10_cache, _sb_server_top10_stats_by_key, _sb_top_n,
     _sb_upsert, _session_top_n, _session_upsert, _split_player_link_names,
     _supabase_headers,
@@ -240,6 +240,11 @@ def compute_and_upsert(player_name, region, games, season=CURRENT_SEASON):
                 game_times[-1].isoformat(),
             )
         return
+
+    try:
+        _sb_save_single_game_mmr_drops(player_name, region, season, games)
+    except Exception as error:
+        st.warning(f"Could not save single-game MMR drop candidates: {error}")
 
     core = dstats.compute_core_stats(games, normalized_counts)
     total, avg, current_mmr = core["total"], core["avg"], core["current_mmr"]
@@ -474,6 +479,7 @@ if tabs[0].open:
                     yt_fetch_subscribers=partial(_yt_fetch_subscribers, _INTEGRATION_SERVICES),
                     fetch_cached_server_top10_bundle=fetch_cached_server_top10_bundle,
                     server_top10_regions=SERVER_TOP10_REGIONS,
+                    fetch_single_game_mmr_drops=_sb_fetch_single_game_mmr_drops,
                     dlog=dlog,
                 ))
                 st.markdown("<hr class='lb-row-divider lb-row-divider-paired'>", unsafe_allow_html=True)

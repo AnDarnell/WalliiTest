@@ -158,6 +158,12 @@ def render_player_profile(sp_player, sp_region, services: ProfileServices):
     if _season_notice := st.session_state.pop("sp_season_notice", None):
         st.warning(_season_notice)
 
+    if not games:
+        if st.button("←", key="home_btn_icon", width="stretch"):
+            go_home()
+            st.rerun()
+        return
+
     if games:
         try:
             norm  = normalized_counts(games)

@@ -289,25 +289,14 @@ def render_leaderboard(services: LeaderboardServices):
 
     _lb_season_options = sorted(SEASONS.keys(), reverse=True)
     _lb_season_index = _lb_season_options.index(CURRENT_SEASON) if CURRENT_SEASON in _lb_season_options else 0
-    with st.container(key="updates_expander_wrap"):
-        with st.expander("Latest updates 🔨", expanded=False):
-            st.markdown(
-                "- Players that have historically finished top 1 on any server now have a 🏆 next to their name. "
-                "Historical achievements (top 1/10/25/50/100 leaderboard finishes) can now be seen on each player profile.\n\n"
-                "- There is also a leaderboard for the most top 1 finishes and another for top 25 finishes further down. "
-                "The player with the most top 1 finishes is highlighted with a 👑.\n\n"
-                "- A leaderboard for the highest all-time MMR reached has also been added. Note that CN has higher historical "
-                "MMR numbers due to its seasonal reset system, which was removed recently.\n\n"
-                "Any ideas or feedback are greatly appreciated! Contact info can be found under the Info/Explanation tab."
-            )
-    _lb_season = st.radio(
+    _lb_season = st.selectbox(
         "Leaderboard season",
         options=_lb_season_options,
         format_func=lambda s: f"Season {s}" + (" (current)" if SEASONS[s]["end"] is None else ""),
-        horizontal=True,
         index=_lb_season_index,
         key="lb_season_selector",
         label_visibility="collapsed",
+        width=220,
     )
     st.markdown(
         f"<p style='color:#ccc;font-size:1.0rem;font-weight:600;margin:0.3rem 0 0.1rem;'>Leaderboards: Season {_lb_season} <span style='color:#666;font-size:0.75rem;font-weight:400;'>(Players are added when first searched, if eligible)</span></p>",
@@ -393,6 +382,11 @@ def render_leaderboard(services: LeaderboardServices):
             f"</div></div>"
         )
 
+    _server_toggle_col, _patch_notes_col, _updates_col = st.columns(
+        [3, 1, 1],
+        gap="small",
+        vertical_alignment="center",
+    )
     if _lb_season == CURRENT_SEASON:
         if "lb_show_server_top10" not in st.session_state:
             st.session_state["lb_show_server_top10"] = False
@@ -401,31 +395,52 @@ def render_leaderboard(services: LeaderboardServices):
             if st.session_state["lb_show_server_top10"]
             else "Show Top 10 (EU / NA / AP)"
         )
-        _patch_col1, _patch_col2 = st.columns([4, 1])
-        with _patch_col1:
+        with _server_toggle_col:
             if st.button(_server_toggle_label, key="lb_server_top10_toggle"):
                 st.session_state["lb_show_server_top10"] = not st.session_state["lb_show_server_top10"]
                 st.rerun(scope="fragment")
-        with _patch_col2:
+    if _lb_season == CURRENT_SEASON:
+        with _patch_notes_col:
             _latest_patch = _fetch_patch_notes(1)
             if _latest_patch:
-                st.link_button(f"📋 {_latest_patch[0]['title']}", _latest_patch[0]["url"], use_container_width=True)
-        if st.session_state["lb_show_server_top10"]:
-            try:
-                _server_top10_bundle = fetch_cached_server_top10_bundle(10)
-            except Exception as e:
-                dlog("Cached server top 10 bundle failed:", e)
-                _server_top10_bundle = {}
-            _server_cols = st.columns(3)
-            for _server_col, _server_region in zip(_server_cols, SERVER_TOP10_REGIONS):
-                _server_rows = _server_top10_bundle.get(_server_region, [])
-                render_list(
-                    _server_col,
-                    f"{_server_region} Top 10",
-                    _server_rows,
-                    lambda r: f"{int(r['cr']):,}" if r.get("cr") is not None else f"#{int(r['current_rank'])}" if r.get("current_rank") is not None else "-",
-                    "Cached current Wallii server leaderboard. CN is excluded.",
+                st.link_button(
+                    f"📋 {_latest_patch[0]['title']}",
+                    _latest_patch[0]["url"],
+                    use_container_width=True,
+                    key="lb_patch_notes",
                 )
+    with _updates_col:
+        with st.popover(
+            "🔨 Latest updates",
+            use_container_width=True,
+            width=544,
+            key="lb_latest_updates",
+        ):
+            st.markdown(
+                "- Players that have historically finished top 1 on any server now have a 🏆 next to their name. "
+                "Historical achievements (top 1/10/25/50/100 leaderboard finishes) can now be seen on each player profile.\n\n"
+                "- There is also a leaderboard for the most top 1 finishes and another for top 25 finishes further down. "
+                "The player with the most top 1 finishes is highlighted with a 👑.\n\n"
+                "- A leaderboard for the highest all-time MMR reached has also been added. Note that CN has higher historical "
+                "MMR numbers due to its seasonal reset system, which was removed recently.\n\n"
+                "Any ideas or feedback are greatly appreciated! Contact info can be found under the Info/Explanation tab."
+            )
+    if _lb_season == CURRENT_SEASON and st.session_state.get("lb_show_server_top10"):
+        try:
+            _server_top10_bundle = fetch_cached_server_top10_bundle(10)
+        except Exception as e:
+            dlog("Cached server top 10 bundle failed:", e)
+            _server_top10_bundle = {}
+        _server_cols = st.columns(3)
+        for _server_col, _server_region in zip(_server_cols, SERVER_TOP10_REGIONS):
+            _server_rows = _server_top10_bundle.get(_server_region, [])
+            render_list(
+                _server_col,
+                f"{_server_region} Top 10",
+                _server_rows,
+                lambda r: f"{int(r['cr']):,}" if r.get("cr") is not None else f"#{int(r['current_rank'])}" if r.get("current_rank") is not None else "-",
+                "Cached current Wallii server leaderboard. CN is excluded.",
+            )
         st.markdown("<hr class='lb-row-divider lb-row-divider-top'>", unsafe_allow_html=True)
 
     lists = [
@@ -511,6 +526,9 @@ def render_leaderboard(services: LeaderboardServices):
     # ── Live streams (höger, rad 0) ────────────────────────────────────
     _live_streams_lb = _twitch_get_live_streams()
     _live_col = _row0[1]
+    if "lb_live_sort" not in st.session_state:
+        st.session_state["lb_live_sort"] = "mmr"
+    _live_sort_key = st.session_state["lb_live_sort"]
     HEADER_COLOR = "#c45151"
     _total_viewers = sum(s["viewers"] for s in _live_streams_lb)
     _viewers_str = f" <span style='color:#666;font-size:0.78em;font-weight:400;text-transform:none;letter-spacing:0;'>({_total_viewers:,} total viewers)</span>" if _total_viewers > 0 else ""
@@ -521,9 +539,6 @@ def render_leaderboard(services: LeaderboardServices):
         f"Live now{_viewers_str}</div>",
         unsafe_allow_html=True,
     )
-    if "lb_live_sort" not in st.session_state:
-        st.session_state["lb_live_sort"] = "mmr"
-    _live_sort_key = st.session_state["lb_live_sort"]
     _live_streams_lb = sorted(
         _live_streams_lb,
         key=lambda x: x["viewers"] if _live_sort_key == "viewers" else (x.get("season", 0), x.get("cr", 0)),

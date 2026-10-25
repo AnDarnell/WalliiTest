@@ -41,6 +41,26 @@ def apply_page_theme():
         color: #b69b79 !important; font-size: 0.75rem !important;
         text-transform: uppercase !important; letter-spacing: 0.07em !important;
     }
+    .st-key-lb_season_selector [data-baseweb="select"] > div {
+        background: #35261e !important;
+        border: 1px solid #725334 !important;
+        border-radius: 6px !important;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        min-height: 2.6rem;
+    }
+    .st-key-lb_season_selector [data-baseweb="select"] div,
+    .st-key-lb_season_selector [data-baseweb="select"] input {
+        color: #f2e5cf !important;
+        font-family: Georgia, serif !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+    }
+    .st-key-lb_season_selector [data-baseweb="select"] svg {
+        fill: #d4a843 !important;
+    }
+    .st-key-lb_season_selector [data-baseweb="select"] > div:focus-within {
+        border-color: #d4a843 !important;
+    }
     .st-key-lb_inc_eu,
     .st-key-lb_inc_na,
     .st-key-lb_inc_ap,
@@ -85,14 +105,18 @@ def apply_page_theme():
         color: #c4a985 !important; font-size: 0.8rem !important;
         border-radius: 4px !important;
     }
-    .st-key-updates_expander_wrap [data-testid="stExpander"] summary {
-        background-color: #454b25 !important;
-        border: 1px solid #a8b746 !important;
-        color: #e2e99a !important;
-        border-radius: 5px !important;
+    .st-key-lb_server_top10_toggle button,
+    .st-key-lb_patch_notes button,
+    .st-key-lb_latest_updates button {
+        height: 2.5rem !important;
     }
-    .st-key-updates_expander_wrap [data-testid="stExpander"] summary:hover {
-        background-color: #59602d !important;
+    .st-key-lb_latest_updates button {
+        background-color: #303b2f !important;
+        border: 1px solid #50634b !important;
+        color: #f0f2f5 !important;
+    }
+    .st-key-lb_latest_updates button:hover {
+        background-color: #3b4939 !important;
     }
     .stTable th { color: #b69b79 !important; font-size: 0.75rem !important; text-transform: uppercase !important; }
     .stTable td { color: #e0cfb3 !important; }
@@ -139,8 +163,8 @@ def apply_page_theme():
     }
     .st-key-lb_live_sort_btn {
         display: flex !important;
-        width: 100% !important;
         justify-content: flex-end !important;
+        width: 100% !important;
     }
     .st-key-lb_live_sort_btn button { margin-left: auto !important; }
     div[data-testid="stHorizontalBlock"]:has(.lb-show-more-live.lb-live-extra-1[open]) .st-key-lb_live_sort_btn { margin-top: 3.8rem !important; }

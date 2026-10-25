@@ -22,6 +22,7 @@ SUPABASE_KEY = (
     or st.secrets.get("SUPABASE_APIKEY")
     or ""
 )
+SUPABASE_SERVICE_ROLE_KEY = st.secrets.get("SUPABASE_SERVICE_ROLE_KEY", "")
 SUPABASE_ENABLED = bool(SUPABASE_URL and SUPABASE_KEY)
 SUPABASE_HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -177,15 +178,21 @@ def _sb_save_single_game_mmr_drops(player_name, region, season, games):
 
     if not payload:
         return 0
-    if not SUPABASE_ENABLED:
-        raise RuntimeError("Supabase must be enabled to save single-game MMR drops.")
+    if not SUPABASE_URL or not SUPABASE_SERVICE_ROLE_KEY:
+        raise RuntimeError(
+            "Saving single-game MMR drops requires SUPABASE_SERVICE_ROLE_KEY "
+            "in Streamlit secrets; the anon key cannot write to this table."
+        )
 
     url = (
         f"{SUPABASE_URL}/rest/v1/{SINGLE_GAME_MMR_DROPS_TABLE}"
         "?on_conflict=player_name,region,game_time"
     )
     headers = {
-        **SUPABASE_HEADERS,
+        "apikey": SUPABASE_SERVICE_ROLE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+        "Accept-Profile": "public",
+        "Content-Profile": "public",
         "Content-Type": "application/json",
         "Prefer": "resolution=merge-duplicates,return=minimal",
     }

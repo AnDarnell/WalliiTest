@@ -10,6 +10,10 @@ from urllib.parse import urlencode
 import requests
 
 
+class WalliiUnavailableError(Exception):
+    """Raised when Wallii cannot provide a response for a cached player."""
+
+
 @dataclass(frozen=True)
 class PlayerDataServices:
     supabase_url: str
@@ -162,6 +166,8 @@ def fetch_and_calculate(services, player_name, region, season=None):
                 return services.snapshots_to_games(cached, season_start_str=season_start_str), region, None
         raise ValueError(f"No cached data found for season {season}.")
 
+    cached = None
+    cached_rank = None
     if services.supabase_enabled:
         cached, last_fetched, cached_rank = _sb_get_cached_snapshots(
             services, player_name, region, season=season
@@ -182,12 +188,16 @@ def fetch_and_calculate(services, player_name, region, season=None):
 
     try:
         response = _fetch(region)
-    except requests.exceptions.TooManyRedirects:
-        raise ValueError("Player not found - check if correct region.")
+    except requests.exceptions.RequestException as error:
+        raise WalliiUnavailableError("Can't reach Wallii.") from error
+    if response.status_code >= 500:
+        raise WalliiUnavailableError("Can't reach Wallii.")
     response.raise_for_status()
 
     match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', response.text, re.DOTALL)
     if not match:
+        if cached and len(cached) >= 2:
+            raise WalliiUnavailableError("Wallii didn't return usable player data.")
         raise ValueError("Player not found - check spelling and region.")
 
     data_str = match.group(1).replace('\\"', '"').replace('\\\\', '\\')

@@ -32,6 +32,7 @@ from wa2_config import (
 )
 from wa2_icons import twitch_link, youtube_link
 from wa2_rating import interp_with_extrap, load_rating_curve
+from wa2_player_data import WalliiUnavailableError
 
 
 @dataclass(frozen=True)
@@ -115,6 +116,37 @@ def render_player_profile(sp_player, sp_region, services: ProfileServices):
                 _save_opp_buckets(sp_player, st.session_state["sp_region"], st.session_state["sp_games"])
                 _cache_profile_season(_sp_season, st.session_state["sp_games"], st.session_state["sp_region"], st.session_state["sp_rank"])
                 st.session_state.pop("sp_season_notice", None)
+            except WalliiUnavailableError as e:
+                cached_games, cached_rank = None, None
+                cache_error_message = None
+                if SUPABASE_ENABLED:
+                    try:
+                        cached_games, cached_rank = _sb_get_cached_games(
+                            sp_player, sp_region, season=_sp_season
+                        )
+                    except Exception as cache_error:
+                        cache_error_message = (
+                            f"{e} Cached data could not be loaded: {cache_error}"
+                        )
+                        cached_games = []
+
+                if cached_games and len(cached_games) >= 2:
+                    st.session_state["sp_games"] = cached_games
+                    st.session_state["sp_region"] = sp_region
+                    st.session_state["sp_rank"] = cached_rank
+                    compute_and_upsert(
+                        sp_player, sp_region, cached_games, season=_sp_season
+                    )
+                    _save_opp_buckets(sp_player, sp_region, cached_games)
+                    _cache_profile_season(
+                        _sp_season, cached_games, sp_region, cached_rank
+                    )
+                    st.warning("Can't reach Wallii; showing latest cached data.")
+                else:
+                    if _restore_previous_profile_season(str(e)):
+                        st.rerun()
+                    st.session_state["sp_games"] = []
+                    st.error(cache_error_message or str(e))
             except ValueError as e:
                 msg = str(e)
                 m = re.search(r"appears to be in: ([A-Z,\s]+)", msg)

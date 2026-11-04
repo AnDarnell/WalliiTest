@@ -141,7 +141,14 @@ def render_player_profile(sp_player, sp_region, services: ProfileServices):
                     _cache_profile_season(
                         _sp_season, cached_games, sp_region, cached_rank
                     )
-                    st.warning("Can't reach Wallii; showing latest cached data.")
+                    cached_timestamp = cached_games[-1]["time"]
+                    if cached_timestamp.endswith("Z"):
+                        cached_timestamp = cached_timestamp[:-1] + "+00:00"
+                    cached_date = datetime.fromisoformat(cached_timestamp).strftime("%d/%m/%y")
+                    st.warning(
+                        "Can't reach Wallii at the moment; "
+                        f"showing latest cached data from {cached_date}:"
+                    )
                 else:
                     if _restore_previous_profile_season(str(e)):
                         st.rerun()

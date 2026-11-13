@@ -56,7 +56,10 @@ def render_admin_panel(services: AdminServices):
     fetch_top_n_for_scan = services.fetch_top_n_for_scan
     with st.expander("Secret stuff"):
         pwd = st.text_input("Password", type="password", key="admin_pwd")
-        if pwd == st.secrets.get("ADMIN_PASSWORD", ""):
+        admin_password = st.secrets.get("ADMIN_PASSWORD", "")
+        if not admin_password:
+            st.error("ADMIN_PASSWORD is not configured; admin access is disabled.")
+        if admin_password and pwd == admin_password:
             st.caption("Add or update Twitch/YouTube links for players.")
             _COUNTRIES = [("","- None -"),("AF","Afghanistan"),("AL","Albania"),("DZ","Algeria"),("AR","Argentina"),("AM","Armenia"),("AU","Australia"),("AT","Austria"),("AZ","Azerbaijan"),("BE","Belgium"),("BR","Brazil"),("BG","Bulgaria"),("BY","Belarus"),("CA","Canada"),("CL","Chile"),("CN","China"),("CO","Colombia"),("HR","Croatia"),("CZ","Czech Republic"),("DK","Denmark"),("EG","Egypt"),("EE","Estonia"),("FI","Finland"),("FR","France"),("GE","Georgia"),("DE","Germany"),("GR","Greece"),("HK","Hong Kong"),("HU","Hungary"),("IN","India"),("ID","Indonesia"),("IE","Ireland"),("IL","Israel"),("IT","Italy"),("JP","Japan"),("KZ","Kazakhstan"),("KR","South Korea"),("LV","Latvia"),("LT","Lithuania"),("LU","Luxembourg"),("MY","Malaysia"),("MX","Mexico"),("NL","Netherlands"),("NZ","New Zealand"),("NO","Norway"),("PH","Philippines"),("PL","Poland"),("PT","Portugal"),("RO","Romania"),("RU","Russia"),("SA","Saudi Arabia"),("RS","Serbia"),("SG","Singapore"),("SK","Slovakia"),("SI","Slovenia"),("ZA","South Africa"),("ES","Spain"),("SE","Sweden"),("CH","Switzerland"),("TW","Taiwan"),("TH","Thailand"),("TR","Turkey"),("UA","Ukraine"),("GB","United Kingdom"),("US","United States"),("UZ","Uzbekistan"),("VN","Vietnam")]
             _lnk_player  = st.text_input("Player name", key="lnk_player").strip().lower()

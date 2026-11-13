@@ -45,7 +45,6 @@ from wa2_integrations import (
     _yt_fetch_subscribers,
 )
 from wa2_profile import ProfileServices, render_player_profile
-from wa2_admin_views import AdminServices, render_admin_panel
 from wa2_testing_views import TestingViewServices, render_testing_views
 from wa2_theme import apply_page_theme
 from wa2_toplist_data import (
@@ -58,17 +57,17 @@ from wa2_toplist_data import (
     _lb_highest_milestone_threshold, _lb_init, _lb_key, _lb_metric_rows,
     _lb_milestone_rows, _lb_player_key, _lb_stats_by_player, _lb_top_mmr_players,
     _player_link_display_name,
-    _post_player_links, _regions_for_players_current_season, _save_opp_buckets,
+    _regions_for_players_current_season, _save_opp_buckets,
     _sb_cached_top_rank_players, _sb_current_rank_map, _sb_fetch_all,
     _sb_fetch_player_links, _sb_load_regression, _sb_load_server_top10_cache,
     _sb_load_server_top10_cache_direct, _sb_save_regression,
     _sb_fetch_single_game_mmr_drops, _sb_save_single_game_mmr_drops,
     _sb_save_server_top10_cache, _sb_server_top10_stats_by_key, _sb_top_n,
-    _sb_upsert, _session_top_n, _session_upsert, _split_player_link_names,
+    _sb_upsert, _session_top_n, _session_upsert,
     _supabase_headers,
     _stats_rows_by_player, _stats_sort_key, _toplist_payload_fingerprint,
     _wallii_refresh_server_top10_bundle, fetch_cached_server_top10_bundle,
-    fetch_neighbor_names, fetch_top_n_for_scan,
+    fetch_neighbor_names,
 )
 
 from wa2_player_data import (
@@ -350,27 +349,6 @@ _sb_get_cached_snapshots = partial(_get_cached_player_snapshots, _PLAYER_DATA_SE
 _sb_get_cached_games = partial(_get_cached_player_games, _PLAYER_DATA_SERVICES)
 fetch_and_calculate = partial(_fetch_player_and_calculate, _PLAYER_DATA_SERVICES)
 
-_ADMIN_SERVICES = AdminServices(
-    supabase_headers=SUPABASE_HEADERS,
-    supabase_url=SUPABASE_URL,
-    cache_bust_toplists=_cache_bust_toplists,
-    post_player_links=_post_player_links,
-    sb_fetch_all=_sb_fetch_all,
-    sb_fetch_player_links=_sb_fetch_player_links,
-    sb_get_cached_snapshots=_sb_get_cached_snapshots,
-    sb_load_regression=_sb_load_regression,
-    sb_save_regression=_sb_save_regression,
-    sb_top_n=_sb_top_n,
-    split_player_link_names=_split_player_link_names,
-    twitch_get_live_streams=_twitch_get_live_streams,
-    yt_fetch_subscribers=_yt_fetch_subscribers,
-    snapshots_to_games=_snapshots_to_games,
-    binned_weighted_curve=binned_weighted_curve,
-    compute_and_upsert=compute_and_upsert,
-    compute_matchup_scaling=compute_matchup_scaling,
-    fetch_and_calculate=fetch_and_calculate,
-    fetch_top_n_for_scan=fetch_top_n_for_scan,
-)
 _TESTING_VIEW_SERVICES = TestingViewServices(
     app_dir=Path(__file__).parent,
     cached_binned_curve=_cached_binned_curve,
@@ -488,10 +466,6 @@ if tabs[0].open:
                 if st.button("Refresh leaderboards", width='stretch'):
                     _cache_bust_toplists()
                     st.rerun(scope="app")
-
-
-                render_admin_panel(_ADMIN_SERVICES)
-
             st.markdown("<div style='height:1.5rem;'></div>", unsafe_allow_html=True)
 
         else:

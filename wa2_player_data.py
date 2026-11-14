@@ -29,6 +29,21 @@ class PlayerDataServices:
     dlog: Callable[..., Any]
 
 
+def _merge_cached_and_fetched_snapshots(cached_snapshots, fetched_snapshots):
+    snapshots_by_time = {
+        snapshot["snapshot_time"]: snapshot
+        for snapshot in (cached_snapshots or [])
+    }
+    snapshots_by_time.update({
+        snapshot["snapshot_time"]: snapshot
+        for snapshot in fetched_snapshots
+    })
+    return sorted(
+        snapshots_by_time.values(),
+        key=lambda snapshot: snapshot["snapshot_time"],
+    )
+
+
 def _sb_fetch_snapshots_range(services, player_name, region, date_from, date_to=None):
     """Fetch snapshots from Supabase for a date range."""
     player_name = player_name.lower()
@@ -234,7 +249,7 @@ def fetch_and_calculate(services, player_name, region, season=None):
         except Exception as error:
             services.dlog("DEBUG rank lookup failed:", error)
 
-    if not snapshots and available_regions:
+    if not snapshots and available_regions and len(cached or []) < 2:
         other = ", ".join(r for r in sorted(available_regions) if r != region.upper())
         raise ValueError(f"No data found for {region}. Player appears to be in: {other}.")
 
@@ -256,10 +271,13 @@ def fetch_and_calculate(services, player_name, region, season=None):
         <= (season_end if season_end is not None else datetime.max.replace(tzinfo=timezone.utc))
     ]
 
+    snapshots_to_save = snapshots
+    snapshots = _merge_cached_and_fetched_snapshots(cached, snapshots_to_save)
+
     if len(snapshots) < 2:
         raise ValueError(f"No snapshots found for season {season}. Please check season selection or player history.")
 
     if services.supabase_enabled:
-        _sb_save_snapshots(services, player_name, region, snapshots, current_rank)
+        _sb_save_snapshots(services, player_name, region, snapshots_to_save, current_rank)
 
     return services.snapshots_to_games(snapshots, season_start_str=season_start_str), region, current_rank

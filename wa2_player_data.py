@@ -181,7 +181,7 @@ def fetch_and_calculate(services, player_name, region, season=None):
         session = requests.Session()
         session.max_redirects = 5
         url = (
-            f"https://www.wallii.gg/stats/{player_name}"
+            f"https://wallii.gg/stats/{player_name}"
             f"?region={region_name.lower()}&mode=solo&view=all"
         )
         return session.get(url, headers=headers, timeout=20)
@@ -194,7 +194,11 @@ def fetch_and_calculate(services, player_name, region, season=None):
         raise WalliiUnavailableError("Can't reach Wallii.")
     response.raise_for_status()
 
-    match = re.search(r'\\"data\\":\[(\{\\"player_name.*?)\],\\"availableModes\\"', response.text, re.DOTALL)
+    match = re.search(
+        r'\\"playerData\\":\{\\"name\\":.*?,\\"data\\":\[(.*?)\],\\"playerId\\"',
+        response.text,
+        re.DOTALL,
+    )
     if not match:
         if cached and len(cached) >= 2:
             raise WalliiUnavailableError("Wallii didn't return usable player data.")
